@@ -3,40 +3,49 @@ import type { NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const host = request.headers.get('host') || '';
+  
+  // Extract host reliably across Vercel Edge, proxies, and localhost
+  const host =
+    request.headers.get('x-forwarded-host') ||
+    request.headers.get('host') ||
+    request.nextUrl.hostname ||
+    '';
 
-  // Check if request is coming from a CMS subdomain (e.g., cms.printtodayuk.com, cms.localhost:3001, admin.localhost:3001)
+  // Check if request is coming from CMS subdomain (e.g., cms.printtodayuk.com, cms.localhost:3001, admin.printtodayuk.com)
   const isCmsSubdomain =
     host.startsWith('cms.') ||
-    host.startsWith('admin.');
+    host.startsWith('admin.') ||
+    host.includes('cms.localhost') ||
+    host.includes('admin.localhost');
 
   const cmsSession = request.cookies.get('cms_session')?.value;
 
   let response: NextResponse;
 
   if (isCmsSubdomain) {
-    const url = request.nextUrl.clone();
-
-    // If root on CMS subdomain (e.g. http://cms.domain.com/)
+    // 1. Root request on CMS subdomain (e.g. https://cms.printtodayuk.com/)
     if (pathname === '/' || pathname === '') {
-      url.pathname = cmsSession ? '/cms/dashboard' : '/cms/login';
-      response = NextResponse.rewrite(url);
-    } else if (pathname === '/login') {
-      url.pathname = '/cms/login';
-      response = NextResponse.rewrite(url);
+      const targetPath = cmsSession ? '/cms/dashboard' : '/cms/login';
+      response = NextResponse.rewrite(new URL(targetPath, request.url));
+    }
+    // 2. Short paths without /cms prefix on subdomain (e.g. /login or /dashboard)
+    else if (pathname === '/login') {
+      response = NextResponse.rewrite(new URL('/cms/login', request.url));
     } else if (pathname === '/dashboard') {
-      url.pathname = '/cms/dashboard';
-      response = NextResponse.rewrite(url);
-    } else if (!pathname.startsWith('/cms')) {
-      url.pathname = `/cms${pathname}`;
-      response = NextResponse.rewrite(url);
-    } else {
+      response = NextResponse.rewrite(new URL('/cms/dashboard', request.url));
+    }
+    // 3. Any other path not prefixed with /cms on the subdomain
+    else if (!pathname.startsWith('/cms')) {
+      response = NextResponse.rewrite(new URL(`/cms${pathname}`, request.url));
+    }
+    // 4. Already starts with /cms
+    else {
       response = NextResponse.next();
     }
 
     response.headers.set('x-cms-subdomain', 'true');
   } else {
-    // Standard domain routing (e.g. printtodayuk.com or localhost:3001)
+    // Standard storefront domain (e.g. printtodayuk.com, www.printtodayuk.com, localhost:3001)
     response = NextResponse.next();
     if (pathname.startsWith('/cms')) {
       response.headers.set('x-cms-route', 'true');
