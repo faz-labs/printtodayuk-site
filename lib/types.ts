@@ -1,0 +1,44 @@
+export type ProductCategory = string;
+
+export type InquiryType = 'call_me' | 'quote' | 'general';
+
+export interface Product {
+  id?: string;
+  title: string;
+  slug: string;
+  description: string;
+  imageUrl: string;
+  price: number;
+  discountedPrice?: number;
+  category: ProductCategory;
+  subcategory: string;
+  isSameDayAvailable: boolean;
+  minQuantity?: number;
+  features?: string[];
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface CategoryConfig {
+  id?: string;
+  name: string;
+  icon?: string;
+  description?: string;
+  subcategories: string[];
+}
+
+export interface Inquiry {
+  id?: string;
+  type: InquiryType;
+  name?: string;
+  phone: string;
+  email?: string;
+  details?: string;
+  productId?: string;
+  productTitle?: string;
+  status?: 'pending' | 'contacted' | 'resolved';
+  createdAt: number;
+}
+
+export type ProductInput = Omit<Product, 'id' | 'createdAt' | 'updatedAt'>;
+export type InquiryInput = Omit<Inquiry, 'id' | 'createdAt'>;

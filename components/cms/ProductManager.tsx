@@ -1,0 +1,364 @@
+'use client';
+
+import React, { useState, useMemo } from 'react';
+import { Product, ProductInput, CategoryConfig } from '@/lib/types';
+import { Button } from '@/components/ui/Button';
+import { Badge } from '@/components/ui/Badge';
+import { ProductForm } from './ProductForm';
+import { ImageWithFallback } from '@/components/storefront/ImageWithFallback';
+import { formatCurrency, calculateDiscount } from '@/lib/utils';
+import { seedDefaultCatalogToFirestore } from '@/lib/db';
+import {
+  Plus,
+  Search,
+  Edit2,
+  Trash2,
+  ExternalLink,
+  Zap,
+  Tag,
+  Layers,
+  Sparkles,
+  Database,
+  CheckCircle2,
+  AlertCircle,
+} from 'lucide-react';
+import Link from 'next/link';
+
+interface ProductManagerProps {
+  products: Product[];
+  categories: CategoryConfig[];
+  onCreateProduct: (input: ProductInput) => Promise<void>;
+  onUpdateProduct: (id: string, updates: Partial<Product>) => Promise<void>;
+  onDeleteProduct: (id: string) => Promise<void>;
+  onRefreshData?: () => Promise<void>;
+}
+
+export function ProductManager({
+  products,
+  categories,
+  onCreateProduct,
+  onUpdateProduct,
+  onDeleteProduct,
+  onRefreshData,
+}: ProductManagerProps) {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterCategory, setFilterCategory] = useState<'All' | 'Printing' | 'Clothing'>('All');
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isSeeding, setIsSeeding] = useState(false);
+  const [notice, setNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  const filteredProducts = useMemo(() => {
+    return products.filter((p) => {
+      if (filterCategory !== 'All' && p.category !== filterCategory) {
+        return false;
+      }
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matchTitle = p.title.toLowerCase().includes(q);
+        const matchSubcat = p.subcategory.toLowerCase().includes(q);
+        const matchSlug = p.slug.toLowerCase().includes(q);
+        if (!matchTitle && !matchSubcat && !matchSlug) return false;
+      }
+      return true;
+    });
+  }, [products, filterCategory, searchQuery]);
+
+  const showNotification = (type: 'success' | 'error', message: string) => {
+    setNotice({ type, message });
+    setTimeout(() => setNotice(null), 4000);
+  };
+
+  const handleOpenCreate = () => {
+    setEditingProduct(null);
+    setIsFormOpen(true);
+  };
+
+  const handleOpenEdit = (product: Product) => {
+    setEditingProduct(product);
+    setIsFormOpen(true);
+  };
+
+  const handleFormSubmit = async (data: ProductInput, id?: string) => {
+    try {
+      if (id) {
+        await onUpdateProduct(id, data);
+        showNotification('success', `Updated "${data.title}" successfully!`);
+      } else {
+        await onCreateProduct(data);
+        showNotification('success', `Created product "${data.title}"!`);
+      }
+    } catch (err: any) {
+      showNotification('error', err.message || 'Operation failed. Check Firestore rules & connection.');
+      throw err;
+    }
+  };
+
+  const handleDelete = async (product: Product) => {
+    const targetId = product.id || product.slug;
+    if (!targetId) return;
+
+    if (window.confirm(`Are you sure you want to delete "${product.title}"?`)) {
+      setDeletingId(targetId);
+      try {
+        await onDeleteProduct(targetId);
+        showNotification('success', `Deleted "${product.title}".`);
+      } catch (err: any) {
+        showNotification('error', err.message || 'Failed to delete product.');
+      } finally {
+        setDeletingId(null);
+      }
+    }
+  };
+
+  const handleSeedFirestore = async () => {
+    if (window.confirm('Sync & write default products into your live Firestore database?')) {
+      setIsSeeding(true);
+      try {
+        const res = await seedDefaultCatalogToFirestore();
+        showNotification('success', `Successfully seeded ${res.count} products to Firestore!`);
+        if (onRefreshData) {
+          await onRefreshData();
+        }
+      } catch (err: any) {
+        showNotification('error', err.message || 'Failed to seed Firestore.');
+      } finally {
+        setIsSeeding(false);
+      }
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Status Notice Toast */}
+      {notice && (
+        <div
+          className={`p-4 rounded-2xl text-xs font-bold flex items-center justify-between shadow-md transition-all ${
+            notice.type === 'success'
+              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+              : 'bg-rose-50 text-rose-800 border border-rose-200'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            {notice.type === 'success' ? (
+              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+            ) : (
+              <AlertCircle className="h-4 w-4 text-rose-600" />
+            )}
+            <span>{notice.message}</span>
+          </div>
+          <button
+            onClick={() => setNotice(null)}
+            className="text-slate-400 hover:text-slate-700 ml-4 font-bold"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* Controls Bar */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+        <div className="flex flex-1 items-center gap-3">
+          {/* Search */}
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search products by title, category, subcategory..."
+              className="w-full h-10 pl-10 pr-4 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:outline-hidden focus:bg-white focus:border-[#4a0e35]"
+            />
+          </div>
+
+          {/* Category Filter Pills */}
+          <div className="hidden md:flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
+            {(['All', 'Printing', 'Clothing'] as const).map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setFilterCategory(cat)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  filterCategory === cat
+                    ? 'bg-white text-[#4a0e35] shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Action CTAs */}
+        <div className="flex items-center gap-2">
+          <Button variant="plum" size="md" onClick={handleOpenCreate}>
+            <Plus className="h-4 w-4" />
+            <span>Add Product</span>
+          </Button>
+        </div>
+      </div>
+
+      {/* Product List Table / Grid */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+        <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+          <div className="text-xs font-bold text-slate-700">
+            Total Products: <span className="text-[#4a0e35]">{filteredProducts.length}</span>
+          </div>
+
+          <button
+            onClick={handleSeedFirestore}
+            disabled={isSeeding}
+            className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-[#4a0e35] font-semibold transition-colors cursor-pointer disabled:opacity-50"
+            title="Upload default initial catalog into Firestore"
+          >
+            <Database className="h-3.5 w-3.5" />
+            <span>{isSeeding ? 'Syncing...' : 'Sync Defaults to Firestore'}</span>
+          </button>
+        </div>
+
+        {filteredProducts.length === 0 ? (
+          <div className="p-12 text-center">
+            <Sparkles className="h-10 w-10 text-slate-300 mx-auto mb-3" />
+            <h4 className="text-sm font-bold text-slate-900">No products found</h4>
+            <p className="mt-1 text-xs text-slate-500 max-w-sm mx-auto">
+              Your catalog is currently empty or no items match your search. Add a new product above or sync default items to Firestore.
+            </p>
+            <div className="mt-4 flex justify-center gap-3">
+              <Button variant="plum" size="sm" onClick={handleOpenCreate}>
+                <Plus className="h-3.5 w-3.5 mr-1" />
+                <span>Create First Product</span>
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50/80 text-[11px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">
+                  <th className="py-3.5 px-4">Product</th>
+                  <th className="py-3.5 px-4">Category</th>
+                  <th className="py-3.5 px-4">Subcategory</th>
+                  <th className="py-3.5 px-4">Price</th>
+                  <th className="py-3.5 px-4">Same-Day</th>
+                  <th className="py-3.5 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-xs">
+                {filteredProducts.map((product, index) => {
+                  const discount = calculateDiscount(product.price, product.discountedPrice);
+                  const activePrice = product.discountedPrice || product.price;
+                  const itemKey = product.id ? `p-${product.id}` : `p-${product.slug}-${index}`;
+
+                  return (
+                    <tr key={itemKey} className="hover:bg-slate-50/80 transition-colors">
+                      {/* Product details */}
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center gap-3">
+                          <div className="relative h-12 w-12 rounded-xl overflow-hidden bg-slate-100 border border-slate-200 shrink-0">
+                            <ImageWithFallback
+                              src={product.imageUrl}
+                              alt={product.title}
+                              fallbackText={product.title}
+                            />
+                          </div>
+                          <div>
+                            <div className="font-bold text-slate-900 line-clamp-1 max-w-xs">
+                              {product.title}
+                            </div>
+                            <div className="text-[11px] text-slate-400 font-mono">
+                              /{product.slug}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Category */}
+                      <td className="py-3.5 px-4">
+                        <Badge
+                          variant={product.category === 'Printing' ? 'plum' : 'default'}
+                          className="font-bold"
+                        >
+                          {product.category}
+                        </Badge>
+                      </td>
+
+                      {/* Subcategory */}
+                      <td className="py-3.5 px-4 font-semibold text-slate-700">
+                        {product.subcategory}
+                      </td>
+
+                      {/* Price */}
+                      <td className="py-3.5 px-4">
+                        <div className="font-black text-slate-900">
+                          {formatCurrency(activePrice)}
+                        </div>
+                        {product.discountedPrice && (
+                          <div className="text-[10px] text-rose-600 font-semibold">
+                            -{discount}% OFF
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Same Day */}
+                      <td className="py-3.5 px-4">
+                        {product.isSameDayAvailable ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
+                            <Zap className="h-3 w-3 fill-amber-400 text-amber-400" />
+                            <span>Yes</span>
+                          </span>
+                        ) : (
+                          <span className="text-[11px] text-slate-400 font-medium">Standard</span>
+                        )}
+                      </td>
+
+                      {/* Actions */}
+                      <td className="py-3.5 px-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <Link
+                            href={`/product/${product.id || product.slug}`}
+                            target="_blank"
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                            title="View on Storefront"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </Link>
+
+                          <button
+                            onClick={() => handleOpenEdit(product)}
+                            className="p-1.5 rounded-lg text-[#4a0e35] hover:bg-[#4a0e35]/10 transition-colors cursor-pointer"
+                            title="Edit Product"
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </button>
+
+                          <button
+                            onClick={() => handleDelete(product)}
+                            disabled={deletingId === (product.id || product.slug)}
+                            className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 hover:text-rose-700 transition-colors cursor-pointer disabled:opacity-50"
+                            title="Delete Product"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Form Modal */}
+      <ProductForm
+        isOpen={isFormOpen}
+        onClose={() => setIsFormOpen(false)}
+        onSubmit={handleFormSubmit}
+        initialProduct={editingProduct}
+        categories={categories}
+      />
+    </div>
+  );
+}
