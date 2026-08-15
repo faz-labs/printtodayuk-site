@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   Printer,
@@ -14,9 +14,24 @@ import {
   Heart,
 } from 'lucide-react';
 import { useCallMe } from './CallMeContext';
+import { getCategories } from '@/lib/db';
+import { CategoryConfig } from '@/lib/types';
 
 export function Footer() {
   const { openCallMe } = useCallMe();
+  const [categories, setCategories] = useState<CategoryConfig[]>([]);
+
+  useEffect(() => {
+    async function loadFooterCategories() {
+      try {
+        const data = await getCategories();
+        setCategories(data);
+      } catch (err) {
+        console.error('Failed to load footer categories:', err);
+      }
+    }
+    loadFooterCategories();
+  }, []);
 
   return (
     <footer className="bg-slate-950 text-slate-300 pt-16 pb-12 border-t border-slate-800">
@@ -83,39 +98,34 @@ export function Footer() {
               <li>
                 <Link href="/" className="hover:text-white transition-colors flex items-center gap-1.5">
                   <ArrowRight className="h-3 w-3 text-rose-500" />
-                  <span>Luxury Business Cards</span>
-                </Link>
-              </li>
-              <li>
-                <Link href="/" className="hover:text-white transition-colors flex items-center gap-1.5">
-                  <ArrowRight className="h-3 w-3 text-rose-500" />
-                  <span>Promotional Flyers & Leaflets</span>
-                </Link>
-              </li>
-              <li>
-                <Link href="/" className="hover:text-white transition-colors flex items-center gap-1.5">
-                  <ArrowRight className="h-3 w-3 text-rose-500" />
-                  <span>Heavy Duty PVC Banners</span>
+                  <span>Printing Catalog</span>
                 </Link>
               </li>
               <li>
                 <Link href="/clothing" className="hover:text-white transition-colors flex items-center gap-1.5">
                   <ArrowRight className="h-3 w-3 text-rose-500" />
-                  <span>Custom DTF Printed T-Shirts</span>
+                  <span>Clothing & Apparel</span>
                 </Link>
               </li>
-              <li>
-                <Link href="/clothing" className="hover:text-white transition-colors flex items-center gap-1.5">
-                  <ArrowRight className="h-3 w-3 text-rose-500" />
-                  <span>Embroidered Hoodies & Polos</span>
-                </Link>
-              </li>
-              <li>
-                <Link href="/" className="hover:text-white transition-colors flex items-center gap-1.5">
-                  <ArrowRight className="h-3 w-3 text-rose-500" />
-                  <span>Commercial Pop-up Canopies</span>
-                </Link>
-              </li>
+              {categories.flatMap((cat) =>
+                (cat.subcategories || []).slice(0, 2).map((subcat) => {
+                  const href =
+                    cat.name.toLowerCase() === 'clothing'
+                      ? `/clothing?subcat=${encodeURIComponent(subcat)}`
+                      : `/?subcat=${encodeURIComponent(subcat)}`;
+                  return (
+                    <li key={`${cat.name}-${subcat}`}>
+                      <Link
+                        href={href}
+                        className="hover:text-white transition-colors flex items-center gap-1.5"
+                      >
+                        <ArrowRight className="h-3 w-3 text-rose-500" />
+                        <span>{subcat}</span>
+                      </Link>
+                    </li>
+                  );
+                })
+              ).slice(0, 4)}
             </ul>
           </div>
 

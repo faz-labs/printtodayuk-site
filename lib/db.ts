@@ -12,19 +12,20 @@ import {
 } from 'firebase/firestore';
 import { db, isConfigured } from './firebase';
 import { Product, CategoryConfig, Inquiry, ProductInput } from './types';
-import { SEED_PRODUCTS, INITIAL_CATEGORIES } from './data';
+import { INITIAL_CATEGORIES } from './data';
 import { slugify } from './utils';
+
 
 // Helper to get local stored products if offline
 function getLocalProducts(): Product[] {
-  if (typeof window === 'undefined') return SEED_PRODUCTS;
+  if (typeof window === 'undefined') return [];
   try {
     const data = localStorage.getItem('print_today_products');
     if (data) {
       return JSON.parse(data);
     }
   } catch {}
-  return SEED_PRODUCTS;
+  return [];
 }
 
 function saveLocalProducts(products: Product[]) {
@@ -86,15 +87,13 @@ export async function getProducts(category?: string): Promise<Product[]> {
         snap = await getDocs(q);
       }
 
-      if (!snap.empty) {
-        const products = snap.docs.map((d) => ({
-          id: d.id,
-          ...d.data(),
-        })) as Product[];
-        return products;
-      }
+      const products = snap.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
+      })) as Product[];
+      return products;
     } catch (error) {
-      console.warn('Firestore fetch products failed, using local/seed fallback:', error);
+      console.warn('Firestore fetch products failed, using local fallback:', error);
     }
   }
 
@@ -122,6 +121,9 @@ export async function getProductById(idOrSlug: string): Promise<Product | null> 
         const firstDoc = snap.docs[0];
         return { id: firstDoc.id, ...firstDoc.data() } as Product;
       }
+
+      // If Firestore is configured and product was not found, return null
+      return null;
     } catch (error) {
       console.warn('Firestore fetch single product error:', error);
     }
@@ -209,25 +211,16 @@ export async function deleteProduct(id: string): Promise<boolean> {
   return true;
 }
 
-// Seed initial default products to Firestore
+// Seed initial default categories to Firestore
 export async function seedDefaultCatalogToFirestore(): Promise<{ count: number }> {
   if (!isConfigured || !db) {
     throw new Error('Firebase is not configured.');
   }
 
   let count = 0;
-  for (const prod of SEED_PRODUCTS) {
-    const { id, ...prodData } = prod;
-    await addDoc(collection(db, 'products'), {
-      ...prodData,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    });
-    count++;
-  }
-
   for (const cat of INITIAL_CATEGORIES) {
     await setDoc(doc(db, 'categories', cat.name.toLowerCase()), cat);
+    count++;
   }
 
   return { count };

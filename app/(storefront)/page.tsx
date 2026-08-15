@@ -2,11 +2,11 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { HeroSection } from '@/components/storefront/HeroSection';
+import { FeatureHighlights } from '@/components/storefront/FeatureHighlights';
 import { SearchFilterBar } from '@/components/storefront/SearchFilterBar';
 import { ProductGrid } from '@/components/storefront/ProductGrid';
 import { Product } from '@/lib/types';
-import { getProducts } from '@/lib/db';
-import { PRINTING_SUBCATEGORIES } from '@/lib/data';
+import { getProducts, getCategories } from '@/lib/db';
 import {
   Zap,
   CheckCircle,
@@ -22,6 +22,7 @@ import { useCallMe } from '@/components/storefront/CallMeContext';
 export default function PrintingCatalogPage() {
   const { openCallMe } = useCallMe();
   const [products, setProducts] = useState<Product[]>([]);
+  const [subcategories, setSubcategories] = useState<string[]>(['All']);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSubcategory, setSelectedSubcategory] = useState('All');
@@ -31,8 +32,22 @@ export default function PrintingCatalogPage() {
   useEffect(() => {
     async function loadData() {
       try {
-        const data = await getProducts('Printing');
-        setProducts(data);
+        const [prodsData, catsData] = await Promise.all([
+          getProducts('Printing'),
+          getCategories(),
+        ]);
+        setProducts(prodsData);
+
+        const printingCat = catsData.find(
+          (c) => c.name.toLowerCase() === 'printing'
+        );
+        const configSubcats = printingCat?.subcategories || [];
+        const productSubcats = prodsData.map((p) => p.subcategory).filter(Boolean);
+        const combinedSubcats = Array.from(
+          new Set([...configSubcats, ...productSubcats])
+        );
+
+        setSubcategories(['All', ...combinedSubcats]);
       } catch (error) {
         console.error('Failed to load printing products:', error);
       } finally {
@@ -94,17 +109,20 @@ export default function PrintingCatalogPage() {
   };
 
   return (
-    <div className="space-y-12">
+    <div className="space-y-10">
       {/* Hero Section */}
       <HeroSection categoryType="Printing" />
 
+      {/* Trust & Feature Highlights Bar */}
+      <FeatureHighlights />
+
       {/* Main Catalog Showcase */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-6 sm:-mt-10 relative z-20">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-20">
         {/* Search & Filter Bar */}
         <SearchFilterBar
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
-          subcategories={PRINTING_SUBCATEGORIES}
+          subcategories={subcategories}
           selectedSubcategory={selectedSubcategory}
           onSelectSubcategory={setSelectedSubcategory}
           sameDayOnly={sameDayOnly}
@@ -202,7 +220,7 @@ export default function PrintingCatalogPage() {
             <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="rounded-2xl bg-white/10 p-5 border border-white/10 backdrop-blur-md">
                 <p className="text-xs text-slate-200 italic leading-relaxed">
-                  &ldquo;Saved our product launch! Ordered 500 brochures at 10am and they were delivered to our Mayfair event venue by 3pm. Flawless quality.&rdquo;
+                  &ldquo;Saved our event! Requested an urgent turnaround in the morning and our order was ready for pickup by early afternoon. Flawless quality.&rdquo;
                 </p>
                 <div className="mt-4 flex items-center justify-between text-xs">
                   <span className="font-bold text-rose-300">Marcus Sterling</span>
@@ -212,7 +230,7 @@ export default function PrintingCatalogPage() {
 
               <div className="rounded-2xl bg-white/10 p-5 border border-white/10 backdrop-blur-md">
                 <p className="text-xs text-slate-200 italic leading-relaxed">
-                  &ldquo;The luxury matt business cards with soft touch finish feel incredible. The print today team on Green St is unmatched in speed and service.&rdquo;
+                  &ldquo;The print finish and paper quality exceeded all expectations. The Print Today team on Green St is unmatched in turnaround speed and service.&rdquo;
                 </p>
                 <div className="mt-4 flex items-center justify-between text-xs">
                   <span className="font-bold text-rose-300">Priya Patel</span>

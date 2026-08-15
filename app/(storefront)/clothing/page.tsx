@@ -2,11 +2,11 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { HeroSection } from '@/components/storefront/HeroSection';
+import { FeatureHighlights } from '@/components/storefront/FeatureHighlights';
 import { SearchFilterBar } from '@/components/storefront/SearchFilterBar';
 import { ProductGrid } from '@/components/storefront/ProductGrid';
 import { Product } from '@/lib/types';
-import { getProducts } from '@/lib/db';
-import { CLOTHING_SUBCATEGORIES } from '@/lib/data';
+import { getProducts, getCategories } from '@/lib/db';
 import {
   Shirt,
   Sparkles,
@@ -21,6 +21,7 @@ import { useCallMe } from '@/components/storefront/CallMeContext';
 export default function ClothingCatalogPage() {
   const { openCallMe } = useCallMe();
   const [products, setProducts] = useState<Product[]>([]);
+  const [subcategories, setSubcategories] = useState<string[]>(['All']);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSubcategory, setSelectedSubcategory] = useState('All');
@@ -30,8 +31,22 @@ export default function ClothingCatalogPage() {
   useEffect(() => {
     async function loadData() {
       try {
-        const data = await getProducts('Clothing');
-        setProducts(data);
+        const [prodsData, catsData] = await Promise.all([
+          getProducts('Clothing'),
+          getCategories(),
+        ]);
+        setProducts(prodsData);
+
+        const clothingCat = catsData.find(
+          (c) => c.name.toLowerCase() === 'clothing'
+        );
+        const configSubcats = clothingCat?.subcategories || [];
+        const productSubcats = prodsData.map((p) => p.subcategory).filter(Boolean);
+        const combinedSubcats = Array.from(
+          new Set([...configSubcats, ...productSubcats])
+        );
+
+        setSubcategories(['All', ...combinedSubcats]);
       } catch (error) {
         console.error('Failed to load clothing products:', error);
       } finally {
@@ -89,17 +104,20 @@ export default function ClothingCatalogPage() {
   };
 
   return (
-    <div className="space-y-12">
+    <div className="space-y-10">
       {/* Clothing Hero */}
       <HeroSection categoryType="Clothing" />
 
+      {/* Trust & Feature Highlights Bar */}
+      <FeatureHighlights />
+
       {/* Main Clothing Showcase */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-6 sm:-mt-10 relative z-20">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-20">
         {/* Search & Subcategory Filter Bar */}
         <SearchFilterBar
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
-          subcategories={CLOTHING_SUBCATEGORIES}
+          subcategories={subcategories}
           selectedSubcategory={selectedSubcategory}
           onSelectSubcategory={setSelectedSubcategory}
           sameDayOnly={sameDayOnly}

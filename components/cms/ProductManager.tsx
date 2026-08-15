@@ -113,16 +113,16 @@ export function ProductManager({
   };
 
   const handleSeedFirestore = async () => {
-    if (window.confirm('Sync & write default products into your live Firestore database?')) {
+    if (window.confirm('Sync initial default categories into your live Firestore database?')) {
       setIsSeeding(true);
       try {
         const res = await seedDefaultCatalogToFirestore();
-        showNotification('success', `Successfully seeded ${res.count} products to Firestore!`);
+        showNotification('success', `Successfully initialized ${res.count} categories in Firestore!`);
         if (onRefreshData) {
           await onRefreshData();
         }
       } catch (err: any) {
-        showNotification('error', err.message || 'Failed to seed Firestore.');
+        showNotification('error', err.message || 'Failed to initialize categories.');
       } finally {
         setIsSeeding(false);
       }
@@ -210,10 +210,10 @@ export function ProductManager({
             onClick={handleSeedFirestore}
             disabled={isSeeding}
             className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-[#4a0e35] font-semibold transition-colors cursor-pointer disabled:opacity-50"
-            title="Upload default initial catalog into Firestore"
+            title="Initialize standard categories into Firestore"
           >
             <Database className="h-3.5 w-3.5" />
-            <span>{isSeeding ? 'Syncing...' : 'Sync Defaults to Firestore'}</span>
+            <span>{isSeeding ? 'Syncing...' : 'Sync Categories to Firestore'}</span>
           </button>
         </div>
 
@@ -222,7 +222,7 @@ export function ProductManager({
             <Sparkles className="h-10 w-10 text-slate-300 mx-auto mb-3" />
             <h4 className="text-sm font-bold text-slate-900">No products found</h4>
             <p className="mt-1 text-xs text-slate-500 max-w-sm mx-auto">
-              Your catalog is currently empty or no items match your search. Add a new product above or sync default items to Firestore.
+              Your catalog is currently empty or no items match your search. Add a new product above to publish items to your storefront.
             </p>
             <div className="mt-4 flex justify-center gap-3">
               <Button variant="plum" size="sm" onClick={handleOpenCreate}>
