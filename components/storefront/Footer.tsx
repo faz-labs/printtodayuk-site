@@ -73,12 +73,24 @@ export function Footer() {
           {/* Col 1: Brand & Bio */}
           <div className="space-y-4">
             <div className="flex items-center gap-2.5">
-              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-[#4a0e35] to-[#781857] flex items-center justify-center text-white shadow-md">
-                <Printer className="h-5 w-5 text-rose-300" />
+              <img
+                src="/images/logo.png"
+                alt="Print Today UK"
+                className="h-10 sm:h-12 w-auto max-w-[200px] object-contain block brightness-0 invert"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                  const fallbackEl = document.getElementById('footer-text-logo');
+                  if (fallbackEl) fallbackEl.style.display = 'flex';
+                }}
+              />
+              <div id="footer-text-logo" className="hidden items-center gap-2.5">
+                <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-[#4a0e35] to-[#781857] flex items-center justify-center text-white shadow-md">
+                  <Printer className="h-5 w-5 text-rose-300" />
+                </div>
+                <span className="text-xl font-black tracking-tight text-white">
+                  PRINT<span className="text-rose-400">TODAY</span>
+                </span>
               </div>
-              <span className="text-xl font-black tracking-tight text-white">
-                PRINT<span className="text-rose-400">TODAY</span>
-              </span>
             </div>
             <p className="text-xs text-slate-400 leading-relaxed">
               London&apos;s leading on-demand custom printing and apparel studio. We specialize in rapid turnarounds, premium luxury finishes, and vibrant garment printing.
@@ -106,6 +118,17 @@ export function Footer() {
                   <ArrowRight className="h-3 w-3 text-rose-500" />
                   <span>Clothing & Apparel</span>
                 </Link>
+              </li>
+              <li>
+                <a
+                  href="https://signtodayai.co.uk"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-white transition-colors flex items-center gap-1.5"
+                >
+                  <ArrowRight className="h-3 w-3 text-rose-500" />
+                  <span>Signs & Banners (External) ↗</span>
+                </a>
               </li>
               {categories.flatMap((cat) =>
                 (cat.subcategories || []).slice(0, 2).map((subcat) => {

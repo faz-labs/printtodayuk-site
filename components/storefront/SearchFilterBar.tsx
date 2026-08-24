@@ -14,8 +14,8 @@ interface SearchFilterBarProps {
   onSelectSubcategory: (subcat: string) => void;
   sameDayOnly: boolean;
   onToggleSameDayOnly: () => void;
-  sortBy: 'featured' | 'price-asc' | 'price-desc';
-  onSortChange: (sort: 'featured' | 'price-asc' | 'price-desc') => void;
+  sortBy: 'a-z' | 'z-a' | 'price-asc' | 'price-desc' | 'featured';
+  onSortChange: (sort: 'a-z' | 'z-a' | 'price-asc' | 'price-desc' | 'featured') => void;
   totalResults: number;
 }
 
@@ -81,13 +81,15 @@ export function SearchFilterBar({
           <select
             value={sortBy}
             onChange={(e) =>
-              onSortChange(e.target.value as 'featured' | 'price-asc' | 'price-desc')
+              onSortChange(e.target.value as 'a-z' | 'z-a' | 'price-asc' | 'price-desc' | 'featured')
             }
             className="h-11 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-700 focus:outline-hidden focus:border-[#4a0e35] cursor-pointer"
           >
-            <option value="featured">Featured / Best Match</option>
+            <option value="a-z">Name: A to Z</option>
+            <option value="z-a">Name: Z to A</option>
             <option value="price-asc">Price: Low to High</option>
             <option value="price-desc">Price: High to Low</option>
+            <option value="featured">Default / Featured</option>
           </select>
         </div>
       </div>

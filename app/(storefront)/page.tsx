@@ -27,7 +27,7 @@ export default function PrintingCatalogPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSubcategory, setSelectedSubcategory] = useState('All');
   const [sameDayOnly, setSameDayOnly] = useState(false);
-  const [sortBy, setSortBy] = useState<'featured' | 'price-asc' | 'price-desc'>('featured');
+  const [sortBy, setSortBy] = useState<'a-z' | 'z-a' | 'price-asc' | 'price-desc' | 'featured'>('a-z');
 
   useEffect(() => {
     async function loadData() {
@@ -65,7 +65,7 @@ export default function PrintingCatalogPage() {
     }
   }, []);
 
-  // Filter & Sort Logic
+  // Filter & Sort Logic (Default: Alphabetical A to Z)
   const filteredProducts = useMemo(() => {
     return products
       .filter((p) => {
@@ -93,11 +93,18 @@ export default function PrintingCatalogPage() {
         return true;
       })
       .sort((a, b) => {
+        if (sortBy === 'a-z') {
+          return a.title.localeCompare(b.title, undefined, { sensitivity: 'base' });
+        }
+        if (sortBy === 'z-a') {
+          return b.title.localeCompare(a.title, undefined, { sensitivity: 'base' });
+        }
         const priceA = a.discountedPrice || a.price;
         const priceB = b.discountedPrice || b.price;
         if (sortBy === 'price-asc') return priceA - priceB;
         if (sortBy === 'price-desc') return priceB - priceA;
-        return 0; // featured default order
+        // Default alphabetical A-Z
+        return a.title.localeCompare(b.title, undefined, { sensitivity: 'base' });
       });
   }, [products, searchQuery, selectedSubcategory, sameDayOnly, sortBy]);
 
@@ -105,7 +112,7 @@ export default function PrintingCatalogPage() {
     setSearchQuery('');
     setSelectedSubcategory('All');
     setSameDayOnly(false);
-    setSortBy('featured');
+    setSortBy('a-z');
   };
 
   return (

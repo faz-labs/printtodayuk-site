@@ -64,11 +64,6 @@ export function ProductCard({ product }: ProductCardProps) {
             </h3>
           </Link>
 
-          {/* Description */}
-          <p className="mt-2 text-xs text-slate-500 line-clamp-2 leading-relaxed">
-            {product.description}
-          </p>
-
           {/* Feature Snippets */}
           {product.features && product.features.length > 0 && (
             <div className="mt-3 space-y-1">
