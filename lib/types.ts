@@ -2,6 +2,14 @@ export type ProductCategory = string;
 
 export type InquiryType = 'call_me' | 'quote' | 'general';
 
+export interface CustomField {
+  id: string;
+  name: string; // e.g. "Choose A Size" or "Choose A Finish"
+  options: string[]; // e.g. ["85x55mm Standard", "66x55mm Mini", "Custom"]
+  required?: boolean;
+  defaultValue?: string;
+}
+
 export interface Product {
   id?: string;
   title: string;
@@ -15,6 +23,7 @@ export interface Product {
   isSameDayAvailable: boolean;
   minQuantity?: number;
   features?: string[];
+  customFields?: CustomField[];
   createdAt: number;
   updatedAt: number;
 }
@@ -36,9 +45,11 @@ export interface Inquiry {
   details?: string;
   productId?: string;
   productTitle?: string;
+  selectedOptions?: Record<string, string>;
   status?: 'pending' | 'contacted' | 'resolved';
   createdAt: number;
 }
 
 export type ProductInput = Omit<Product, 'id' | 'createdAt' | 'updatedAt'>;
 export type InquiryInput = Omit<Inquiry, 'id' | 'createdAt'>;
+

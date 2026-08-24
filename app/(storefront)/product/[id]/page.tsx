@@ -16,6 +16,7 @@ import {
   Sparkles,
   Share2,
   CheckCircle2,
+  ChevronDown,
 } from 'lucide-react';
 import { Product } from '@/lib/types';
 import { getProductById, getProducts } from '@/lib/db';
@@ -36,6 +37,7 @@ export default function ProductDetailPage() {
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState<number>(100);
+  const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -47,6 +49,17 @@ export default function ProductDetailPage() {
         setProduct(prod);
         if (prod) {
           setQuantity(prod.minQuantity || 1);
+          // Initialize default selected options
+          if (prod.customFields && prod.customFields.length > 0) {
+            const initialOpts: Record<string, string> = {};
+            prod.customFields.forEach((field) => {
+              if (field.options && field.options.length > 0) {
+                initialOpts[field.name] = field.defaultValue || field.options[0];
+              }
+            });
+            setSelectedOptions(initialOpts);
+          }
+
           // Load related products
           const allProds = await getProducts(prod.category);
           setRelatedProducts(
@@ -149,10 +162,10 @@ export default function ProductDetailPage() {
         </div>
 
         {/* Main Product Details View */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-start">
-          {/* Left Column: Image Gallery */}
-          <div className="lg:col-span-7 space-y-4">
-            <div className="relative w-full max-w-[400px] h-[400px] aspect-square mx-auto bg-white rounded-3xl overflow-hidden shadow-xl border border-slate-200/80">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-start">
+          {/* Left Column: Image Gallery & Studio Guarantees */}
+          <div className="lg:col-span-6 space-y-4 lg:sticky lg:top-24">
+            <div className="relative w-full aspect-square bg-white rounded-3xl overflow-hidden shadow-lg border border-slate-200/80">
               <ImageWithFallback
                 src={product.imageUrl}
                 alt={product.title}
@@ -162,7 +175,7 @@ export default function ProductDetailPage() {
               />
 
               {/* Badges Overlay */}
-              <div className="absolute top-4 left-4 flex flex-col gap-2">
+              <div className="absolute top-4 left-4 flex flex-col gap-2 z-10">
                 {product.isSameDayAvailable && (
                   <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white font-bold text-xs shadow-lg">
                     <Zap className="h-3.5 w-3.5 fill-amber-300 text-amber-300" />
@@ -199,8 +212,8 @@ export default function ProductDetailPage() {
             </div>
           </div>
 
-          {/* Right Column: Information & Pricing */}
-          <div className="lg:col-span-5 space-y-6">
+          {/* Right Column: Information, Options & Pricing */}
+          <div className="lg:col-span-6 space-y-6">
             <div>
               <div className="flex items-center gap-2 mb-2">
                 <span className="text-xs font-bold uppercase tracking-wider text-[#4a0e35]">
@@ -251,7 +264,7 @@ export default function ProductDetailPage() {
             )}
 
             {/* Description */}
-            <div className="pt-2">
+            <div className="pt-1">
               <h4 className="text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">
                 Description & Specifications
               </h4>
@@ -259,6 +272,54 @@ export default function ProductDetailPage() {
                 {product.description}
               </p>
             </div>
+
+            {/* Custom Product Options & Dropdowns */}
+            {product.customFields && product.customFields.length > 0 && (
+              <div className="space-y-4 p-5 rounded-2xl bg-white border border-slate-200/90 shadow-sm">
+                <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-slate-900 border-b border-slate-100 pb-3">
+                  <Sparkles className="h-4 w-4 text-[#4a0e35]" />
+                  <span>Choose Your Specifications</span>
+                </div>
+
+                <div className="space-y-4">
+                  {product.customFields.map((field) => (
+                    <div key={field.id || field.name} className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold text-slate-800">
+                          {field.name}
+                        </label>
+                        {selectedOptions[field.name] && (
+                          <span className="text-[11px] font-semibold text-[#4a0e35] bg-[#4a0e35]/8 px-2 py-0.5 rounded-md">
+                            Selected: {selectedOptions[field.name]}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Dropdown Selector */}
+                      <div className="relative">
+                        <select
+                          value={selectedOptions[field.name] || field.options[0]}
+                          onChange={(e) =>
+                            setSelectedOptions((prev) => ({
+                              ...prev,
+                              [field.name]: e.target.value,
+                            }))
+                          }
+                          className="w-full h-11 px-3.5 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 text-xs sm:text-sm font-semibold text-slate-900 focus:outline-hidden focus:border-[#4a0e35] focus:ring-2 focus:ring-[#4a0e35]/15 focus:bg-white cursor-pointer appearance-none pr-10 transition-all"
+                        >
+                          {field.options.map((opt) => (
+                            <option key={opt} value={opt}>
+                              {opt}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown className="h-4 w-4 text-slate-400 absolute right-3.5 top-3.5 pointer-events-none" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Features Checklist */}
             {product.features && product.features.length > 0 && (
@@ -283,7 +344,7 @@ export default function ProductDetailPage() {
             {/* CTAs */}
             <div className="pt-4 space-y-3">
               <button
-                onClick={() => openCallMe(product.title)}
+                onClick={() => openCallMe(product.title, selectedOptions)}
                 className="w-full h-13 rounded-2xl bg-gradient-to-r from-[#4a0e35] to-[#67154a] hover:from-[#591240] hover:to-[#781957] text-white font-black text-sm flex items-center justify-center gap-2.5 shadow-xl shadow-[#4a0e35]/25 transition-all transform hover:scale-102 cursor-pointer"
               >
                 <Phone className="h-4 w-4 text-rose-300" />
@@ -299,7 +360,7 @@ export default function ProductDetailPage() {
                 </a>
 
                 <button
-                  onClick={() => openCallMe(`Artwork Check for ${product.title}`)}
+                  onClick={() => openCallMe(`Artwork Check for ${product.title}`, selectedOptions)}
                   className="flex items-center justify-center gap-2 h-11 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs border border-slate-200 transition-colors cursor-pointer"
                 >
                   <Sparkles className="h-3.5 w-3.5 text-[#4a0e35]" />

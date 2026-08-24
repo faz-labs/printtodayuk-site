@@ -129,6 +129,19 @@ export function InquiryInbox({
                     </div>
                   )}
 
+                  {inquiry.selectedOptions && Object.keys(inquiry.selectedOptions).length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 pt-0.5">
+                      {Object.entries(inquiry.selectedOptions).map(([key, val]) => (
+                        <span
+                          key={key}
+                          className="inline-flex items-center px-2.5 py-1 rounded-lg bg-slate-100 text-slate-800 text-[11px] font-semibold border border-slate-200 shadow-2xs"
+                        >
+                          <span className="text-slate-500 mr-1">{key}:</span> {val}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
                   {inquiry.details && (
                     <p className="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-100 italic">
                       &ldquo;{inquiry.details}&rdquo;

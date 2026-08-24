@@ -1,12 +1,12 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Product, ProductInput, CategoryConfig } from '@/lib/types';
+import { Product, ProductInput, CategoryConfig, CustomField } from '@/lib/types';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { ImagePreviewer } from './ImagePreviewer';
 import { slugify } from '@/lib/utils';
-import { Plus, Trash2, Zap, Sparkles } from 'lucide-react';
+import { Plus, Trash2, Zap, Sparkles, ListFilter, X } from 'lucide-react';
 
 interface ProductFormProps {
   isOpen: boolean;
@@ -35,6 +35,8 @@ export function ProductForm({
   const [minQuantity, setMinQuantity] = useState<string>('1');
   const [features, setFeatures] = useState<string[]>([]);
   const [newFeature, setNewFeature] = useState('');
+  const [customFields, setCustomFields] = useState<CustomField[]>([]);
+  const [activeNewOptionText, setActiveNewOptionText] = useState<{ [fieldId: string]: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -57,6 +59,7 @@ export function ProductForm({
       setIsSameDayAvailable(initialProduct.isSameDayAvailable);
       setMinQuantity(initialProduct.minQuantity ? initialProduct.minQuantity.toString() : '1');
       setFeatures(initialProduct.features || []);
+      setCustomFields(initialProduct.customFields || []);
     } else {
       // Default reset
       setTitle('');
@@ -73,7 +76,9 @@ export function ProductForm({
         'Premium High Definition Print Quality',
         'Same-day London Dispatch Available',
       ]);
+      setCustomFields([]);
     }
+    setActiveNewOptionText({});
     setError('');
   }, [initialProduct, isOpen]);
 
@@ -102,6 +107,88 @@ export function ProductForm({
     setFeatures(features.filter((_, i) => i !== index));
   };
 
+  // Custom Fields Handler
+  const handleAddCustomField = () => {
+    const newField: CustomField = {
+      id: `fld-${Date.now()}`,
+      name: '',
+      options: [],
+      required: true,
+    };
+    setCustomFields([...customFields, newField]);
+  };
+
+  const handleUpdateFieldName = (fieldId: string, name: string) => {
+    setCustomFields(
+      customFields.map((f) => (f.id === fieldId ? { ...f, name } : f))
+    );
+  };
+
+  const handleAddOptionToField = (fieldId: string) => {
+    const text = (activeNewOptionText[fieldId] || '').trim();
+    if (!text) return;
+    setCustomFields(
+      customFields.map((f) => {
+        if (f.id === fieldId) {
+          if (f.options.includes(text)) return f;
+          return { ...f, options: [...f.options, text] };
+        }
+        return f;
+      })
+    );
+    setActiveNewOptionText({ ...activeNewOptionText, [fieldId]: '' });
+  };
+
+  const handleRemoveOptionFromField = (fieldId: string, optIndex: number) => {
+    setCustomFields(
+      customFields.map((f) => {
+        if (f.id === fieldId) {
+          return { ...f, options: f.options.filter((_, i) => i !== optIndex) };
+        }
+        return f;
+      })
+    );
+  };
+
+  const handleDeleteCustomField = (fieldId: string) => {
+    setCustomFields(customFields.filter((f) => f.id !== fieldId));
+  };
+
+  const handleAddPreset = (type: 'size' | 'finish' | 'apparelSize' | 'paperWeight') => {
+    let newField: CustomField;
+    const uniqueId = `fld-${Date.now()}`;
+    if (type === 'size') {
+      newField = {
+        id: uniqueId,
+        name: 'Choose A Size',
+        options: ['85x55mm (Standard UK)', '66x55mm (Mini)', 'Custom Dimensions'],
+        required: true,
+      };
+    } else if (type === 'finish') {
+      newField = {
+        id: uniqueId,
+        name: 'Choose A Finish',
+        options: ['Velvet Soft-Touch Matt', 'High Gloss Lamination', 'Uncoated Natural', 'Spot UV Finish'],
+        required: true,
+      };
+    } else if (type === 'apparelSize') {
+      newField = {
+        id: uniqueId,
+        name: 'Select Size',
+        options: ['Small (S)', 'Medium (M)', 'Large (L)', 'XL', '2XL', '3XL'],
+        required: true,
+      };
+    } else {
+      newField = {
+        id: uniqueId,
+        name: 'Paper Weight / Stock',
+        options: ['450gsm Premium Silk Board', '350gsm Classic Silk', '170gsm Gloss Paper', '220gsm Photo Satin'],
+        required: true,
+      };
+    }
+    setCustomFields([...customFields, newField]);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -123,6 +210,14 @@ export function ProductForm({
       return;
     }
 
+    // Filter valid custom fields (must have a name and at least one option)
+    const validCustomFields = customFields
+      .filter((f) => f.name.trim().length > 0 && f.options.length > 0)
+      .map((f) => ({
+        ...f,
+        name: f.name.trim(),
+      }));
+
     setIsSubmitting(true);
     try {
       const payload: ProductInput = {
@@ -137,6 +232,7 @@ export function ProductForm({
         isSameDayAvailable,
         minQuantity: parseInt(minQuantity, 10) || 1,
         features: features.length > 0 ? features : undefined,
+        customFields: validCustomFields.length > 0 ? validCustomFields : undefined,
       };
 
       await onSubmit(payload, initialProduct?.id);
@@ -153,7 +249,7 @@ export function ProductForm({
       isOpen={isOpen}
       onClose={onClose}
       title={initialProduct ? 'Edit Product' : 'Add New Product'}
-      description="Update product information, image link, pricing, and category filters."
+      description="Update product information, custom dropdown fields, pricing, and category filters."
       maxWidth="2xl"
     >
       <form onSubmit={handleSubmit} className="space-y-5 max-h-[75vh] overflow-y-auto pr-1">
@@ -174,7 +270,7 @@ export function ProductForm({
               required
               value={title}
               onChange={(e) => handleTitleChange(e.target.value)}
-              placeholder="e.g. Silk Finish Folded Flyers"
+              placeholder="e.g. Luxury Business Cards"
               className="w-full h-11 px-3.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:outline-hidden focus:border-[#4a0e35] focus:ring-2 focus:ring-[#4a0e35]/15"
             />
           </div>
@@ -188,7 +284,7 @@ export function ProductForm({
               required
               value={slug}
               onChange={(e) => setSlug(e.target.value)}
-              placeholder="e.g. silk-finish-folded-flyers"
+              placeholder="e.g. luxury-business-cards"
               className="w-full h-11 px-3.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:outline-hidden focus:border-[#4a0e35] focus:ring-2 focus:ring-[#4a0e35]/15"
             />
           </div>
@@ -296,6 +392,168 @@ export function ProductForm({
             onChange={(e) => setIsSameDayAvailable(e.target.checked)}
             className="h-5 w-5 rounded-md text-[#4a0e35] focus:ring-[#4a0e35] cursor-pointer"
           />
+        </div>
+
+        {/* Custom Fields & Dropdown Options Section */}
+        <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <div className="flex items-center gap-2">
+                <ListFilter className="h-4 w-4 text-[#4a0e35]" />
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900">
+                  Custom Dropdowns & Options
+                </h4>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                Add customizable option selectors (e.g. &ldquo;Choose A Size&rdquo;, &ldquo;Choose A Finish&rdquo;) for customers on the product page.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleAddCustomField}
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[#4a0e35] text-white text-xs font-bold hover:bg-[#5d1243] shadow-xs cursor-pointer"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span>Add Dropdown</span>
+            </button>
+          </div>
+
+          {/* Quick 1-Click Presets */}
+          <div className="flex flex-wrap items-center gap-1.5 pt-1">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-1">
+              Quick Presets:
+            </span>
+            <button
+              type="button"
+              onClick={() => handleAddPreset('size')}
+              className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 hover:border-rose-300 hover:text-rose-600 text-[11px] font-semibold text-slate-700 transition-colors cursor-pointer"
+            >
+              + Choose A Size
+            </button>
+            <button
+              type="button"
+              onClick={() => handleAddPreset('finish')}
+              className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 hover:border-rose-300 hover:text-rose-600 text-[11px] font-semibold text-slate-700 transition-colors cursor-pointer"
+            >
+              + Choose A Finish
+            </button>
+            <button
+              type="button"
+              onClick={() => handleAddPreset('paperWeight')}
+              className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 hover:border-rose-300 hover:text-rose-600 text-[11px] font-semibold text-slate-700 transition-colors cursor-pointer"
+            >
+              + Paper Stock
+            </button>
+            <button
+              type="button"
+              onClick={() => handleAddPreset('apparelSize')}
+              className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 hover:border-rose-300 hover:text-rose-600 text-[11px] font-semibold text-slate-700 transition-colors cursor-pointer"
+            >
+              + Apparel Sizes (S-3XL)
+            </button>
+          </div>
+
+          {/* Render Active Custom Fields */}
+          {customFields.length === 0 ? (
+            <div className="p-4 rounded-xl bg-white border border-dashed border-slate-200 text-center text-xs text-slate-400">
+              No custom dropdowns yet. Click &ldquo;Add Dropdown&rdquo; or pick a Quick Preset above.
+            </div>
+          ) : (
+            <div className="space-y-3 pt-2">
+              {customFields.map((field, fIndex) => (
+                <div
+                  key={field.id}
+                  className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-xs space-y-3"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex-1">
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        Dropdown Label / Field Title
+                      </label>
+                      <input
+                        type="text"
+                        value={field.name}
+                        onChange={(e) => handleUpdateFieldName(field.id, e.target.value)}
+                        placeholder="e.g. Choose A Size, Choose A Finish..."
+                        className="w-full h-9 px-3 rounded-lg border border-slate-200 text-xs font-semibold text-slate-900 focus:outline-hidden focus:border-[#4a0e35]"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteCustomField(field.id)}
+                      className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer self-end mb-0.5"
+                      title="Remove field"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+
+                  {/* Dropdown Options (Values) list */}
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                      Selectable Dropdown Options (Values)
+                    </label>
+
+                    {/* Add option input */}
+                    <div className="flex gap-2 mb-2">
+                      <input
+                        type="text"
+                        value={activeNewOptionText[field.id] || ''}
+                        onChange={(e) =>
+                          setActiveNewOptionText({
+                            ...activeNewOptionText,
+                            [field.id]: e.target.value,
+                          })
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddOptionToField(field.id);
+                          }
+                        }}
+                        placeholder={`Add option (e.g. 66x55mm, Matt Laminate)...`}
+                        className="flex-1 h-8 px-2.5 rounded-lg border border-slate-200 text-xs text-slate-900 focus:outline-hidden focus:border-[#4a0e35]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleAddOptionToField(field.id)}
+                        className="px-3 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold flex items-center gap-1 cursor-pointer"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        <span>Add Option</span>
+                      </button>
+                    </div>
+
+                    {/* Options list chips */}
+                    {field.options.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {field.options.map((opt, optIdx) => (
+                          <span
+                            key={optIdx}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#4a0e35]/10 border border-[#4a0e35]/20 text-[#4a0e35] text-xs font-semibold"
+                          >
+                            <span>{opt}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveOptionFromField(field.id, optIdx)}
+                              className="text-[#4a0e35]/60 hover:text-rose-600 cursor-pointer"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-[11px] text-amber-700 bg-amber-50 p-2 rounded-lg border border-amber-200">
+                        ⚠️ Add at least one option value for this dropdown.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Description */}

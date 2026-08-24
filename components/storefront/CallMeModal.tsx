@@ -10,7 +10,7 @@ import { useCallMe } from './CallMeContext';
 import { submitInquiry } from '@/lib/db';
 
 export function CallMeModal() {
-  const { isOpen, closeCallMe, productContext } = useCallMe();
+  const { isOpen, closeCallMe, productContext, selectedOptions } = useCallMe();
 
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -36,6 +36,7 @@ export function CallMeModal() {
         phone: phone.trim(),
         details: details.trim() || undefined,
         productTitle: productContext || undefined,
+        selectedOptions: selectedOptions && Object.keys(selectedOptions).length > 0 ? selectedOptions : undefined,
       });
 
       setIsSubmitted(true);
@@ -99,11 +100,25 @@ export function CallMeModal() {
       ) : (
         <form onSubmit={handleSubmit} className="space-y-4 pt-2">
           {productContext && (
-            <div className="flex items-center gap-2 rounded-xl bg-[#4a0e35]/5 p-3 border border-[#4a0e35]/15 text-xs text-[#4a0e35] font-medium">
-              <Sparkles className="h-4 w-4 shrink-0 text-[#4a0e35]" />
-              <span>
-                Inquiry for: <strong>{productContext}</strong>
-              </span>
+            <div className="rounded-xl bg-[#4a0e35]/5 p-3 border border-[#4a0e35]/15 space-y-2">
+              <div className="flex items-center gap-2 text-xs text-[#4a0e35] font-medium">
+                <Sparkles className="h-4 w-4 shrink-0 text-[#4a0e35]" />
+                <span>
+                  Inquiry for: <strong>{productContext}</strong>
+                </span>
+              </div>
+              {selectedOptions && Object.keys(selectedOptions).length > 0 && (
+                <div className="flex flex-wrap gap-1.5 pt-1 border-t border-[#4a0e35]/10">
+                  {Object.entries(selectedOptions).map(([key, val]) => (
+                    <span
+                      key={key}
+                      className="inline-flex items-center px-2 py-0.5 rounded-md bg-white text-[#4a0e35] text-[11px] font-semibold border border-[#4a0e35]/20 shadow-2xs"
+                    >
+                      <span className="text-slate-500 mr-1">{key}:</span> {val}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
