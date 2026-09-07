@@ -21,8 +21,11 @@ export function ProductCard({ product }: ProductCardProps) {
 
   return (
     <Card3D className="flex flex-col h-full overflow-hidden group">
-      {/* Image Container: 265x265px square */}
-      <div className="relative w-full h-[265px] aspect-square bg-slate-100 overflow-hidden">
+      {/* Image Container: 265x265px square - Clickable to details page */}
+      <Link
+        href={`/product/${product.id || product.slug}`}
+        className="relative block w-full h-[265px] aspect-square bg-slate-100 overflow-hidden cursor-pointer"
+      >
         <ImageWithFallback
           src={product.imageUrl}
           alt={product.title}
@@ -50,7 +53,7 @@ export function ProductCard({ product }: ProductCardProps) {
             </span>
           )}
         </div>
-      </div>
+      </Link>
 
       {/* Content Body */}
       <div className="flex flex-col flex-1 p-5">
