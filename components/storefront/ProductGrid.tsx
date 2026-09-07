@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, Phone, RefreshCw } from 'lucide-react';
+import { Sparkle, Phone, ArrowsClockwise } from '@phosphor-icons/react';
 import { Product } from '@/lib/types';
 import { ProductCard } from './ProductCard';
 import { useCallMe } from './CallMeContext';
@@ -49,8 +49,8 @@ export function ProductGrid({
         animate={{ opacity: 1, scale: 1 }}
         className="rounded-3xl bg-white border border-slate-200/80 p-12 text-center shadow-lg max-w-xl mx-auto my-8"
       >
-        <div className="mx-auto w-16 h-16 rounded-2xl bg-rose-50 flex items-center justify-center text-rose-500 mb-4">
-          <Sparkles className="h-8 w-8" />
+        <div className="mx-auto w-16 h-16 rounded-2xl bg-rose-50 flex items-center justify-center text-[#C8102E] mb-4">
+          <Sparkle weight="fill" className="h-8 w-8" />
         </div>
         <h3 className="text-xl font-bold text-slate-900">No matching products found</h3>
         <p className="mt-2 text-sm text-slate-500 leading-relaxed max-w-md mx-auto">
@@ -63,15 +63,15 @@ export function ProductGrid({
               onClick={onResetFilters}
               className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 text-xs font-bold hover:bg-slate-100 transition-colors"
             >
-              <RefreshCw className="h-3.5 w-3.5" />
+              <ArrowsClockwise weight="bold" className="h-3.5 w-3.5" />
               <span>Reset Filters</span>
             </button>
           )}
           <button
             onClick={() => openCallMe('Custom Requirement')}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#4a0e35] text-white text-xs font-bold hover:bg-[#5d1243] shadow-md shadow-[#4a0e35]/20 transition-all hover:scale-105"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#C8102E] hover:bg-[#A80C24] text-white text-xs font-bold shadow-md shadow-red-900/20 transition-all hover:scale-105"
           >
-            <Phone className="h-3.5 w-3.5" />
+            <Phone weight="fill" className="h-3.5 w-3.5" />
             <span>Request Custom Order via Call Me</span>
           </button>
         </div>

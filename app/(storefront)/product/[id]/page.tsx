@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
-  Zap,
+  Lightning,
   Phone,
   ArrowLeft,
   Check,
@@ -13,11 +13,11 @@ import {
   MapPin,
   ShieldCheck,
   Truck,
-  Sparkles,
-  Share2,
-  CheckCircle2,
-  ChevronDown,
-} from 'lucide-react';
+  Sparkle,
+  ShareNetwork,
+  CheckCircle,
+  CaretDown,
+} from '@phosphor-icons/react';
 import { Product } from '@/lib/types';
 import { getProductById, getProducts } from '@/lib/db';
 import { formatCurrency, calculateDiscount } from '@/lib/utils';
@@ -95,7 +95,7 @@ export default function ProductDetailPage() {
     return (
       <div className="max-w-4xl mx-auto px-4 py-24 text-center">
         <div className="h-16 w-16 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
-          <Sparkles className="h-8 w-8" />
+          <Sparkle className="h-8 w-8" weight="duotone" />
         </div>
         <h2 className="text-2xl font-black text-slate-900">Product Not Found</h2>
         <p className="mt-2 text-sm text-slate-600">
@@ -104,7 +104,7 @@ export default function ProductDetailPage() {
         <div className="mt-6 flex justify-center gap-3">
           <Link
             href="/"
-            className="px-5 py-2.5 bg-[#4a0e35] text-white font-bold rounded-xl text-xs hover:bg-[#5d1243]"
+            className="px-5 py-2.5 bg-[#012169] text-white font-bold rounded-xl text-xs hover:bg-[#0A358C]"
           >
             Back to All Products
           </Link>
@@ -137,7 +137,7 @@ export default function ProductDetailPage() {
         <div className="flex items-center justify-between gap-4 mb-6">
           <Link
             href={product.category === 'Clothing' ? '/clothing' : '/'}
-            className="inline-flex items-center gap-2 text-xs font-bold text-slate-600 hover:text-[#4a0e35] transition-colors"
+            className="inline-flex items-center gap-2 text-xs font-bold text-slate-600 hover:text-[#012169] transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
             <span>Back to {product.category} Catalog</span>
@@ -149,12 +149,12 @@ export default function ProductDetailPage() {
           >
             {copied ? (
               <>
-                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                <CheckCircle weight="fill" className="h-3.5 w-3.5 text-emerald-600" />
                 <span className="text-emerald-700">Link Copied!</span>
               </>
             ) : (
               <>
-                <Share2 className="h-3.5 w-3.5" />
+                <ShareNetwork weight="bold" className="h-3.5 w-3.5" />
                 <span>Share Product</span>
               </>
             )}
@@ -177,13 +177,13 @@ export default function ProductDetailPage() {
               {/* Badges Overlay */}
               <div className="absolute top-4 left-4 flex flex-col gap-2 z-10">
                 {product.isSameDayAvailable && (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white font-bold text-xs shadow-lg">
-                    <Zap className="h-3.5 w-3.5 fill-amber-300 text-amber-300" />
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#012169] text-white font-bold text-xs shadow-lg">
+                    <Lightning weight="fill" className="h-3.5 w-3.5 text-amber-300" />
                     <span>Same-Day London Dispatch</span>
                   </span>
                 )}
                 {discount && (
-                  <span className="inline-flex items-center px-3 py-1 rounded-lg bg-rose-600 text-white font-black text-xs shadow-lg">
+                  <span className="inline-flex items-center px-3 py-1 rounded-lg bg-[#C8102E] text-white font-black text-xs shadow-lg">
                     Special Offer: {discount}% OFF
                   </span>
                 )}
@@ -193,19 +193,19 @@ export default function ProductDetailPage() {
             {/* Studio Guarantee Cards */}
             <div className="grid grid-cols-3 gap-3">
               <div className="p-3.5 rounded-2xl bg-white border border-slate-200/80 text-center shadow-xs">
-                <Clock className="h-5 w-5 text-rose-600 mx-auto mb-1" />
+                <Clock weight="duotone" className="h-5 w-5 text-[#C8102E] mx-auto mb-1" />
                 <div className="text-xs font-bold text-slate-900">Same Day Pickup</div>
                 <div className="text-[10px] text-slate-500">Ready in 2-4 hours</div>
               </div>
 
               <div className="p-3.5 rounded-2xl bg-white border border-slate-200/80 text-center shadow-xs">
-                <MapPin className="h-5 w-5 text-amber-600 mx-auto mb-1" />
+                <MapPin weight="fill" className="h-5 w-5 text-[#012169] mx-auto mb-1" />
                 <div className="text-xs font-bold text-slate-900">London Studio</div>
                 <div className="text-[10px] text-slate-500">75 Green St, E7 8JF</div>
               </div>
 
               <div className="p-3.5 rounded-2xl bg-white border border-slate-200/80 text-center shadow-xs">
-                <ShieldCheck className="h-5 w-5 text-emerald-600 mx-auto mb-1" />
+                <ShieldCheck weight="duotone" className="h-5 w-5 text-[#012169] mx-auto mb-1" />
                 <div className="text-xs font-bold text-slate-900">100% Quality</div>
                 <div className="text-[10px] text-slate-500">Free Artwork Check</div>
               </div>
@@ -216,7 +216,7 @@ export default function ProductDetailPage() {
           <div className="lg:col-span-6 space-y-6">
             <div>
               <div className="flex items-center gap-2 mb-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-[#4a0e35]">
+                <span className="text-xs font-bold uppercase tracking-wider text-[#012169]">
                   {product.category}
                 </span>
                 <span className="text-slate-300">•</span>
@@ -230,7 +230,7 @@ export default function ProductDetailPage() {
               </h1>
 
               <div className="mt-4 flex items-baseline gap-3">
-                <span className="text-3xl font-black text-[#4a0e35]">
+                <span className="text-3xl font-black text-[#012169]">
                   {formatCurrency(basePrice)}
                 </span>
                 {product.discountedPrice && (
@@ -246,16 +246,16 @@ export default function ProductDetailPage() {
 
             {/* Same-day Emergency Callout */}
             {product.isSameDayAvailable && (
-              <div className="rounded-2xl bg-emerald-50 border border-emerald-200/80 p-4">
+              <div className="rounded-2xl bg-blue-50 border border-blue-200/80 p-4">
                 <div className="flex items-start gap-3">
-                  <div className="p-2 rounded-xl bg-emerald-600 text-white shrink-0 mt-0.5">
-                    <Zap className="h-4 w-4 fill-amber-300 text-amber-300" />
+                  <div className="p-2 rounded-xl bg-[#012169] text-white shrink-0 mt-0.5">
+                    <Lightning weight="fill" className="h-4 w-4 text-amber-300" />
                   </div>
                   <div>
-                    <h4 className="text-xs font-bold text-emerald-900">
+                    <h4 className="text-xs font-bold text-[#012169]">
                       Need This Today in London?
                     </h4>
-                    <p className="mt-0.5 text-xs text-emerald-700 leading-relaxed">
+                    <p className="mt-0.5 text-xs text-[#012169]/80 leading-relaxed">
                       Order or request a quote before 12pm for guaranteed same-day collection at our Green St studio or London express courier.
                     </p>
                   </div>
@@ -277,7 +277,7 @@ export default function ProductDetailPage() {
             {product.customFields && product.customFields.length > 0 && (
               <div className="space-y-4 p-5 rounded-2xl bg-white border border-slate-200/90 shadow-sm">
                 <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-slate-900 border-b border-slate-100 pb-3">
-                  <Sparkles className="h-4 w-4 text-[#4a0e35]" />
+                  <Sparkle weight="fill" className="h-4 w-4 text-[#C8102E]" />
                   <span>Choose Your Specifications</span>
                 </div>
 
@@ -289,7 +289,7 @@ export default function ProductDetailPage() {
                           {field.name}
                         </label>
                         {selectedOptions[field.name] && (
-                          <span className="text-[11px] font-semibold text-[#4a0e35] bg-[#4a0e35]/8 px-2 py-0.5 rounded-md">
+                          <span className="text-[11px] font-semibold text-[#012169] bg-[#012169]/8 px-2 py-0.5 rounded-md">
                             Selected: {selectedOptions[field.name]}
                           </span>
                         )}
@@ -305,7 +305,7 @@ export default function ProductDetailPage() {
                               [field.name]: e.target.value,
                             }))
                           }
-                          className="w-full h-11 px-3.5 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 text-xs sm:text-sm font-semibold text-slate-900 focus:outline-hidden focus:border-[#4a0e35] focus:ring-2 focus:ring-[#4a0e35]/15 focus:bg-white cursor-pointer appearance-none pr-10 transition-all"
+                          className="w-full h-11 px-3.5 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 text-xs sm:text-sm font-semibold text-slate-900 focus:outline-hidden focus:border-[#012169] focus:ring-2 focus:ring-[#012169]/15 focus:bg-white cursor-pointer appearance-none pr-10 transition-all"
                         >
                           {field.options.map((opt) => (
                             <option key={opt} value={opt}>
@@ -313,7 +313,7 @@ export default function ProductDetailPage() {
                             </option>
                           ))}
                         </select>
-                        <ChevronDown className="h-4 w-4 text-slate-400 absolute right-3.5 top-3.5 pointer-events-none" />
+                        <CaretDown weight="bold" className="h-4 w-4 text-slate-400 absolute right-3.5 top-3.5 pointer-events-none" />
                       </div>
                     </div>
                   ))}
@@ -333,7 +333,7 @@ export default function ProductDetailPage() {
                       key={idx}
                       className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-100/70 border border-slate-200/60 text-xs font-medium text-slate-800"
                     >
-                      <Check className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                      <Check weight="bold" className="h-3.5 w-3.5 text-[#012169] shrink-0" />
                       <span className="truncate">{feat}</span>
                     </div>
                   ))}
@@ -345,25 +345,25 @@ export default function ProductDetailPage() {
             <div className="pt-4 space-y-3">
               <button
                 onClick={() => openCallMe(product.title, selectedOptions)}
-                className="w-full h-13 rounded-2xl bg-gradient-to-r from-[#4a0e35] to-[#67154a] hover:from-[#591240] hover:to-[#781957] text-white font-black text-sm flex items-center justify-center gap-2.5 shadow-xl shadow-[#4a0e35]/25 transition-all transform hover:scale-102 cursor-pointer"
+                className="w-full h-13 rounded-2xl bg-gradient-to-r from-[#C8102E] to-[#A80C24] hover:from-[#A80C24] hover:to-[#85081C] text-white font-black text-sm flex items-center justify-center gap-2.5 shadow-xl shadow-red-900/20 transition-all transform hover:scale-102 cursor-pointer border border-red-700/40"
               >
-                <Phone className="h-4 w-4 text-rose-300" />
+                <Phone weight="fill" className="h-4 w-4 text-white" />
                 <span>Request Same-Day Quote / Call Me</span>
               </button>
 
               <div className="grid grid-cols-2 gap-3">
                 <a
-                  href="tel:02081234567"
+                  href="tel:+447969559746"
                   className="flex items-center justify-center gap-2 h-11 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs border border-slate-200 transition-colors"
                 >
-                  <span>Dial 020 8123 4567</span>
+                  <span>Dial +44 7969 559746</span>
                 </a>
 
                 <button
                   onClick={() => openCallMe(`Artwork Check for ${product.title}`, selectedOptions)}
                   className="flex items-center justify-center gap-2 h-11 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs border border-slate-200 transition-colors cursor-pointer"
                 >
-                  <Sparkles className="h-3.5 w-3.5 text-[#4a0e35]" />
+                  <Sparkle weight="fill" className="h-3.5 w-3.5 text-[#012169]" />
                   <span>Free Artwork Proof</span>
                 </button>
               </div>
@@ -387,7 +387,7 @@ export default function ProductDetailPage() {
               </div>
               <Link
                 href={product.category === 'Clothing' ? '/clothing' : '/'}
-                className="text-xs font-bold text-[#4a0e35] hover:underline"
+                className="text-xs font-bold text-[#012169] hover:underline"
               >
                 View Full Catalog →
               </Link>

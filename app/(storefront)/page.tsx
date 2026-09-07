@@ -7,16 +7,7 @@ import { SearchFilterBar } from '@/components/storefront/SearchFilterBar';
 import { ProductGrid } from '@/components/storefront/ProductGrid';
 import { Product } from '@/lib/types';
 import { getProducts, getCategories } from '@/lib/db';
-import {
-  Zap,
-  CheckCircle,
-  Truck,
-  Layers,
-  Sparkles,
-  Star,
-  Clock,
-  ShieldCheck,
-} from 'lucide-react';
+import { Star } from '@phosphor-icons/react';
 import { useCallMe } from '@/components/storefront/CallMeContext';
 
 export default function PrintingCatalogPage() {
@@ -151,7 +142,7 @@ export default function PrintingCatalogPage() {
       <section className="bg-white py-16 border-y border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-12">
-            <span className="text-xs font-bold text-rose-600 uppercase tracking-wider">
+            <span className="text-xs font-bold text-[#C8102E] uppercase tracking-wider">
               Speed • Precision • Quality
             </span>
             <h2 className="text-3xl font-black text-slate-900 mt-1">
@@ -164,7 +155,7 @@ export default function PrintingCatalogPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="relative rounded-2xl bg-slate-50 p-6 border border-slate-200/80 shadow-xs">
-              <div className="h-12 w-12 rounded-xl bg-[#4a0e35] text-white flex items-center justify-center font-black text-lg mb-4 shadow-md">
+              <div className="h-12 w-12 rounded-xl bg-[#012169] text-white flex items-center justify-center font-black text-lg mb-4 shadow-md">
                 1
               </div>
               <h3 className="text-lg font-bold text-slate-900 mb-2">
@@ -176,7 +167,7 @@ export default function PrintingCatalogPage() {
             </div>
 
             <div className="relative rounded-2xl bg-slate-50 p-6 border border-slate-200/80 shadow-xs">
-              <div className="h-12 w-12 rounded-xl bg-rose-600 text-white flex items-center justify-center font-black text-lg mb-4 shadow-md">
+              <div className="h-12 w-12 rounded-xl bg-[#C8102E] text-white flex items-center justify-center font-black text-lg mb-4 shadow-md">
                 2
               </div>
               <h3 className="text-lg font-bold text-slate-900 mb-2">
@@ -188,7 +179,7 @@ export default function PrintingCatalogPage() {
             </div>
 
             <div className="relative rounded-2xl bg-slate-50 p-6 border border-slate-200/80 shadow-xs">
-              <div className="h-12 w-12 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-black text-lg mb-4 shadow-md">
+              <div className="h-12 w-12 rounded-xl bg-[#012169] text-white flex items-center justify-center font-black text-lg mb-4 shadow-md">
                 3
               </div>
               <h3 className="text-lg font-bold text-slate-900 mb-2">
@@ -204,44 +195,44 @@ export default function PrintingCatalogPage() {
 
       {/* Trust & Testimonials */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
-        <div className="rounded-3xl bg-gradient-to-br from-slate-900 to-[#2e0921] p-8 sm:p-12 text-white shadow-xl border border-slate-800">
+        <div className="rounded-3xl bg-[#012169] p-8 sm:p-12 text-white shadow-xl border border-white/15">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-center">
             <div>
-              <div className="flex items-center gap-1 text-amber-400 mb-3">
+              <div className="flex items-center gap-1 text-amber-300 mb-3">
                 {Array.from({ length: 5 }).map((_, i) => (
-                  <Star key={i} className="h-5 w-5 fill-amber-400" />
+                  <Star key={i} className="h-5 w-5 fill-amber-300" />
                 ))}
               </div>
               <h3 className="text-2xl font-black">Rated 4.9/5 by London Businesses</h3>
-              <p className="mt-2 text-xs text-slate-300 leading-relaxed">
+              <p className="mt-2 text-sm text-white/80 leading-relaxed">
                 Trusted by hundreds of event organizers, restaurants, retail shops, agencies, and corporations across Greater London.
               </p>
               <button
                 onClick={() => openCallMe('General Printing Consultation')}
-                className="mt-6 px-5 py-2.5 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs shadow-md transition-all cursor-pointer"
+                className="mt-6 px-6 py-3 rounded-xl bg-[#C8102E] hover:bg-[#A80C24] text-white font-bold text-sm shadow-md transition-all cursor-pointer border border-[#C8102E]"
               >
                 Speak to a Print Expert
               </button>
             </div>
 
             <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="rounded-2xl bg-white/10 p-5 border border-white/10 backdrop-blur-md">
-                <p className="text-xs text-slate-200 italic leading-relaxed">
+              <div className="rounded-2xl bg-white/10 p-6 border border-white/15 backdrop-blur-md">
+                <p className="text-sm text-white/90 italic leading-relaxed">
                   &ldquo;Saved our event! Requested an urgent turnaround in the morning and our order was ready for pickup by early afternoon. Flawless quality.&rdquo;
                 </p>
                 <div className="mt-4 flex items-center justify-between text-xs">
-                  <span className="font-bold text-rose-300">Marcus Sterling</span>
-                  <span className="text-slate-400">Tech Summit London</span>
+                  <span className="font-bold text-white">Marcus Sterling</span>
+                  <span className="text-white/70">Tech Summit London</span>
                 </div>
               </div>
 
-              <div className="rounded-2xl bg-white/10 p-5 border border-white/10 backdrop-blur-md">
-                <p className="text-xs text-slate-200 italic leading-relaxed">
+              <div className="rounded-2xl bg-white/10 p-6 border border-white/15 backdrop-blur-md">
+                <p className="text-sm text-white/90 italic leading-relaxed">
                   &ldquo;The print finish and paper quality exceeded all expectations. The Print Today team on Green St is unmatched in turnaround speed and service.&rdquo;
                 </p>
                 <div className="mt-4 flex items-center justify-between text-xs">
-                  <span className="font-bold text-rose-300">Priya Patel</span>
-                  <span className="text-slate-400">Architecture Studio</span>
+                  <span className="font-bold text-white">Priya Patel</span>
+                  <span className="text-white/70">Architecture Studio</span>
                 </div>
               </div>
             </div>

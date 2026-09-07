@@ -5,7 +5,7 @@ import { motion, HTMLMotionProps } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
 interface ButtonProps extends HTMLMotionProps<'button'> {
-  variant?: 'primary' | 'plum' | 'secondary' | 'outline' | 'ghost' | 'danger';
+  variant?: 'primary' | 'plum' | 'uk-blue' | 'uk-red' | 'secondary' | 'outline' | 'ghost' | 'danger';
   size?: 'sm' | 'md' | 'lg' | 'icon';
   isLoading?: boolean;
 }
@@ -32,9 +32,13 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 
     const variantStyles = {
       primary:
-        'bg-slate-900 text-white hover:bg-slate-800 active:bg-slate-950 shadow-sm shadow-slate-950/10 border border-slate-800/80',
+        'bg-[#012169] text-white hover:bg-[#0A358C] active:bg-[#001548] shadow-md shadow-[#012169]/20 border border-[#012169]/30 hover:shadow-[#012169]/30',
       plum:
-        'bg-[#4a0e35] text-white hover:bg-[#5e1343] active:bg-[#390b29] shadow-md shadow-[#4a0e35]/20 border border-[#4a0e35]/30 hover:shadow-[#4a0e35]/30',
+        'bg-[#012169] text-white hover:bg-[#0A358C] active:bg-[#001548] shadow-md shadow-[#012169]/20 border border-[#012169]/30 hover:shadow-[#012169]/30',
+      'uk-blue':
+        'bg-[#012169] text-white hover:bg-[#0A358C] active:bg-[#001548] shadow-md shadow-[#012169]/20 border border-[#012169]/30 hover:shadow-[#012169]/30',
+      'uk-red':
+        'bg-[#C8102E] text-white hover:bg-[#A80C24] active:bg-[#85081C] shadow-md shadow-[#C8102E]/20 border border-[#C8102E]/30 hover:shadow-[#C8102E]/30',
       secondary:
         'bg-slate-100 text-slate-900 hover:bg-slate-200/80 active:bg-slate-200 border border-slate-200/60',
       outline:
@@ -42,7 +46,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       ghost:
         'bg-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100 active:bg-slate-200',
       danger:
-        'bg-rose-600 text-white hover:bg-rose-700 active:bg-rose-800 shadow-sm border border-rose-700',
+        'bg-[#C8102E] text-white hover:bg-[#A80C24] active:bg-[#85081C] shadow-sm border border-red-700',
     };
 
     return (
@@ -53,7 +57,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         transition={{ duration: 0.15 }}
         disabled={disabled || isLoading}
         className={cn(
-          'inline-flex items-center justify-center font-medium transition-all focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[#4a0e35]/30 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed select-none',
+          'inline-flex items-center justify-center font-medium transition-all focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-[#012169]/30 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed select-none',
           sizeStyles[size],
           variantStyles[variant],
           className

@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useRef, useState } from 'react';
-import { motion, useMotionValue, useSpring, useTransform, HTMLMotionProps } from 'framer-motion';
+import React, { useState } from 'react';
+import { motion, HTMLMotionProps } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
 interface Card3DProps extends HTMLMotionProps<'div'> {
@@ -10,77 +10,41 @@ interface Card3DProps extends HTMLMotionProps<'div'> {
   depth?: number;
 }
 
+/**
+ * Elevated Card component optimized for razor-sharp typography without GPU text-blur.
+ * Avoids 3D perspective / scale matrix distortions that cause font rasterization artifacts.
+ */
 export function Card3D({
   children,
   className,
   depth = 12,
   ...props
 }: Card3DProps) {
-  const ref = useRef<HTMLDivElement>(null);
   const [isHovered, setIsHovered] = useState(false);
-
-  const x = useMotionValue(0);
-  const y = useMotionValue(0);
-
-  const mouseXSpring = useSpring(x, { stiffness: 300, damping: 20 });
-  const mouseYSpring = useSpring(y, { stiffness: 300, damping: 20 });
-
-  const rotateX = useTransform(mouseYSpring, [-0.5, 0.5], [depth, -depth]);
-  const rotateY = useTransform(mouseXSpring, [-0.5, 0.5], [-depth, depth]);
-
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!ref.current) return;
-    const rect = ref.current.getBoundingClientRect();
-    const width = rect.width;
-    const height = rect.height;
-
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
-
-    const xPct = mouseX / width - 0.5;
-    const yPct = mouseY / height - 0.5;
-
-    x.set(xPct);
-    y.set(yPct);
-  };
-
-  const handleMouseEnter = () => {
-    setIsHovered(true);
-  };
-
-  const handleMouseLeave = () => {
-    setIsHovered(false);
-    x.set(0);
-    y.set(0);
-  };
 
   return (
     <motion.div
-      ref={ref}
-      onMouseMove={handleMouseMove}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-      style={{
-        rotateX,
-        rotateY,
-        transformStyle: 'preserve-3d',
-      }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       animate={{
-        scale: isHovered ? 1.02 : 1,
+        y: isHovered ? -5 : 0,
       }}
-      transition={{ duration: 0.2 }}
+      transition={{ type: 'spring', stiffness: 400, damping: 25 }}
       className={cn(
-        'relative rounded-2xl bg-white transition-shadow duration-300',
+        'relative rounded-2xl bg-white transition-all duration-200',
         isHovered
-          ? 'shadow-2xl shadow-purple-950/10 ring-1 ring-[#4a0e35]/15'
-          : 'shadow-md shadow-slate-200/60 border border-slate-200/60',
+          ? 'shadow-xl shadow-[#012169]/12 ring-2 ring-[#012169]/20'
+          : 'shadow-sm shadow-slate-200/60 border border-slate-200/70',
         className
       )}
+      style={{
+        transform: 'translateZ(0)',
+        backfaceVisibility: 'hidden',
+        WebkitFontSmoothing: 'antialiased',
+      }}
       {...props}
     >
-      <div style={{ transform: 'translateZ(20px)' }} className="h-full w-full">
-        {children}
-      </div>
+      <div className="h-full w-full">{children}</div>
     </motion.div>
   );
 }

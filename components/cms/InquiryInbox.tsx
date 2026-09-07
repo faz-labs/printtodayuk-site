@@ -6,14 +6,11 @@ import { formatDate } from '@/lib/utils';
 import { Badge } from '@/components/ui/Badge';
 import {
   Phone,
-  MessageSquare,
+  ChatCircleDots,
   Clock,
-  Trash2,
-  CheckCircle,
-  AlertCircle,
-  ExternalLink,
-  Sparkles,
-} from 'lucide-react';
+  Trash,
+  Sparkle,
+} from '@phosphor-icons/react';
 
 interface InquiryInboxProps {
   inquiries: Inquiry[];
@@ -29,19 +26,28 @@ export function InquiryInbox({
   const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'contacted' | 'resolved'>('all');
   const [loadingId, setLoadingId] = useState<string | null>(null);
 
+  const pendingCount = useMemo(
+    () => inquiries.filter((i) => i.status === 'pending' || !i.status).length,
+    [inquiries]
+  );
+
   const filteredInquiries = useMemo(() => {
-    return inquiries.filter((inq) => {
-      if (filterStatus !== 'all' && (inq.status || 'pending') !== filterStatus) {
-        return false;
-      }
-      return true;
+    return inquiries.filter((inquiry) => {
+      if (filterStatus === 'all') return true;
+      const st = inquiry.status || 'pending';
+      return st === filterStatus;
     });
   }, [inquiries, filterStatus]);
 
-  const handleStatusChange = async (id: string, newStatus: 'pending' | 'contacted' | 'resolved') => {
+  const handleStatusChange = async (
+    id: string,
+    status: 'pending' | 'contacted' | 'resolved'
+  ) => {
     setLoadingId(id);
     try {
-      await onUpdateStatus(id, newStatus);
+      await onUpdateStatus(id, status);
+    } catch (err) {
+      console.error('Failed to update status:', err);
     } finally {
       setLoadingId(null);
     }
@@ -52,26 +58,26 @@ export function InquiryInbox({
       setLoadingId(id);
       try {
         await onDeleteInquiry(id);
+      } catch (err) {
+        console.error('Failed to delete inquiry:', err);
       } finally {
         setLoadingId(null);
       }
     }
   };
 
-  const pendingCount = inquiries.filter((i) => (i.status || 'pending') === 'pending').length;
-
   return (
     <div className="space-y-6">
-      {/* Top Filter Bar */}
+      {/* Filters Bar */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
           {(['all', 'pending', 'contacted', 'resolved'] as const).map((st) => (
             <button
               key={st}
               onClick={() => setFilterStatus(st)}
               className={`capitalize px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 filterStatus === st
-                  ? 'bg-[#4a0e35] text-white shadow-xs'
+                  ? 'bg-[#012169] text-white shadow-xs'
                   : 'bg-slate-100 text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -88,7 +94,7 @@ export function InquiryInbox({
       {/* Inquiry Cards / List */}
       {filteredInquiries.length === 0 ? (
         <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center shadow-xs">
-          <Sparkles className="h-10 w-10 text-slate-300 mx-auto mb-3" />
+          <Sparkle weight="fill" className="h-10 w-10 text-slate-300 mx-auto mb-3" />
           <h4 className="text-base font-bold text-slate-900">No Inquiries in this view</h4>
           <p className="mt-1 text-xs text-slate-500">
             Customer submissions through the &ldquo;Call Me&rdquo; and quote forms will appear here in real-time.
@@ -103,7 +109,7 @@ export function InquiryInbox({
             return (
               <div
                 key={inquiry.id || inquiry.createdAt}
-                className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs hover:border-[#4a0e35]/30 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4"
+                className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs hover:border-[#012169]/30 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4"
               >
                 {/* Left Info */}
                 <div className="space-y-2 flex-1">
@@ -112,19 +118,19 @@ export function InquiryInbox({
                       {inquiry.name || 'Anonymous Lead'}
                     </span>
                     <span className="text-xs text-slate-400">•</span>
-                    <span className="text-xs font-bold text-rose-600 font-mono">
+                    <span className="text-xs font-bold text-[#C8102E] font-mono">
                       {inquiry.phone}
                     </span>
                     <span className="text-xs text-slate-400">•</span>
                     <span className="text-[11px] text-slate-400 flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
+                      <Clock weight="bold" className="h-3 w-3" />
                       {formatDate(inquiry.createdAt)}
                     </span>
                   </div>
 
                   {inquiry.productTitle && (
-                    <div className="text-xs text-[#4a0e35] font-semibold flex items-center gap-1 bg-[#4a0e35]/5 px-2.5 py-1 rounded-md max-w-fit">
-                      <Sparkles className="h-3.5 w-3.5" />
+                    <div className="text-xs text-[#012169] font-semibold flex items-center gap-1 bg-[#012169]/5 px-2.5 py-1 rounded-md max-w-fit">
+                      <Sparkle weight="fill" className="h-3.5 w-3.5" />
                       <span>Product: {inquiry.productTitle}</span>
                     </div>
                   )}
@@ -178,7 +184,7 @@ export function InquiryInbox({
                     href={`tel:${cleanPhone}`}
                     className="inline-flex items-center gap-1.5 h-9 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-colors"
                   >
-                    <Phone className="h-3.5 w-3.5 text-rose-300" />
+                    <Phone weight="fill" className="h-3.5 w-3.5 text-rose-300" />
                     <span>Dial</span>
                   </a>
 
@@ -189,7 +195,7 @@ export function InquiryInbox({
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1.5 h-9 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-colors"
                   >
-                    <MessageSquare className="h-3.5 w-3.5" />
+                    <ChatCircleDots weight="bold" className="h-3.5 w-3.5" />
                     <span>WhatsApp</span>
                   </a>
 
@@ -200,7 +206,7 @@ export function InquiryInbox({
                     className="h-9 w-9 flex items-center justify-center rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer disabled:opacity-50"
                     title="Delete Inquiry"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash weight="bold" className="h-4 w-4" />
                   </button>
                 </div>
               </div>

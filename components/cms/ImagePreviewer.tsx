@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { ImageIcon, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { ImageSquare, WarningCircle, CheckCircle } from '@phosphor-icons/react';
 import { isValidUrl } from '@/lib/utils';
 
 interface ImagePreviewerProps {
@@ -37,7 +37,7 @@ export function ImagePreviewer({
           value={url}
           onChange={(e) => onUrlChange(e.target.value)}
           placeholder="https://images.unsplash.com/... or https://your-domain.com/image.jpg"
-          className="flex-1 h-11 px-3.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:outline-hidden focus:border-[#4a0e35] focus:ring-2 focus:ring-[#4a0e35]/15 transition-all placeholder:text-slate-400"
+          className="flex-1 h-11 px-3.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:outline-hidden focus:border-[#012169] focus:ring-2 focus:ring-[#012169]/15 transition-all placeholder:text-slate-400"
         />
       </div>
 
@@ -54,7 +54,7 @@ export function ImagePreviewer({
               onError={() => setImgError(true)}
             />
             <div className="absolute bottom-2 right-2 bg-emerald-600/90 text-white text-[10px] font-bold px-2 py-0.5 rounded-md backdrop-blur-xs flex items-center gap-1 shadow-sm">
-              <CheckCircle2 className="h-3 w-3" />
+              <CheckCircle weight="fill" className="h-3 w-3" />
               <span>Valid URL</span>
             </div>
           </div>
@@ -62,7 +62,7 @@ export function ImagePreviewer({
           <div className="flex flex-col items-center justify-center text-center p-4">
             {imgError ? (
               <>
-                <AlertCircle className="h-8 w-8 text-amber-500 mb-1" />
+                <WarningCircle weight="fill" className="h-8 w-8 text-amber-500 mb-1" />
                 <span className="text-xs font-bold text-amber-800">
                   Image failed to load
                 </span>
@@ -72,7 +72,7 @@ export function ImagePreviewer({
               </>
             ) : (
               <>
-                <ImageIcon className="h-8 w-8 text-slate-300 mb-1" />
+                <ImageSquare weight="duotone" className="h-8 w-8 text-slate-300 mb-1" />
                 <span className="text-xs font-semibold text-slate-500">
                   Live Image Preview
                 </span>

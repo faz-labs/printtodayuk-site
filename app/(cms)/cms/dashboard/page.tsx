@@ -23,13 +23,13 @@ import { CategoryManager } from '@/components/cms/CategoryManager';
 import { InquiryInbox } from '@/components/cms/InquiryInbox';
 import {
   Package,
-  Layers,
+  Stack,
   PhoneCall,
-  Zap,
-  TrendingUp,
+  Lightning,
+  TrendUp,
   Printer,
-  Shirt,
-} from 'lucide-react';
+  TShirt,
+} from '@phosphor-icons/react';
 
 export default function CMSDashboardPage() {
   const router = useRouter();
@@ -171,8 +171,8 @@ export default function CMSDashboardPage() {
               </div>
               <div className="text-[10px] text-slate-500 mt-0.5">Active Products</div>
             </div>
-            <div className="h-11 w-11 rounded-xl bg-[#4a0e35]/10 text-[#4a0e35] flex items-center justify-center">
-              <Printer className="h-5 w-5" />
+            <div className="h-11 w-11 rounded-xl bg-[#012169]/10 text-[#012169] flex items-center justify-center">
+              <Printer className="h-5 w-5" weight="bold" />
             </div>
           </div>
 
@@ -187,7 +187,7 @@ export default function CMSDashboardPage() {
               <div className="text-[10px] text-slate-500 mt-0.5">Custom Apparels</div>
             </div>
             <div className="h-11 w-11 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
-              <Shirt className="h-5 w-5" />
+              <TShirt className="h-5 w-5" weight="bold" />
             </div>
           </div>
 
@@ -202,7 +202,7 @@ export default function CMSDashboardPage() {
               <div className="text-[10px] text-slate-500 mt-0.5">London Express Dispatch</div>
             </div>
             <div className="h-11 w-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-              <Zap className="h-5 w-5 fill-emerald-600 text-emerald-600" />
+              <Lightning className="h-5 w-5 text-emerald-600" weight="fill" />
             </div>
           </div>
 
@@ -217,7 +217,7 @@ export default function CMSDashboardPage() {
               <div className="text-[10px] text-slate-500 mt-0.5">Awaiting Callback</div>
             </div>
             <div className="h-11 w-11 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
-              <PhoneCall className="h-5 w-5" />
+              <PhoneCall className="h-5 w-5" weight="bold" />
             </div>
           </div>
         </div>
@@ -225,7 +225,7 @@ export default function CMSDashboardPage() {
         {/* Tab Views */}
         {loadingData ? (
           <div className="bg-white rounded-2xl border border-slate-200 p-16 text-center">
-            <div className="h-8 w-8 border-3 border-[#4a0e35]/30 border-t-[#4a0e35] rounded-full animate-spin mx-auto mb-3" />
+            <div className="h-8 w-8 border-3 border-[#012169]/30 border-t-[#012169] rounded-full animate-spin mx-auto mb-3" />
             <span className="text-xs font-bold text-slate-500">Syncing database...</span>
           </div>
         ) : (

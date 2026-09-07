@@ -1,11 +1,11 @@
 'use client';
 
 import React, { useState } from 'react';
-import Image, { ImageProps } from 'next/image';
-import { ImageIcon } from 'lucide-react';
+import NextImage, { ImageProps as NextImageProps } from 'next/image';
+import { ImageSquare } from '@phosphor-icons/react';
 import { cn } from '@/lib/utils';
 
-interface ImageWithFallbackProps extends Omit<ImageProps, 'src'> {
+interface ImageWithFallbackProps extends Omit<NextImageProps, 'src'> {
   src?: string | null;
   fallbackText?: string;
 }
@@ -33,7 +33,7 @@ export function ImageWithFallback({
         )}
       >
         <div className="rounded-full bg-white/80 p-3 shadow-xs mb-2 backdrop-blur-xs">
-          <ImageIcon className="h-6 w-6 text-[#4a0e35]" />
+          <ImageSquare weight="duotone" className="h-6 w-6 text-[#012169]" />
         </div>
         <span className="text-xs font-bold text-slate-700 line-clamp-1 max-w-[90%]">
           {fallbackText || alt || 'Print Today'}
@@ -49,10 +49,10 @@ export function ImageWithFallback({
     <div className="relative w-full h-full overflow-hidden bg-slate-100">
       {isLoading && (
         <div className="absolute inset-0 bg-slate-200/80 animate-pulse z-10 flex items-center justify-center">
-          <div className="h-6 w-6 border-2 border-[#4a0e35]/30 border-t-[#4a0e35] rounded-full animate-spin" />
+          <div className="h-6 w-6 border-2 border-[#012169]/30 border-t-[#012169] rounded-full animate-spin" />
         </div>
       )}
-      <Image
+      <NextImage
         src={src}
         alt={alt || 'Product Image'}
         fill={fill ?? true}

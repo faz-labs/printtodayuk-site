@@ -2,11 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { Product, ProductInput, CategoryConfig, CustomField } from '@/lib/types';
+import { slugify } from '@/lib/utils';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { ImagePreviewer } from './ImagePreviewer';
-import { slugify } from '@/lib/utils';
-import { Plus, Trash2, Zap, Sparkles, ListFilter, X } from 'lucide-react';
+import { Plus, Trash, Lightning, Sparkle, SlidersHorizontal, X, FloppyDisk } from '@phosphor-icons/react';
 
 interface ProductFormProps {
   isOpen: boolean;
@@ -271,7 +271,7 @@ export function ProductForm({
               value={title}
               onChange={(e) => handleTitleChange(e.target.value)}
               placeholder="e.g. Luxury Business Cards"
-              className="w-full h-11 px-3.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:outline-hidden focus:border-[#4a0e35] focus:ring-2 focus:ring-[#4a0e35]/15"
+              className="w-full h-11 px-3.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:outline-hidden focus:border-[#012169] focus:ring-2 focus:ring-[#012169]/15"
             />
           </div>
 
@@ -285,7 +285,7 @@ export function ProductForm({
               value={slug}
               onChange={(e) => setSlug(e.target.value)}
               placeholder="e.g. luxury-business-cards"
-              className="w-full h-11 px-3.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:outline-hidden focus:border-[#4a0e35] focus:ring-2 focus:ring-[#4a0e35]/15"
+              className="w-full h-11 px-3.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:outline-hidden focus:border-[#012169] focus:ring-2 focus:ring-[#012169]/15"
             />
           </div>
         </div>
@@ -299,7 +299,7 @@ export function ProductForm({
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              className="w-full h-11 px-3 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-900 focus:outline-hidden focus:border-[#4a0e35]"
+              className="w-full h-11 px-3 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-900 focus:outline-hidden focus:border-[#012169]"
             >
               {categories.map((cat) => (
                 <option key={cat.name} value={cat.name}>
@@ -316,7 +316,7 @@ export function ProductForm({
             <select
               value={subcategory}
               onChange={(e) => setSubcategory(e.target.value)}
-              className="w-full h-11 px-3 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-900 focus:outline-hidden focus:border-[#4a0e35]"
+              className="w-full h-11 px-3 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-900 focus:outline-hidden focus:border-[#012169]"
             >
               {availableSubcategories.map((subcat) => (
                 <option key={subcat} value={subcat}>
@@ -343,7 +343,7 @@ export function ProductForm({
               value={price}
               onChange={(e) => setPrice(e.target.value)}
               placeholder="35.00"
-              className="w-full h-11 px-3.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:outline-hidden focus:border-[#4a0e35]"
+              className="w-full h-11 px-3.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:outline-hidden focus:border-[#012169]"
             />
           </div>
 
@@ -357,7 +357,7 @@ export function ProductForm({
               value={discountedPrice}
               onChange={(e) => setDiscountedPrice(e.target.value)}
               placeholder="28.00"
-              className="w-full h-11 px-3.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:outline-hidden focus:border-[#4a0e35]"
+              className="w-full h-11 px-3.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:outline-hidden focus:border-[#012169]"
             />
           </div>
 
@@ -370,7 +370,7 @@ export function ProductForm({
               value={minQuantity}
               onChange={(e) => setMinQuantity(e.target.value)}
               placeholder="100"
-              className="w-full h-11 px-3.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:outline-hidden focus:border-[#4a0e35]"
+              className="w-full h-11 px-3.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:outline-hidden focus:border-[#012169]"
             />
           </div>
         </div>
@@ -378,7 +378,7 @@ export function ProductForm({
         {/* Same Day Toggle */}
         <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Zap className="h-4 w-4 text-emerald-600" />
+            <Lightning weight="fill" className="h-4 w-4 text-emerald-600" />
             <div>
               <div className="text-xs font-bold text-slate-900">Same-Day London Dispatch</div>
               <div className="text-[11px] text-slate-500">
@@ -390,7 +390,7 @@ export function ProductForm({
             type="checkbox"
             checked={isSameDayAvailable}
             onChange={(e) => setIsSameDayAvailable(e.target.checked)}
-            className="h-5 w-5 rounded-md text-[#4a0e35] focus:ring-[#4a0e35] cursor-pointer"
+            className="h-5 w-5 rounded-md text-[#012169] focus:ring-[#012169] cursor-pointer"
           />
         </div>
 
@@ -399,7 +399,7 @@ export function ProductForm({
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <div className="flex items-center gap-2">
-                <ListFilter className="h-4 w-4 text-[#4a0e35]" />
+                <SlidersHorizontal weight="bold" className="h-4 w-4 text-[#012169]" />
                 <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900">
                   Custom Dropdowns & Options
                 </h4>
@@ -412,7 +412,7 @@ export function ProductForm({
             <button
               type="button"
               onClick={handleAddCustomField}
-              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[#4a0e35] text-white text-xs font-bold hover:bg-[#5d1243] shadow-xs cursor-pointer"
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[#012169] text-white text-xs font-bold hover:bg-[#0A358C] shadow-xs cursor-pointer"
             >
               <Plus className="h-3.5 w-3.5" />
               <span>Add Dropdown</span>
@@ -476,7 +476,7 @@ export function ProductForm({
                         value={field.name}
                         onChange={(e) => handleUpdateFieldName(field.id, e.target.value)}
                         placeholder="e.g. Choose A Size, Choose A Finish..."
-                        className="w-full h-9 px-3 rounded-lg border border-slate-200 text-xs font-semibold text-slate-900 focus:outline-hidden focus:border-[#4a0e35]"
+                        className="w-full h-9 px-3 rounded-lg border border-slate-200 text-xs font-semibold text-slate-900 focus:outline-hidden focus:border-[#012169]"
                       />
                     </div>
                     <button
@@ -485,7 +485,7 @@ export function ProductForm({
                       className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer self-end mb-0.5"
                       title="Remove field"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash weight="bold" className="h-4 w-4" />
                     </button>
                   </div>
 
@@ -513,7 +513,7 @@ export function ProductForm({
                           }
                         }}
                         placeholder={`Add option (e.g. 66x55mm, Matt Laminate)...`}
-                        className="flex-1 h-8 px-2.5 rounded-lg border border-slate-200 text-xs text-slate-900 focus:outline-hidden focus:border-[#4a0e35]"
+                        className="flex-1 h-8 px-2.5 rounded-lg border border-slate-200 text-xs text-slate-900 focus:outline-hidden focus:border-[#012169]"
                       />
                       <button
                         type="button"
@@ -531,13 +531,13 @@ export function ProductForm({
                         {field.options.map((opt, optIdx) => (
                           <span
                             key={optIdx}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#4a0e35]/10 border border-[#4a0e35]/20 text-[#4a0e35] text-xs font-semibold"
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#012169]/10 border border-[#012169]/20 text-[#012169] text-xs font-semibold"
                           >
                             <span>{opt}</span>
                             <button
                               type="button"
                               onClick={() => handleRemoveOptionFromField(field.id, optIdx)}
-                              className="text-[#4a0e35]/60 hover:text-rose-600 cursor-pointer"
+                              className="text-[#012169]/60 hover:text-rose-600 cursor-pointer"
                             >
                               <X className="h-3 w-3" />
                             </button>
@@ -567,7 +567,7 @@ export function ProductForm({
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Detailed description of the product material, finish, dimensions, and turnaround..."
-            className="w-full p-3.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:outline-hidden focus:border-[#4a0e35] resize-none"
+            className="w-full p-3.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:outline-hidden focus:border-[#012169] resize-none"
           />
         </div>
 
@@ -588,7 +588,7 @@ export function ProductForm({
                 }
               }}
               placeholder="e.g. 450gsm Matt Laminated Silk Board"
-              className="flex-1 h-10 px-3.5 rounded-xl border border-slate-200 text-xs text-slate-900 focus:outline-hidden focus:border-[#4a0e35]"
+              className="flex-1 h-10 px-3.5 rounded-xl border border-slate-200 text-xs text-slate-900 focus:outline-hidden focus:border-[#012169]"
             />
             <button
               type="button"
@@ -601,19 +601,19 @@ export function ProductForm({
           </div>
 
           {features.length > 0 && (
-            <div className="space-y-1.5 max-h-32 overflow-y-auto">
+            <div className="space-y-1.5">
               {features.map((feat, idx) => (
                 <div
                   key={idx}
-                  className="flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-800"
+                  className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800"
                 >
                   <span className="truncate">{feat}</span>
                   <button
                     type="button"
                     onClick={() => handleRemoveFeature(idx)}
-                    className="text-rose-500 hover:text-rose-700 p-1 cursor-pointer"
+                    className="p-1 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
+                    <X className="h-4 w-4" />
                   </button>
                 </div>
               ))}
@@ -621,13 +621,20 @@ export function ProductForm({
           )}
         </div>
 
-        {/* Submit Actions */}
-        <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-2">
-          <Button type="button" variant="outline" size="md" onClick={onClose}>
+        {/* Form Actions */}
+        <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            size="md"
+            onClick={onClose}
+            disabled={isSubmitting}
+          >
             Cancel
           </Button>
-          <Button type="submit" variant="plum" size="md" isLoading={isSubmitting}>
-            {initialProduct ? 'Update Product' : 'Create Product'}
+          <Button type="submit" variant="uk-blue" size="md" isLoading={isSubmitting}>
+            <FloppyDisk weight="bold" className="h-4 w-4 mr-1.5" />
+            <span>{initialProduct ? 'Update Product' : 'Create Product'}</span>
           </Button>
         </div>
       </form>

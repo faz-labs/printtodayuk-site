@@ -6,17 +6,17 @@ import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Printer,
-  Shirt,
+  TShirt,
   Globe,
-  TrendingUp,
+  TrendUp,
   MapPin,
-  Menu,
+  List,
   X,
   Phone,
-  ExternalLink,
-  Sparkles,
-  ChevronDown,
-} from 'lucide-react';
+  ArrowSquareOut,
+  Sparkle,
+  CaretDown,
+} from '@phosphor-icons/react';
 import { cn } from '@/lib/utils';
 import { useCallMe } from './CallMeContext';
 import { CategoryConfig } from '@/lib/types';
@@ -89,9 +89,9 @@ export function Navbar() {
       name: 'Digital Marketing',
       action: () =>
         setNoticeModal(
-          'Digital Marketing: SEO, Local London Google Business optimization & paid social campaigns to grow your business.'
+          'Targeted London SEO, Google Ads, and social media campaigns designed to grow local retail, hospitality, and corporate visibility.'
         ),
-      icon: TrendingUp,
+      icon: TrendUp,
     },
     {
       name: 'Find a Studio',
@@ -126,13 +126,13 @@ export function Navbar() {
                   }}
                 />
                 <div id="navbar-text-logo" className="hidden items-center gap-2.5">
-                  <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-[#4a0e35] to-[#781857] flex items-center justify-center text-white shadow-md shadow-[#4a0e35]/20 group-hover:scale-105 transition-transform">
-                    <Printer className="h-6 w-6 text-rose-300" />
+                  <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-[#012169] to-[#0B2559] flex items-center justify-center text-white shadow-md shadow-[#012169]/20 group-hover:scale-105 transition-transform">
+                    <Printer weight="bold" className="h-6 w-6 text-red-300" />
                   </div>
                   <div className="flex flex-col">
                     <span className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 leading-none">
-                      PRINT<span className="text-[#4a0e35]">TODAY</span>
-                      <span className="text-rose-500 font-extrabold text-xs ml-1 bg-rose-50 px-1.5 py-0.5 rounded-sm border border-rose-200/60">
+                      PRINT<span className="text-[#012169]">TODAY</span>
+                      <span className="text-[#C8102E] font-extrabold text-xs ml-1 bg-red-50 px-1.5 py-0.5 rounded-sm border border-red-200/60">
                         UK
                       </span>
                     </span>
@@ -157,21 +157,23 @@ export function Navbar() {
                   className={cn(
                     'relative px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-1.5',
                     pathname === '/' || (pathname.startsWith('/product') && !pathname.includes('/clothing'))
-                      ? 'text-[#4a0e35] bg-[#4a0e35]/10 shadow-xs'
+                      ? 'text-[#012169] bg-[#012169]/10 shadow-xs'
                       : 'text-slate-700 hover:text-slate-950 hover:bg-slate-100/80'
                   )}
                 >
                   <Printer
+                    weight="bold"
                     className={cn(
                       'h-4 w-4',
-                      pathname === '/' ? 'text-[#4a0e35]' : 'text-slate-500'
+                      pathname === '/' ? 'text-[#012169]' : 'text-slate-500'
                     )}
                   />
                   <span>Printing</span>
-                  <ChevronDown
+                  <CaretDown
+                    weight="bold"
                     className={cn(
                       'h-3.5 w-3.5 transition-transform duration-200 text-slate-400',
-                      hoveredMenu === 'printing' && 'rotate-180 text-[#4a0e35]'
+                      hoveredMenu === 'printing' && 'rotate-180 text-[#012169]'
                     )}
                   />
                 </Link>
@@ -188,7 +190,7 @@ export function Navbar() {
                     >
                       <div className="px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 mb-1.5 flex items-center justify-between">
                         <span>Printing Categories</span>
-                        <span className="text-[10px] text-rose-500 font-bold">⚡ Same Day</span>
+                        <span className="text-[10px] text-[#C8102E] font-bold">⚡ Same Day</span>
                       </div>
                       <div className="space-y-0.5 max-h-72 overflow-y-auto">
                         {printingSubcategories.map((subcat) => (
@@ -196,10 +198,10 @@ export function Navbar() {
                             key={subcat}
                             href={`/?subcat=${encodeURIComponent(subcat)}`}
                             onClick={() => setHoveredMenu(null)}
-                            className="flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:text-[#4a0e35] hover:bg-[#4a0e35]/5 transition-colors group"
+                            className="flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:text-[#012169] hover:bg-[#012169]/5 transition-colors group"
                           >
                             <span className="truncate">{subcat}</span>
-                            <span className="text-slate-300 group-hover:text-[#4a0e35] group-hover:translate-x-0.5 transition-all text-xs">
+                            <span className="text-slate-300 group-hover:text-[#012169] group-hover:translate-x-0.5 transition-all text-xs">
                               →
                             </span>
                           </Link>
@@ -209,7 +211,7 @@ export function Navbar() {
                         <Link
                           href="/"
                           onClick={() => setHoveredMenu(null)}
-                          className="flex items-center justify-between px-3 py-1.5 text-[11px] font-bold text-[#4a0e35] hover:underline"
+                          className="flex items-center justify-between px-3 py-1.5 text-[11px] font-bold text-[#012169] hover:underline"
                         >
                           <span>View All Printing</span>
                           <span>→</span>
@@ -231,21 +233,23 @@ export function Navbar() {
                   className={cn(
                     'relative px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-1.5',
                     pathname === '/clothing'
-                      ? 'text-[#4a0e35] bg-[#4a0e35]/10 shadow-xs'
+                      ? 'text-[#012169] bg-[#012169]/10 shadow-xs'
                       : 'text-slate-700 hover:text-slate-950 hover:bg-slate-100/80'
                   )}
                 >
-                  <Shirt
+                  <TShirt
+                    weight="bold"
                     className={cn(
                       'h-4 w-4',
-                      pathname === '/clothing' ? 'text-[#4a0e35]' : 'text-slate-500'
+                      pathname === '/clothing' ? 'text-[#012169]' : 'text-slate-500'
                     )}
                   />
                   <span>Clothing</span>
-                  <ChevronDown
+                  <CaretDown
+                    weight="bold"
                     className={cn(
                       'h-3.5 w-3.5 transition-transform duration-200 text-slate-400',
-                      hoveredMenu === 'clothing' && 'rotate-180 text-[#4a0e35]'
+                      hoveredMenu === 'clothing' && 'rotate-180 text-[#012169]'
                     )}
                   />
                 </Link>
@@ -262,7 +266,7 @@ export function Navbar() {
                     >
                       <div className="px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 mb-1.5 flex items-center justify-between">
                         <span>Clothing Categories</span>
-                        <span className="text-[10px] text-rose-500 font-bold">⚡ Custom Apparel</span>
+                        <span className="text-[10px] text-[#C8102E] font-bold">⚡ Custom Apparel</span>
                       </div>
                       <div className="space-y-0.5 max-h-72 overflow-y-auto">
                         {clothingSubcategories.map((subcat) => (
@@ -270,10 +274,10 @@ export function Navbar() {
                             key={subcat}
                             href={`/clothing?subcat=${encodeURIComponent(subcat)}`}
                             onClick={() => setHoveredMenu(null)}
-                            className="flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:text-[#4a0e35] hover:bg-[#4a0e35]/5 transition-colors group"
+                            className="flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:text-[#012169] hover:bg-[#012169]/5 transition-colors group"
                           >
                             <span className="truncate">{subcat}</span>
-                            <span className="text-slate-300 group-hover:text-[#4a0e35] group-hover:translate-x-0.5 transition-all text-xs">
+                            <span className="text-slate-300 group-hover:text-[#012169] group-hover:translate-x-0.5 transition-all text-xs">
                               →
                             </span>
                           </Link>
@@ -283,7 +287,7 @@ export function Navbar() {
                         <Link
                           href="/clothing"
                           onClick={() => setHoveredMenu(null)}
-                          className="flex items-center justify-between px-3 py-1.5 text-[11px] font-bold text-[#4a0e35] hover:underline"
+                          className="flex items-center justify-between px-3 py-1.5 text-[11px] font-bold text-[#012169] hover:underline"
                         >
                           <span>View All Clothing</span>
                           <span>→</span>
@@ -301,10 +305,10 @@ export function Navbar() {
                 href="https://signtodayai.co.uk"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-3 py-2 text-xs font-semibold text-slate-600 hover:text-[#4a0e35] hover:bg-slate-50 rounded-lg transition-colors inline-flex items-center gap-1"
+                className="px-3 py-2 text-xs font-semibold text-slate-600 hover:text-[#012169] hover:bg-slate-50 rounded-lg transition-colors inline-flex items-center gap-1"
               >
                 <span>Signs & Banners</span>
-                <ExternalLink className="h-3 w-3 text-slate-400" />
+                <ArrowSquareOut weight="bold" className="h-3 w-3 text-slate-400" />
               </a>
 
               {/* Other Secondary Service Links */}
@@ -312,7 +316,7 @@ export function Navbar() {
                 <button
                   key={link.name}
                   onClick={link.action}
-                  className="px-3 py-2 text-xs font-semibold text-slate-600 hover:text-[#4a0e35] hover:bg-slate-50 rounded-lg transition-colors cursor-pointer"
+                  className="px-3 py-2 text-xs font-semibold text-slate-600 hover:text-[#012169] hover:bg-slate-50 rounded-lg transition-colors cursor-pointer"
                 >
                   {link.name}
                 </button>
@@ -323,22 +327,22 @@ export function Navbar() {
             <div className="flex items-center gap-3">
               <button
                 onClick={() => openCallMe()}
-                className="hidden sm:inline-flex items-center gap-2 bg-[#4a0e35] hover:bg-[#5d1243] text-white px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 shadow-md shadow-[#4a0e35]/20 hover:scale-102 cursor-pointer"
+                className="hidden sm:inline-flex items-center gap-2 bg-[#C8102E] hover:bg-[#A80C24] text-white px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 shadow-md shadow-[#C8102E]/20 hover:scale-102 cursor-pointer"
               >
-                <Phone className="h-3.5 w-3.5 text-rose-300" />
+                <Phone weight="fill" className="h-3.5 w-3.5 text-white" />
                 <span>Instant Quote</span>
               </button>
 
               {/* Mobile Menu Button */}
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="lg:hidden p-2 rounded-xl text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+                className="lg:hidden p-2 rounded-xl text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-colors cursor-pointer"
                 aria-label="Toggle navigation menu"
               >
                 {mobileMenuOpen ? (
-                  <X className="h-6 w-6" />
+                  <X weight="bold" className="h-6 w-6" />
                 ) : (
-                  <Menu className="h-6 w-6" />
+                  <List weight="bold" className="h-6 w-6" />
                 )}
               </button>
             </div>
@@ -361,10 +365,10 @@ export function Navbar() {
                 <Link
                   href="/"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-bold bg-[#4a0e35]/10 text-[#4a0e35]"
+                  className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-bold bg-[#012169]/10 text-[#012169]"
                 >
                   <div className="flex items-center gap-3">
-                    <Printer className="h-5 w-5" />
+                    <Printer weight="bold" className="h-5 w-5" />
                     <span>All Printing Products</span>
                   </div>
                   <span className="text-xs px-2 py-0.5 rounded-full bg-white/60 text-slate-700">
@@ -378,7 +382,7 @@ export function Navbar() {
                       key={subcat}
                       href={`/?subcat=${encodeURIComponent(subcat)}`}
                       onClick={() => setMobileMenuOpen(false)}
-                      className="block px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:text-[#4a0e35]"
+                      className="block px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:text-[#012169]"
                     >
                       {subcat}
                     </Link>
@@ -391,10 +395,10 @@ export function Navbar() {
                 <Link
                   href="/clothing"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-bold bg-[#4a0e35]/10 text-[#4a0e35]"
+                  className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-bold bg-[#012169]/10 text-[#012169]"
                 >
                   <div className="flex items-center gap-3">
-                    <Shirt className="h-5 w-5" />
+                    <TShirt weight="bold" className="h-5 w-5" />
                     <span>All Clothing & Apparel</span>
                   </div>
                   <span className="text-xs px-2 py-0.5 rounded-full bg-white/60 text-slate-700">
@@ -408,7 +412,7 @@ export function Navbar() {
                       key={subcat}
                       href={`/clothing?subcat=${encodeURIComponent(subcat)}`}
                       onClick={() => setMobileMenuOpen(false)}
-                      className="block px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:text-[#4a0e35]"
+                      className="block px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:text-[#012169]"
                     >
                       {subcat}
                     </Link>
@@ -428,7 +432,7 @@ export function Navbar() {
                   className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-50 text-left"
                 >
                   <span>Signs & Banners</span>
-                  <ExternalLink className="h-4 w-4 text-slate-400" />
+                  <ArrowSquareOut weight="bold" className="h-4 w-4 text-slate-400" />
                 </a>
 
                 {otherServices.map((link) => (
@@ -441,7 +445,7 @@ export function Navbar() {
                     className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-50 text-left"
                   >
                     <span>{link.name}</span>
-                    <ExternalLink className="h-4 w-4 text-slate-400" />
+                    <ArrowSquareOut weight="bold" className="h-4 w-4 text-slate-400" />
                   </button>
                 ))}
 
@@ -451,16 +455,16 @@ export function Navbar() {
                       setMobileMenuOpen(false);
                       openCallMe();
                     }}
-                    className="w-full flex items-center justify-center gap-2 bg-rose-500 hover:bg-rose-600 text-white font-bold py-3 rounded-xl shadow-sm text-sm"
+                    className="w-full flex items-center justify-center gap-2 bg-[#C8102E] hover:bg-[#A80C24] text-white font-bold py-3 rounded-xl shadow-sm text-sm"
                   >
-                    <Phone className="h-4 w-4" />
+                    <Phone weight="fill" className="h-4 w-4" />
                     <span>Call Me / Instant Quote</span>
                   </button>
                   <a
-                    href="tel:02081234567"
-                    className="flex items-center justify-center gap-2 text-xs font-semibold text-[#4a0e35] py-2"
+                    href="tel:+447969559746"
+                    className="flex items-center justify-center gap-2 text-xs font-semibold text-[#012169] py-2"
                   >
-                    Direct Dial: 020 8123 4567
+                    Direct Dial: +44 7969 559746
                   </a>
                 </div>
               </div>
@@ -477,8 +481,8 @@ export function Navbar() {
             animate={{ opacity: 1, scale: 1 }}
             className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl border border-slate-100"
           >
-            <div className="flex items-center gap-2 text-[#4a0e35] mb-2 font-bold">
-              <Sparkles className="h-5 w-5 text-rose-500" />
+            <div className="flex items-center gap-2 text-[#012169] mb-2 font-bold">
+              <Sparkle weight="fill" className="h-5 w-5 text-[#C8102E]" />
               <span>Studio Information</span>
             </div>
             <p className="text-sm text-slate-600 leading-relaxed">{noticeModal}</p>
@@ -488,7 +492,7 @@ export function Navbar() {
                   setNoticeModal(null);
                   openCallMe();
                 }}
-                className="px-4 py-2 bg-[#4a0e35] text-white text-xs font-bold rounded-xl hover:bg-[#5d1243]"
+                className="px-4 py-2 bg-[#012169] text-white text-xs font-bold rounded-xl hover:bg-[#0A358C]"
               >
                 Inquire Now
               </button>
@@ -505,4 +509,3 @@ export function Navbar() {
     </>
   );
 }
-

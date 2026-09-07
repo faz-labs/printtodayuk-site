@@ -8,12 +8,12 @@ import { Button } from '@/components/ui/Button';
 import {
   Printer,
   Lock,
-  Mail,
+  Envelope,
   Eye,
-  EyeOff,
+  EyeSlash,
   ArrowRight,
-  ShieldAlert,
-} from 'lucide-react';
+  WarningCircle,
+} from '@phosphor-icons/react';
 
 export default function CMSLoginPage() {
   const router = useRouter();
@@ -53,19 +53,19 @@ export default function CMSLoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-center items-center p-4 bg-gradient-to-b from-slate-950 via-[#23051a] to-[#12020e] text-white">
+    <div className="min-h-screen flex flex-col justify-center items-center p-4 bg-gradient-to-b from-slate-950 via-[#011640] to-[#000d2b] text-white">
       {/* Ambient background glow */}
-      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-rose-600/15 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-[#C8102E]/15 rounded-full blur-3xl pointer-events-none" />
 
       <div className="relative w-full max-w-md bg-white text-slate-900 rounded-3xl p-8 sm:p-10 shadow-2xl border border-slate-100">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="mx-auto h-14 w-14 rounded-2xl bg-gradient-to-br from-[#4a0e35] to-[#781857] flex items-center justify-center text-white shadow-lg shadow-[#4a0e35]/30 mb-4">
-            <Printer className="h-7 w-7 text-rose-300" />
+          <div className="mx-auto h-14 w-14 rounded-2xl bg-gradient-to-br from-[#012169] to-[#0B2559] flex items-center justify-center text-white shadow-lg shadow-[#012169]/30 mb-4">
+            <Printer className="h-7 w-7 text-red-300" />
           </div>
 
           <h1 className="text-2xl font-black tracking-tight text-slate-900">
-            PRINT<span className="text-[#4a0e35]">TODAY</span> CMS
+            PRINT<span className="text-[#012169]">TODAY</span> CMS
           </h1>
           <p className="mt-1 text-xs text-slate-500 font-medium">
             Administrative portal for catalog management, pricing, and customer inquiries.
@@ -75,7 +75,7 @@ export default function CMSLoginPage() {
         {/* Error alert */}
         {error && (
           <div className="mb-5 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700 font-semibold flex items-start gap-2">
-            <ShieldAlert className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
+            <WarningCircle className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" weight="bold" />
             <span>{error}</span>
           </div>
         )}
@@ -94,9 +94,9 @@ export default function CMSLoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="admin@yourdomain.com"
-                className="w-full h-11 pl-10 pr-4 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:bg-white focus:border-[#4a0e35] focus:ring-2 focus:ring-[#4a0e35]/15 transition-all"
+                className="w-full h-11 pl-10 pr-4 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:bg-white focus:border-[#012169] focus:ring-2 focus:ring-[#012169]/15 transition-all"
               />
-              <Mail className="absolute left-3.5 top-3.5 h-4 w-4 text-slate-400" />
+              <Envelope className="absolute left-3.5 top-3.5 h-4 w-4 text-slate-400" weight="bold" />
             </div>
           </div>
 
@@ -112,9 +112,9 @@ export default function CMSLoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full h-11 pl-10 pr-10 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:bg-white focus:border-[#4a0e35] focus:ring-2 focus:ring-[#4a0e35]/15 transition-all"
+                className="w-full h-11 pl-10 pr-10 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:bg-white focus:border-[#012169] focus:ring-2 focus:ring-[#012169]/15 transition-all"
               />
-              <Lock className="absolute left-3.5 top-3.5 h-4 w-4 text-slate-400" />
+              <Lock className="absolute left-3.5 top-3.5 h-4 w-4 text-slate-400" weight="bold" />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
@@ -122,9 +122,9 @@ export default function CMSLoginPage() {
                 aria-label="Toggle password visibility"
               >
                 {showPassword ? (
-                  <EyeOff className="h-4 w-4" />
+                  <EyeSlash className="h-4 w-4" weight="bold" />
                 ) : (
-                  <Eye className="h-4 w-4" />
+                  <Eye className="h-4 w-4" weight="bold" />
                 )}
               </button>
             </div>
@@ -132,7 +132,7 @@ export default function CMSLoginPage() {
 
           <Button
             type="submit"
-            variant="plum"
+            variant="uk-blue"
             size="lg"
             isLoading={isSubmitting}
             className="w-full mt-2"

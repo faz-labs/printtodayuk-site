@@ -38,13 +38,14 @@ export interface CategoryConfig {
 
 export interface Inquiry {
   id?: string;
-  type: InquiryType;
+  type?: InquiryType;
   name?: string;
   phone: string;
   email?: string;
   details?: string;
   productId?: string;
   productTitle?: string;
+  productContext?: string;
   selectedOptions?: Record<string, string>;
   status?: 'pending' | 'contacted' | 'resolved';
   createdAt: number;

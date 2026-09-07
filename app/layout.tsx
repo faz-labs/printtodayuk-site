@@ -2,7 +2,11 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 
-const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
+const inter = Inter({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-sans',
+});
 
 export const metadata: Metadata = {
   title: 'Print Today | Same Day Custom Printing & Apparel in London',
@@ -16,8 +20,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={inter.variable}>
-      <body className="min-h-screen bg-slate-50 text-slate-900 antialiased selection:bg-rose-500 selection:text-white">
+    <html lang="en" className={`${inter.variable} ${inter.className}`}>
+      <body className="min-h-screen bg-slate-50 text-slate-900 font-sans antialiased selection:bg-[#C8102E] selection:text-white">
         {children}
       </body>
     </html>

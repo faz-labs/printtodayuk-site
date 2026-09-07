@@ -1,22 +1,20 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Grid,
-  ChevronDown,
-  ChevronRight,
+  SquaresFour,
+  CaretDown,
+  CaretRight,
   X,
-  Search,
+  MagnifyingGlass,
   Printer,
-  Shirt,
-  Layers,
-  Sparkles,
+  TShirt,
+  Stack,
+  Sparkle,
   ArrowRight,
-  Tag,
-} from 'lucide-react';
+} from '@phosphor-icons/react';
 import { CategoryConfig } from '@/lib/types';
 import { getCategories } from '@/lib/db';
 import { Badge } from '@/components/ui/Badge';
@@ -71,8 +69,8 @@ export function CategoryMegaMenu({
   const getCategoryIcon = (name: string) => {
     const n = name.toLowerCase();
     if (n.includes('print')) return Printer;
-    if (n.includes('cloth') || n.includes('apparel')) return Shirt;
-    return Layers;
+    if (n.includes('cloth') || n.includes('apparel')) return TShirt;
+    return Stack;
   };
 
   return (
@@ -83,15 +81,16 @@ export function CategoryMegaMenu({
           onClick={() => setIsOpen(!isOpen)}
           className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
             isOpen
-              ? 'bg-[#4a0e35] text-white border-[#4a0e35] shadow-xs'
+              ? 'bg-[#012169] text-white border-[#012169] shadow-xs'
               : 'bg-slate-100/90 text-slate-800 border-slate-200/80 hover:bg-slate-200/80'
           }`}
           aria-expanded={isOpen}
           aria-label="Browse All Categories"
         >
-          <Grid className="h-3.5 w-3.5 text-rose-500" />
+          <SquaresFour weight="bold" className="h-3.5 w-3.5 text-[#C8102E]" />
           <span>All Categories</span>
-          <ChevronDown
+          <CaretDown
+            weight="bold"
             className={`h-3.5 w-3.5 transition-transform duration-200 ${
               isOpen ? 'rotate-180' : ''
             }`}
@@ -104,13 +103,14 @@ export function CategoryMegaMenu({
           onClick={() => setIsOpen(!isOpen)}
           className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer border ${
             isOpen
-              ? 'bg-[#4a0e35] text-white border-[#4a0e35]'
-              : 'bg-rose-50 text-[#4a0e35] border-rose-200 hover:bg-rose-100/70'
+              ? 'bg-[#012169] text-white border-[#012169]'
+              : 'bg-blue-50 text-[#012169] border-blue-200 hover:bg-blue-100/70'
           }`}
         >
-          <Grid className="h-3.5 w-3.5 text-rose-600" />
+          <SquaresFour weight="bold" className="h-3.5 w-3.5 text-[#C8102E]" />
           <span>View All Categories ({categories.length})</span>
-          <ChevronDown
+          <CaretDown
+            weight="bold"
             className={`h-3.5 w-3.5 transition-transform duration-200 ${
               isOpen ? 'rotate-180' : ''
             }`}
@@ -143,7 +143,7 @@ export function CategoryMegaMenu({
                     <h3 className="text-lg font-black text-slate-900">
                       Explore All Product Categories
                     </h3>
-                    <Badge variant="plum" className="text-[10px]">
+                    <Badge variant="uk-blue" className="text-[10px]">
                       {categories.length} Categories
                     </Badge>
                   </div>
@@ -155,13 +155,13 @@ export function CategoryMegaMenu({
                 {/* Search bar inside Mega Menu */}
                 <div className="flex items-center gap-2">
                   <div className="relative w-full sm:w-56">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                    <MagnifyingGlass weight="bold" className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
                     <input
                       type="text"
                       value={filterSearch}
                       onChange={(e) => setFilterSearch(e.target.value)}
                       placeholder="Search subcategories..."
-                      className="w-full h-9 pl-9 pr-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:outline-hidden focus:bg-white focus:border-[#4a0e35]"
+                      className="w-full h-9 pl-9 pr-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:outline-hidden focus:bg-white focus:border-[#012169]"
                     />
                   </div>
 
@@ -170,7 +170,7 @@ export function CategoryMegaMenu({
                     className="p-1.5 rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700 cursor-pointer"
                     aria-label="Close menu"
                   >
-                    <X className="h-5 w-5" />
+                    <X weight="bold" className="h-5 w-5" />
                   </button>
                 </div>
               </div>
@@ -183,7 +183,7 @@ export function CategoryMegaMenu({
                   return (
                     <div
                       key={category.name}
-                      className="rounded-2xl bg-slate-50/80 p-4 border border-slate-200/80 hover:border-[#4a0e35]/30 hover:bg-slate-50 transition-all flex flex-col justify-between"
+                      className="rounded-2xl bg-slate-50/80 p-4 border border-slate-200/80 hover:border-[#012169]/30 hover:bg-slate-50 transition-all flex flex-col justify-between"
                     >
                       <div>
                         {/* Category Header */}
@@ -192,11 +192,11 @@ export function CategoryMegaMenu({
                           className="w-full flex items-center justify-between text-left group mb-3 cursor-pointer"
                         >
                           <div className="flex items-center gap-2.5">
-                            <div className="h-8 w-8 rounded-lg bg-[#4a0e35] text-white flex items-center justify-center shadow-xs">
-                              <Icon className="h-4 w-4 text-rose-300" />
+                            <div className="h-8 w-8 rounded-lg bg-[#012169] text-white flex items-center justify-center shadow-xs">
+                              <Icon weight="bold" className="h-4 w-4 text-red-300" />
                             </div>
                             <div>
-                              <div className="text-xs font-black text-slate-900 group-hover:text-[#4a0e35] transition-colors leading-tight">
+                              <div className="text-xs font-black text-slate-900 group-hover:text-[#012169] transition-colors leading-tight">
                                 {category.name}
                               </div>
                               <div className="text-[10px] text-slate-400">
@@ -204,7 +204,7 @@ export function CategoryMegaMenu({
                               </div>
                             </div>
                           </div>
-                          <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-[#4a0e35] transition-transform group-hover:translate-x-0.5" />
+                          <CaretRight weight="bold" className="h-4 w-4 text-slate-300 group-hover:text-[#012169] transition-transform group-hover:translate-x-0.5" />
                         </button>
 
                         {/* Subcategories List */}
@@ -213,7 +213,7 @@ export function CategoryMegaMenu({
                             <li key={subcat}>
                               <button
                                 onClick={() => handleSelect(category.name, subcat)}
-                                className="w-full text-left flex items-center justify-between text-[11px] font-semibold text-slate-600 hover:text-[#4a0e35] hover:bg-white p-1 rounded-md transition-colors cursor-pointer"
+                                className="w-full text-left flex items-center justify-between text-[11px] font-semibold text-slate-600 hover:text-[#012169] hover:bg-white p-1 rounded-md transition-colors cursor-pointer"
                               >
                                 <span className="truncate">{subcat}</span>
                                 <span className="text-[10px] text-slate-300">→</span>
@@ -226,10 +226,10 @@ export function CategoryMegaMenu({
                       {/* View All in Category Footer */}
                       <button
                         onClick={() => handleSelect(category.name)}
-                        className="mt-4 pt-2 border-t border-slate-200/60 text-[10px] font-bold text-[#4a0e35] hover:underline flex items-center justify-between cursor-pointer"
+                        className="mt-4 pt-2 border-t border-slate-200/60 text-[10px] font-bold text-[#012169] hover:underline flex items-center justify-between cursor-pointer"
                       >
                         <span>View All {category.name}</span>
-                        <ArrowRight className="h-3 w-3" />
+                        <ArrowRight weight="bold" className="h-3 w-3" />
                       </button>
                     </div>
                   );
@@ -239,17 +239,16 @@ export function CategoryMegaMenu({
               {/* Bottom Quick Help Banner */}
               <div className="mt-6 pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 bg-slate-50 p-4 rounded-2xl">
                 <div className="flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-rose-500" />
+                  <Sparkle weight="fill" className="h-4 w-4 text-[#C8102E]" />
                   <span>Can&apos;t find your exact size or finish? We offer bespoke custom printing.</span>
                 </div>
                 <button
                   onClick={() => {
                     setIsOpen(false);
-                    // trigger call me
                     const callMeBtn = document.querySelector('[data-callme-trigger="true"]') as HTMLButtonElement;
                     if (callMeBtn) callMeBtn.click();
                   }}
-                  className="font-bold text-[#4a0e35] hover:underline shrink-0 cursor-pointer"
+                  className="font-bold text-[#C8102E] hover:underline shrink-0 cursor-pointer"
                 >
                   Request Bespoke Quote →
                 </button>

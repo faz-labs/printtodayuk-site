@@ -8,14 +8,11 @@ import { ProductGrid } from '@/components/storefront/ProductGrid';
 import { Product } from '@/lib/types';
 import { getProducts, getCategories } from '@/lib/db';
 import {
-  Shirt,
-  Sparkles,
-  Scissors,
-  Layers,
   Flame,
-  CheckCircle2,
+  Scissors,
+  Stack,
   ShieldCheck,
-} from 'lucide-react';
+} from '@phosphor-icons/react';
 import { useCallMe } from '@/components/storefront/CallMeContext';
 
 export default function ClothingCatalogPage() {
@@ -145,7 +142,7 @@ export default function ClothingCatalogPage() {
       <section className="bg-white py-16 border-y border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-12">
-            <span className="text-xs font-bold text-[#4a0e35] uppercase tracking-wider">
+            <span className="text-xs font-bold text-[#012169] uppercase tracking-wider">
               Garment Customization Technologies
             </span>
             <h2 className="text-3xl font-black text-slate-900 mt-1">
@@ -158,7 +155,7 @@ export default function ClothingCatalogPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             <div className="rounded-2xl bg-slate-50 p-6 border border-slate-200">
-              <div className="h-10 w-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center mb-4">
+              <div className="h-10 w-10 rounded-xl bg-red-100 text-[#C8102E] flex items-center justify-center mb-4">
                 <Flame className="h-5 w-5" />
               </div>
               <h3 className="text-base font-bold text-slate-900 mb-1">
@@ -170,7 +167,7 @@ export default function ClothingCatalogPage() {
             </div>
 
             <div className="rounded-2xl bg-slate-50 p-6 border border-slate-200">
-              <div className="h-10 w-10 rounded-xl bg-[#4a0e35]/15 text-[#4a0e35] flex items-center justify-center mb-4">
+              <div className="h-10 w-10 rounded-xl bg-[#012169]/15 text-[#012169] flex items-center justify-center mb-4">
                 <Scissors className="h-5 w-5" />
               </div>
               <h3 className="text-base font-bold text-slate-900 mb-1">
@@ -182,8 +179,8 @@ export default function ClothingCatalogPage() {
             </div>
 
             <div className="rounded-2xl bg-slate-50 p-6 border border-slate-200">
-              <div className="h-10 w-10 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center mb-4">
-                <Layers className="h-5 w-5" />
+              <div className="h-10 w-10 rounded-xl bg-blue-100 text-[#012169] flex items-center justify-center mb-4">
+                <Stack weight="duotone" className="h-5 w-5" />
               </div>
               <h3 className="text-base font-bold text-slate-900 mb-1">
                 Screen Printing
@@ -210,18 +207,18 @@ export default function ClothingCatalogPage() {
 
       {/* Apparel Consultation CTA */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
-        <div className="rounded-3xl bg-[#4a0e35] p-8 sm:p-12 text-white shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6 border border-white/10">
+        <div className="rounded-3xl bg-[#012169] p-8 sm:p-12 text-white shadow-xl flex flex-col md:flex-row items-center justify-between gap-6 border border-white/15">
           <div className="max-w-xl">
             <h3 className="text-2xl sm:text-3xl font-black">
               Need custom staff uniforms or event merchandise fast?
             </h3>
-            <p className="mt-2 text-xs sm:text-sm text-rose-100/90 leading-relaxed">
+            <p className="mt-2 text-sm text-white/80 leading-relaxed">
               We stock hundreds of blank t-shirts, hoodies, and polo shirts right here at our 75 Green St studio for emergency same-day printing.
             </p>
           </div>
           <button
             onClick={() => openCallMe('Bulk Clothing Order')}
-            className="shrink-0 bg-white text-[#4a0e35] font-black px-6 py-3.5 rounded-xl text-sm shadow-xl hover:bg-rose-50 transition-all hover:scale-105 cursor-pointer"
+            className="shrink-0 bg-[#C8102E] hover:bg-[#A80C24] text-white font-bold px-6 py-3.5 rounded-xl text-sm shadow-xl transition-all hover:scale-105 cursor-pointer border border-[#C8102E]"
           >
             Get Custom Apparel Quote
           </button>

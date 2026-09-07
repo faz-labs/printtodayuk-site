@@ -7,13 +7,12 @@ import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import {
   Plus,
-  Trash2,
+  Trash,
   FolderPlus,
-  Sparkles,
+  Sparkle,
   Check,
-  Layers,
-  FolderKanban,
-} from 'lucide-react';
+  Stack,
+} from '@phosphor-icons/react';
 
 interface CategoryManagerProps {
   categories: CategoryConfig[];
@@ -42,32 +41,29 @@ export function CategoryManager({
   const [isSaving, setIsSaving] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
 
-  // Add Category Modal State
+  // Add category modal state
   const [isAddCatModalOpen, setIsAddCatModalOpen] = useState(false);
   const [newCatName, setNewCatName] = useState('');
   const [newCatDescription, setNewCatDescription] = useState('');
   const [newCatSubcats, setNewCatSubcats] = useState('');
   const [catModalError, setCatModalError] = useState('');
 
-  const currentCategory = categories.find(
-    (c) => c.name.toLowerCase() === activeCategoryName.toLowerCase()
-  ) ||
+  const currentCategory =
+    categories.find(
+      (c) => c.name.toLowerCase() === activeCategoryName.toLowerCase()
+    ) ||
     categories[0] || {
       name: 'Printing',
       subcategories: [],
     };
 
-  const handleAddSubcategory = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    const trimmed = newSubcatInput.trim();
-    if (!trimmed) return;
+  const handleAddSubcategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newSubcatInput.trim()) return;
 
-    if (
-      currentCategory.subcategories.some(
-        (s) => s.toLowerCase() === trimmed.toLowerCase()
-      )
-    ) {
-      alert('Subcategory already exists in this category.');
+    const trimmed = newSubcatInput.trim();
+    if (currentCategory.subcategories.includes(trimmed)) {
+      alert('This subcategory already exists in this category.');
       return;
     }
 
@@ -76,26 +72,32 @@ export function CategoryManager({
     try {
       await onUpdateSubcategories(currentCategory.name, updated);
       setNewSubcatInput('');
-      showSuccess(`Added "${trimmed}" to ${currentCategory.name}!`);
+      showSuccess(`Added "${trimmed}" to ${currentCategory.name}.`);
+    } catch (err: any) {
+      alert(err.message || 'Failed to add subcategory');
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleRemoveSubcategory = async (subcat: string) => {
+  const handleRemoveSubcategory = async (subcatToRemove: string) => {
     if (
-      window.confirm(
-        `Are you sure you want to remove "${subcat}" from ${currentCategory.name}?`
+      !window.confirm(
+        `Remove "${subcatToRemove}" from ${currentCategory.name}? Products in this subcategory will remain in the catalog.`
       )
     ) {
-      const updated = currentCategory.subcategories.filter((s) => s !== subcat);
-      setIsSaving(true);
-      try {
-        await onUpdateSubcategories(currentCategory.name, updated);
-        showSuccess(`Removed "${subcat}"!`);
-      } finally {
-        setIsSaving(false);
-      }
+      return;
+    }
+
+    const updated = currentCategory.subcategories.filter((s) => s !== subcatToRemove);
+    setIsSaving(true);
+    try {
+      await onUpdateSubcategories(currentCategory.name, updated);
+      showSuccess(`Removed "${subcatToRemove}".`);
+    } catch (err: any) {
+      alert(err.message || 'Failed to remove subcategory');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -103,22 +105,20 @@ export function CategoryManager({
     e.preventDefault();
     setCatModalError('');
 
-    const trimmedName = newCatName.trim();
-    if (!trimmedName) {
-      setCatModalError('Please enter a category name.');
+    if (!newCatName.trim()) {
+      setCatModalError('Category name is required.');
       return;
     }
 
-    if (
-      categories.some(
-        (c) => c.name.toLowerCase() === trimmedName.toLowerCase()
-      )
-    ) {
+    const exists = categories.some(
+      (c) => c.name.toLowerCase() === newCatName.trim().toLowerCase()
+    );
+    if (exists) {
       setCatModalError('A category with this name already exists.');
       return;
     }
 
-    const parsedSubcats = newCatSubcats
+    const subcats = newCatSubcats
       .split(',')
       .map((s) => s.trim())
       .filter((s) => s.length > 0);
@@ -127,17 +127,19 @@ export function CategoryManager({
     try {
       if (onCreateCategory) {
         await onCreateCategory({
-          name: trimmedName,
+          name: newCatName.trim(),
           description: newCatDescription.trim() || undefined,
-          subcategories: parsedSubcats.length > 0 ? parsedSubcats : ['General'],
+          subcategories: subcats,
         });
+        setActiveCategoryName(newCatName.trim());
+        setIsAddCatModalOpen(false);
+        setNewCatName('');
+        setNewCatDescription('');
+        setNewCatSubcats('');
+        showSuccess(`Category "${newCatName.trim()}" created successfully!`);
+      } else {
+        alert('Category creation not configured on this host.');
       }
-      setActiveCategoryName(trimmedName);
-      setIsAddCatModalOpen(false);
-      setNewCatName('');
-      setNewCatDescription('');
-      setNewCatSubcats('');
-      showSuccess(`Category "${trimmedName}" created successfully!`);
     } catch (err: any) {
       setCatModalError(err.message || 'Failed to create category.');
     } finally {
@@ -147,36 +149,25 @@ export function CategoryManager({
 
   const handleDeleteCategory = async (catName: string) => {
     if (
-      catName.toLowerCase() === 'printing' ||
-      catName.toLowerCase() === 'clothing'
+      !window.confirm(
+        `Are you sure you want to delete the entire category "${catName}"? This will remove its navigation tabs and filters.`
+      )
     ) {
-      if (
-        !window.confirm(
-          `"${catName}" is a core default category. Are you sure you want to delete it?`
-        )
-      ) {
-        return;
-      }
-    } else {
-      if (!window.confirm(`Are you sure you want to delete category "${catName}" and all its subcategories?`)) {
-        return;
-      }
+      return;
     }
 
     setIsSaving(true);
     try {
       if (onDeleteCategory) {
         await onDeleteCategory(catName);
+        const remaining = categories.filter((c) => c.name !== catName);
+        if (remaining.length > 0) {
+          setActiveCategoryName(remaining[0].name);
+        }
+        showSuccess(`Deleted category "${catName}".`);
       }
-      const remaining = categories.filter(
-        (c) => c.name.toLowerCase() !== catName.toLowerCase()
-      );
-      if (remaining.length > 0) {
-        setActiveCategoryName(remaining[0].name);
-      }
-      showSuccess(`Deleted category "${catName}".`);
     } catch (err: any) {
-      alert(err.message || 'Failed to delete category.');
+      alert(err.message || 'Failed to delete category');
     } finally {
       setIsSaving(false);
     }
@@ -201,11 +192,11 @@ export function CategoryManager({
         </div>
 
         <Button
-          variant="plum"
+          variant="uk-blue"
           size="md"
           onClick={() => setIsAddCatModalOpen(true)}
         >
-          <FolderPlus className="h-4 w-4 mr-1.5" />
+          <FolderPlus weight="bold" className="h-4 w-4 mr-1.5" />
           <span>Add New Category</span>
         </Button>
       </div>
@@ -221,7 +212,7 @@ export function CategoryManager({
               key={cat.name}
               className={`flex items-center gap-1.5 px-4 py-2.5 rounded-2xl font-bold text-xs transition-all border shrink-0 ${
                 isSelected
-                  ? 'bg-[#4a0e35] text-white border-[#4a0e35] shadow-md shadow-[#4a0e35]/20'
+                  ? 'bg-[#012169] text-white border-[#012169] shadow-md shadow-[#012169]/20'
                   : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
               }`}
             >
@@ -229,7 +220,7 @@ export function CategoryManager({
                 onClick={() => setActiveCategoryName(cat.name)}
                 className="flex items-center gap-2 cursor-pointer"
               >
-                <Layers className="h-3.5 w-3.5" />
+                <Stack weight="bold" className="h-3.5 w-3.5" />
                 <span>{cat.name}</span>
                 <span
                   className={`text-[10px] px-2 py-0.5 rounded-full ${
@@ -246,12 +237,12 @@ export function CategoryManager({
                   onClick={() => handleDeleteCategory(cat.name)}
                   className={`p-1 rounded-md transition-colors cursor-pointer ml-1 ${
                     isSelected
-                      ? 'text-rose-200 hover:text-white hover:bg-white/10'
+                      ? 'text-blue-200 hover:text-white hover:bg-white/10'
                       : 'text-slate-400 hover:text-rose-600 hover:bg-slate-100'
                   }`}
                   title={`Delete ${cat.name} category`}
                 >
-                  <Trash2 className="h-3 w-3" />
+                  <Trash weight="bold" className="h-3 w-3" />
                 </button>
               )}
             </div>
@@ -267,7 +258,7 @@ export function CategoryManager({
               <h3 className="text-base font-black text-slate-900">
                 {currentCategory.name}
               </h3>
-              <Badge variant="plum" className="text-[10px]">
+              <Badge variant="uk-blue" className="text-[10px]">
                 {currentCategory.subcategories.length} Subcategories
               </Badge>
             </div>
@@ -281,7 +272,7 @@ export function CategoryManager({
 
         {successMessage && (
           <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 font-bold flex items-center gap-2">
-            <Check className="h-4 w-4 text-emerald-600" />
+            <Check weight="bold" className="h-4 w-4 text-emerald-600" />
             <span>{successMessage}</span>
           </div>
         )}
@@ -293,10 +284,10 @@ export function CategoryManager({
             value={newSubcatInput}
             onChange={(e) => setNewSubcatInput(e.target.value)}
             placeholder={`Add subcategory to ${currentCategory.name} (e.g. Roll-Up Banners)...`}
-            className="flex-1 h-11 px-3.5 rounded-xl border border-slate-200 bg-slate-50 text-xs text-slate-900 focus:outline-hidden focus:bg-white focus:border-[#4a0e35]"
+            className="flex-1 h-11 px-3.5 rounded-xl border border-slate-200 bg-slate-50 text-xs text-slate-900 focus:outline-hidden focus:bg-white focus:border-[#012169]"
           />
-          <Button type="submit" variant="plum" size="md" isLoading={isSaving}>
-            <Plus className="h-4 w-4 mr-1" />
+          <Button type="submit" variant="uk-blue" size="md" isLoading={isSaving}>
+            <Plus weight="bold" className="h-4 w-4 mr-1" />
             <span>Add</span>
           </Button>
         </form>
@@ -326,7 +317,7 @@ export function CategoryManager({
                     className="p-1 text-slate-400 hover:text-rose-600 rounded-lg transition-colors cursor-pointer shrink-0 ml-2"
                     title={`Delete ${subcat}`}
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
+                    <Trash weight="bold" className="h-3.5 w-3.5" />
                   </button>
                 </div>
               ))}
@@ -360,7 +351,7 @@ export function CategoryManager({
               value={newCatName}
               onChange={(e) => setNewCatName(e.target.value)}
               placeholder="e.g. Signs & Banners, Packaging, Merchandise"
-              className="w-full h-11 px-3.5 rounded-xl border border-slate-200 bg-white text-xs text-slate-900 focus:outline-hidden focus:border-[#4a0e35]"
+              className="w-full h-11 px-3.5 rounded-xl border border-slate-200 bg-white text-xs text-slate-900 focus:outline-hidden focus:border-[#012169]"
             />
           </div>
 
@@ -373,7 +364,7 @@ export function CategoryManager({
               value={newCatDescription}
               onChange={(e) => setNewCatDescription(e.target.value)}
               placeholder="e.g. Outdoor and indoor commercial signage in London"
-              className="w-full h-11 px-3.5 rounded-xl border border-slate-200 bg-white text-xs text-slate-900 focus:outline-hidden focus:border-[#4a0e35]"
+              className="w-full h-11 px-3.5 rounded-xl border border-slate-200 bg-white text-xs text-slate-900 focus:outline-hidden focus:border-[#012169]"
             />
           </div>
 
@@ -386,7 +377,7 @@ export function CategoryManager({
               value={newCatSubcats}
               onChange={(e) => setNewCatSubcats(e.target.value)}
               placeholder="e.g. A-Boards, Window Graphics, Lightboxes, Metal Signs"
-              className="w-full p-3 rounded-xl border border-slate-200 bg-white text-xs text-slate-900 focus:outline-hidden focus:border-[#4a0e35] resize-none"
+              className="w-full p-3 rounded-xl border border-slate-200 bg-white text-xs text-slate-900 focus:outline-hidden focus:border-[#012169] resize-none"
             />
           </div>
 
@@ -401,7 +392,7 @@ export function CategoryManager({
             </Button>
             <Button
               type="submit"
-              variant="plum"
+              variant="uk-blue"
               size="md"
               isLoading={isSaving}
             >

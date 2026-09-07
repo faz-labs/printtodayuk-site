@@ -10,25 +10,23 @@ import { formatCurrency, calculateDiscount } from '@/lib/utils';
 import { seedDefaultCatalogToFirestore } from '@/lib/db';
 import {
   Plus,
-  Search,
-  Edit2,
-  Trash2,
-  ExternalLink,
-  Zap,
-  Tag,
-  Layers,
-  Sparkles,
+  MagnifyingGlass,
+  PencilSimple,
+  Trash,
+  ArrowSquareOut,
+  Lightning,
+  Sparkle,
   Database,
-  CheckCircle2,
-  AlertCircle,
-} from 'lucide-react';
+  CheckCircle,
+  WarningCircle,
+} from '@phosphor-icons/react';
 import Link from 'next/link';
 
 interface ProductManagerProps {
   products: Product[];
   categories: CategoryConfig[];
   onCreateProduct: (input: ProductInput) => Promise<void>;
-  onUpdateProduct: (id: string, updates: Partial<Product>) => Promise<void>;
+  onUpdateProduct: (id: string, input: ProductInput) => Promise<void>;
   onDeleteProduct: (id: string) => Promise<void>;
   onRefreshData?: () => Promise<void>;
 }
@@ -49,26 +47,24 @@ export function ProductManager({
   const [isSeeding, setIsSeeding] = useState(false);
   const [notice, setNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-  const filteredProducts = useMemo(() => {
-    return products.filter((p) => {
-      if (filterCategory !== 'All' && p.category !== filterCategory) {
-        return false;
-      }
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        const matchTitle = p.title.toLowerCase().includes(q);
-        const matchSubcat = p.subcategory.toLowerCase().includes(q);
-        const matchSlug = p.slug.toLowerCase().includes(q);
-        if (!matchTitle && !matchSubcat && !matchSlug) return false;
-      }
-      return true;
-    });
-  }, [products, filterCategory, searchQuery]);
-
   const showNotification = (type: 'success' | 'error', message: string) => {
     setNotice({ type, message });
     setTimeout(() => setNotice(null), 4000);
   };
+
+  const filteredProducts = useMemo(() => {
+    return products.filter((product) => {
+      const matchSearch =
+        product.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        product.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        product.subcategory.toLowerCase().includes(searchQuery.toLowerCase());
+
+      const matchCategory =
+        filterCategory === 'All' ? true : product.category.toLowerCase() === filterCategory.toLowerCase();
+
+      return matchSearch && matchCategory;
+    });
+  }, [products, searchQuery, filterCategory]);
 
   const handleOpenCreate = () => {
     setEditingProduct(null);
@@ -84,13 +80,15 @@ export function ProductManager({
     try {
       if (id) {
         await onUpdateProduct(id, data);
-        showNotification('success', `Updated "${data.title}" successfully!`);
+        showNotification('success', `Product "${data.title}" updated successfully.`);
       } else {
         await onCreateProduct(data);
-        showNotification('success', `Created product "${data.title}"!`);
+        showNotification('success', `Product "${data.title}" created successfully.`);
       }
+      setIsFormOpen(false);
+      setEditingProduct(null);
     } catch (err: any) {
-      showNotification('error', err.message || 'Operation failed. Check Firestore rules & connection.');
+      showNotification('error', err.message || 'Failed to save product.');
       throw err;
     }
   };
@@ -142,9 +140,9 @@ export function ProductManager({
         >
           <div className="flex items-center gap-2">
             {notice.type === 'success' ? (
-              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+              <CheckCircle weight="fill" className="h-4 w-4 text-emerald-600" />
             ) : (
-              <AlertCircle className="h-4 w-4 text-rose-600" />
+              <WarningCircle weight="fill" className="h-4 w-4 text-rose-600" />
             )}
             <span>{notice.message}</span>
           </div>
@@ -162,13 +160,13 @@ export function ProductManager({
         <div className="flex flex-1 items-center gap-3">
           {/* Search */}
           <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <MagnifyingGlass weight="bold" className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search products by title, category, subcategory..."
-              className="w-full h-10 pl-10 pr-4 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:outline-hidden focus:bg-white focus:border-[#4a0e35]"
+              className="w-full h-10 pl-10 pr-4 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:outline-hidden focus:bg-white focus:border-[#012169]"
             />
           </div>
 
@@ -180,7 +178,7 @@ export function ProductManager({
                 onClick={() => setFilterCategory(cat)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                   filterCategory === cat
-                    ? 'bg-white text-[#4a0e35] shadow-xs'
+                    ? 'bg-white text-[#012169] shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
@@ -192,8 +190,8 @@ export function ProductManager({
 
         {/* Action CTAs */}
         <div className="flex items-center gap-2">
-          <Button variant="plum" size="md" onClick={handleOpenCreate}>
-            <Plus className="h-4 w-4" />
+          <Button variant="uk-blue" size="md" onClick={handleOpenCreate}>
+            <Plus weight="bold" className="h-4 w-4" />
             <span>Add Product</span>
           </Button>
         </div>
@@ -203,30 +201,30 @@ export function ProductManager({
       <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
         <div className="p-4 border-b border-slate-100 flex items-center justify-between">
           <div className="text-xs font-bold text-slate-700">
-            Total Products: <span className="text-[#4a0e35]">{filteredProducts.length}</span>
+            Total Products: <span className="text-[#012169]">{filteredProducts.length}</span>
           </div>
 
           <button
             onClick={handleSeedFirestore}
             disabled={isSeeding}
-            className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-[#4a0e35] font-semibold transition-colors cursor-pointer disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-[#012169] font-semibold transition-colors cursor-pointer disabled:opacity-50"
             title="Initialize standard categories into Firestore"
           >
-            <Database className="h-3.5 w-3.5" />
+            <Database weight="bold" className="h-3.5 w-3.5" />
             <span>{isSeeding ? 'Syncing...' : 'Sync Categories to Firestore'}</span>
           </button>
         </div>
 
         {filteredProducts.length === 0 ? (
           <div className="p-12 text-center">
-            <Sparkles className="h-10 w-10 text-slate-300 mx-auto mb-3" />
+            <Sparkle weight="fill" className="h-10 w-10 text-slate-300 mx-auto mb-3" />
             <h4 className="text-sm font-bold text-slate-900">No products found</h4>
             <p className="mt-1 text-xs text-slate-500 max-w-sm mx-auto">
               Your catalog is currently empty or no items match your search. Add a new product above to publish items to your storefront.
             </p>
             <div className="mt-4 flex justify-center gap-3">
-              <Button variant="plum" size="sm" onClick={handleOpenCreate}>
-                <Plus className="h-3.5 w-3.5 mr-1" />
+              <Button variant="uk-blue" size="sm" onClick={handleOpenCreate}>
+                <Plus weight="bold" className="h-3.5 w-3.5 mr-1" />
                 <span>Create First Product</span>
               </Button>
             </div>
@@ -276,7 +274,7 @@ export function ProductManager({
                       {/* Category */}
                       <td className="py-3.5 px-4">
                         <Badge
-                          variant={product.category === 'Printing' ? 'plum' : 'default'}
+                          variant={product.category === 'Printing' ? 'uk-blue' : 'default'}
                           className="font-bold"
                         >
                           {product.category}
@@ -294,7 +292,7 @@ export function ProductManager({
                           {formatCurrency(activePrice)}
                         </div>
                         {product.discountedPrice && (
-                          <div className="text-[10px] text-rose-600 font-semibold">
+                          <div className="text-[10px] text-[#C8102E] font-semibold">
                             -{discount}% OFF
                           </div>
                         )}
@@ -304,7 +302,7 @@ export function ProductManager({
                       <td className="py-3.5 px-4">
                         {product.isSameDayAvailable ? (
                           <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
-                            <Zap className="h-3 w-3 fill-amber-400 text-amber-400" />
+                            <Lightning weight="fill" className="h-3 w-3 text-amber-400" />
                             <span>Yes</span>
                           </span>
                         ) : (
@@ -321,15 +319,15 @@ export function ProductManager({
                             className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
                             title="View on Storefront"
                           >
-                            <ExternalLink className="h-4 w-4" />
+                            <ArrowSquareOut weight="bold" className="h-4 w-4" />
                           </Link>
 
                           <button
                             onClick={() => handleOpenEdit(product)}
-                            className="p-1.5 rounded-lg text-[#4a0e35] hover:bg-[#4a0e35]/10 transition-colors cursor-pointer"
+                            className="p-1.5 rounded-lg text-[#012169] hover:bg-[#012169]/10 transition-colors cursor-pointer"
                             title="Edit Product"
                           >
-                            <Edit2 className="h-4 w-4" />
+                            <PencilSimple weight="bold" className="h-4 w-4" />
                           </button>
 
                           <button
@@ -338,7 +336,7 @@ export function ProductManager({
                             className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 hover:text-rose-700 transition-colors cursor-pointer disabled:opacity-50"
                             title="Delete Product"
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash weight="bold" className="h-4 w-4" />
                           </button>
                         </div>
                       </td>

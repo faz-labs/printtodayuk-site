@@ -2,7 +2,7 @@ import React from 'react';
 import { cn } from '@/lib/utils';
 
 interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
-  variant?: 'default' | 'plum' | 'sameday' | 'discount' | 'outline' | 'success';
+  variant?: 'default' | 'plum' | 'uk-blue' | 'uk-red' | 'sameday' | 'discount' | 'outline' | 'success';
 }
 
 export function Badge({
@@ -13,9 +13,11 @@ export function Badge({
 }: BadgeProps) {
   const variantStyles = {
     default: 'bg-slate-100 text-slate-800 border-slate-200',
-    plum: 'bg-[#4a0e35]/10 text-[#4a0e35] border-[#4a0e35]/20 font-medium',
+    plum: 'bg-[#012169]/10 text-[#012169] border-[#012169]/20 font-semibold',
+    'uk-blue': 'bg-[#012169]/10 text-[#012169] border-[#012169]/20 font-semibold',
+    'uk-red': 'bg-[#C8102E] text-white border-red-700 font-bold shadow-xs',
     sameday: 'bg-emerald-50 text-emerald-700 border-emerald-200 font-semibold shadow-xs',
-    discount: 'bg-rose-500 text-white border-rose-600 font-bold shadow-xs',
+    discount: 'bg-[#C8102E] text-white border-red-700 font-bold shadow-xs',
     outline: 'bg-transparent text-slate-600 border-slate-200',
     success: 'bg-green-100 text-green-800 border-green-200',
   };

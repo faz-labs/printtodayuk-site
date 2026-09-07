@@ -2,7 +2,7 @@
 
 import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X } from 'lucide-react';
+import { X } from '@phosphor-icons/react';
 import { cn } from '@/lib/utils';
 
 interface ModalProps {
