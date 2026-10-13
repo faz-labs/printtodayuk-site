@@ -216,12 +216,62 @@ export default function ClothingCatalogPage() {
               We stock hundreds of blank t-shirts, hoodies, and polo shirts right here at our 75 Green St studio for emergency same-day printing.
             </p>
           </div>
-          <button
-            onClick={() => openCallMe('Bulk Clothing Order')}
-            className="shrink-0 bg-[#C8102E] hover:bg-[#A80C24] text-white font-bold px-6 py-3.5 rounded-xl text-sm shadow-xl transition-all hover:scale-105 cursor-pointer border border-[#C8102E]"
-          >
-            Get Custom Apparel Quote
-          </button>
+          <div className="flex flex-col sm:flex-row gap-3 shrink-0">
+            <button
+              onClick={() => openCallMe('Bulk Clothing Order')}
+              className="bg-[#C8102E] hover:bg-[#A80C24] text-white font-bold px-6 py-3.5 rounded-xl text-sm shadow-xl transition-all hover:scale-105 cursor-pointer border border-[#C8102E]"
+            >
+              Get Custom Apparel Quote
+            </button>
+            <a
+              href="https://wa.me/447969559746"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold px-6 py-3.5 rounded-xl text-sm shadow-md transition-all text-center"
+            >
+              WhatsApp Us
+            </a>
+          </div>
+        </div>
+      </section>
+
+      {/* Vistaprint-Style Clothing FAQs */}
+      <section className="bg-slate-50 py-14 border-t border-slate-200">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-10">
+            <span className="text-xs font-bold text-[#C8102E] uppercase tracking-wider">
+              Help & Information
+            </span>
+            <h3 className="text-2xl font-black text-slate-900 mt-1">
+              Frequently Asked Questions About Custom Clothing
+            </h3>
+          </div>
+
+          <div className="space-y-3">
+            {[
+              {
+                q: 'What is Direct-to-Film (DTF) garment printing?',
+                a: 'DTF is modern digital transfer printing that prints photographic, full-colour artwork with vivid pigments and a stretchable adhesive backing onto cotton, poly-cotton, fleece, and synthetic fabrics. It feels soft, does not crack, and remains bright through dozens of washes.',
+              },
+              {
+                q: 'Can I order a mix of sizes and colours with one design?',
+                a: 'Yes, absolutely! You can choose different sizes (from XS to 5XL) and mix garment colours under the same artwork design without extra setup fees.',
+              },
+              {
+                q: 'How should I care for my custom printed garments?',
+                a: 'Wash inside-out at 30°C or 40°C with mild detergent. Do not bleach or tumble dry on high heat. If ironing, iron inside-out or use parchment paper over the printed area.',
+              },
+              {
+                q: 'Can you match Pantone or hex brand colours?',
+                a: 'Yes, our DTF printers are calibrated with high-density CMYK+White inks. Supply your artwork in CMYK with high-resolution vector or 300 DPI graphics for optimal color matching.',
+              },
+            ].map((item, idx) => (
+              <div key={idx} className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-xs">
+                <h4 className="text-sm font-bold text-slate-900 mb-1">{item.q}</h4>
+                <p className="text-xs text-slate-600 leading-relaxed">{item.a}</p>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
     </div>

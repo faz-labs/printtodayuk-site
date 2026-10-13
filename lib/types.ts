@@ -16,6 +16,7 @@ export interface Product {
   slug: string;
   description: string;
   imageUrl: string;
+  images?: string[];
   price: number;
   discountedPrice?: number;
   category: ProductCategory;

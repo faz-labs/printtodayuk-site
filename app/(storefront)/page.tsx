@@ -3,36 +3,38 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { HeroSection } from '@/components/storefront/HeroSection';
 import { FeatureHighlights } from '@/components/storefront/FeatureHighlights';
+import { CategoryTilesSection } from '@/components/storefront/CategoryTilesSection';
+import { CuratedSolutionsSection } from '@/components/storefront/CuratedSolutionsSection';
+import { PromoCalloutBanner } from '@/components/storefront/PromoCalloutBanner';
+import { CustomerShowcaseSection } from '@/components/storefront/CustomerShowcaseSection';
+import { WhyChooseUsSection } from '@/components/storefront/WhyChooseUsSection';
+import { NewsletterSection } from '@/components/storefront/NewsletterSection';
 import { SearchFilterBar } from '@/components/storefront/SearchFilterBar';
 import { ProductGrid } from '@/components/storefront/ProductGrid';
 import { Product } from '@/lib/types';
 import { getProducts, getCategories } from '@/lib/db';
-import { Star } from '@phosphor-icons/react';
-import { useCallMe } from '@/components/storefront/CallMeContext';
+import { Lightning, Printer, TShirt, Sparkle } from '@phosphor-icons/react';
 
-export default function PrintingCatalogPage() {
-  const { openCallMe } = useCallMe();
-  const [products, setProducts] = useState<Product[]>([]);
+export default function HomePage() {
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [subcategories, setSubcategories] = useState<string[]>(['All']);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSubcategory, setSelectedSubcategory] = useState('All');
   const [sameDayOnly, setSameDayOnly] = useState(false);
+  const [activeCatalogTab, setActiveCatalogTab] = useState<'all' | 'same-day' | 'printing' | 'clothing'>('all');
   const [sortBy, setSortBy] = useState<'a-z' | 'z-a' | 'price-asc' | 'price-desc' | 'featured'>('a-z');
 
   useEffect(() => {
     async function loadData() {
       try {
         const [prodsData, catsData] = await Promise.all([
-          getProducts('Printing'),
+          getProducts(),
           getCategories(),
         ]);
-        setProducts(prodsData);
+        setAllProducts(prodsData);
 
-        const printingCat = catsData.find(
-          (c) => c.name.toLowerCase() === 'printing'
-        );
-        const configSubcats = printingCat?.subcategories || [];
+        const configSubcats = catsData.flatMap((c) => c.subcategories || []);
         const productSubcats = prodsData.map((p) => p.subcategory).filter(Boolean);
         const combinedSubcats = Array.from(
           new Set([...configSubcats, ...productSubcats])
@@ -40,7 +42,7 @@ export default function PrintingCatalogPage() {
 
         setSubcategories(['All', ...combinedSubcats]);
       } catch (error) {
-        console.error('Failed to load printing products:', error);
+        console.error('Failed to load products:', error);
       } finally {
         setLoading(false);
       }
@@ -50,16 +52,26 @@ export default function PrintingCatalogPage() {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const subcatParam = params.get('subcat');
+      const sameDayParam = params.get('sameDay');
       if (subcatParam) {
         setSelectedSubcategory(subcatParam);
+      }
+      if (sameDayParam === 'true') {
+        setSameDayOnly(true);
+        setActiveCatalogTab('same-day');
       }
     }
   }, []);
 
   // Filter & Sort Logic (Default: Alphabetical A to Z)
   const filteredProducts = useMemo(() => {
-    return products
+    return allProducts
       .filter((p) => {
+        // Tab Filter
+        if (activeCatalogTab === 'same-day' && !p.isSameDayAvailable) return false;
+        if (activeCatalogTab === 'printing' && p.category.toLowerCase() !== 'printing') return false;
+        if (activeCatalogTab === 'clothing' && p.category.toLowerCase() !== 'clothing') return false;
+
         // Search query check
         if (searchQuery.trim()) {
           const q = searchQuery.toLowerCase();
@@ -76,7 +88,7 @@ export default function PrintingCatalogPage() {
           }
         }
 
-        // Same day check
+        // Same day toggle check
         if (sameDayOnly && !p.isSameDayAvailable) {
           return false;
         }
@@ -94,151 +106,145 @@ export default function PrintingCatalogPage() {
         const priceB = b.discountedPrice || b.price;
         if (sortBy === 'price-asc') return priceA - priceB;
         if (sortBy === 'price-desc') return priceB - priceA;
-        // Default alphabetical A-Z
         return a.title.localeCompare(b.title, undefined, { sensitivity: 'base' });
       });
-  }, [products, searchQuery, selectedSubcategory, sameDayOnly, sortBy]);
+  }, [allProducts, activeCatalogTab, searchQuery, selectedSubcategory, sameDayOnly, sortBy]);
 
   const handleReset = () => {
     setSearchQuery('');
     setSelectedSubcategory('All');
     setSameDayOnly(false);
+    setActiveCatalogTab('all');
     setSortBy('a-z');
   };
 
+  const handleTabChange = (tab: 'all' | 'same-day' | 'printing' | 'clothing') => {
+    setActiveCatalogTab(tab);
+    if (tab === 'same-day') {
+      setSameDayOnly(true);
+    } else {
+      setSameDayOnly(false);
+    }
+  };
+
   return (
-    <div className="space-y-10">
-      {/* Hero Section */}
+    <div className="space-y-0">
+      {/* 1. Vistaprint-Style Hero Section with Crystal Clear Video */}
       <HeroSection categoryType="Printing" />
 
-      {/* Trust & Feature Highlights Bar */}
+      {/* 2. Vistaprint 4-Pillar Confidence & Trust Bar */}
       <FeatureHighlights />
 
-      {/* Main Catalog Showcase */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-20">
-        {/* Search & Filter Bar */}
-        <SearchFilterBar
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          subcategories={subcategories}
-          selectedSubcategory={selectedSubcategory}
-          onSelectSubcategory={setSelectedSubcategory}
-          sameDayOnly={sameDayOnly}
-          onToggleSameDayOnly={() => setSameDayOnly(!sameDayOnly)}
-          sortBy={sortBy}
-          onSortChange={setSortBy}
-          totalResults={filteredProducts.length}
-        />
+      {/* 3. Vistaprint-Style Popular Category Tiles Grid */}
+      <CategoryTilesSection />
 
-        {/* Product Grid */}
-        <ProductGrid
-          products={filteredProducts}
-          isLoading={loading}
-          onResetFilters={handleReset}
-        />
-      </div>
+      {/* 4. Vistaprint-Style Curated Industry Collections */}
+      <CuratedSolutionsSection />
 
-      {/* London Production Workflow Section */}
-      <section className="bg-white py-16 border-y border-slate-200">
+      {/* 5. In the Spotlight: Live Product Catalog Showcase */}
+      <section id="catalog" className="py-14 bg-white border-b border-slate-200 scroll-mt-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-2xl mx-auto mb-12">
-            <span className="text-xs font-bold text-[#C8102E] uppercase tracking-wider">
-              Speed • Precision • Quality
-            </span>
-            <h2 className="text-3xl font-black text-slate-900 mt-1">
-              How Same-Day Printing Works in London
-            </h2>
-            <p className="mt-2 text-sm text-slate-600">
-              From file submission to studio collection in under 3 hours.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="relative rounded-2xl bg-slate-50 p-6 border border-slate-200/80 shadow-xs">
-              <div className="h-12 w-12 rounded-xl bg-[#012169] text-white flex items-center justify-center font-black text-lg mb-4 shadow-md">
-                1
-              </div>
-              <h3 className="text-lg font-bold text-slate-900 mb-2">
-                Order & Artwork Review
-              </h3>
-              <p className="text-xs text-slate-600 leading-relaxed">
-                Select your product or request a fast quote. Our in-house designers inspect your PDF, bleed, and resolution for 100% print precision.
-              </p>
-            </div>
-
-            <div className="relative rounded-2xl bg-slate-50 p-6 border border-slate-200/80 shadow-xs">
-              <div className="h-12 w-12 rounded-xl bg-[#C8102E] text-white flex items-center justify-center font-black text-lg mb-4 shadow-md">
-                2
-              </div>
-              <h3 className="text-lg font-bold text-slate-900 mb-2">
-                High-Speed London Printing
-              </h3>
-              <p className="text-xs text-slate-600 leading-relaxed">
-                Printed on industry-leading digital presses and wide-format eco-solvent machines right in our London production studio on Green St.
-              </p>
-            </div>
-
-            <div className="relative rounded-2xl bg-slate-50 p-6 border border-slate-200/80 shadow-xs">
-              <div className="h-12 w-12 rounded-xl bg-[#012169] text-white flex items-center justify-center font-black text-lg mb-4 shadow-md">
-                3
-              </div>
-              <h3 className="text-lg font-bold text-slate-900 mb-2">
-                Same-Day Pick Up or Courier
-              </h3>
-              <p className="text-xs text-slate-600 leading-relaxed">
-                Collect instantly from 75 Green St, E7 8JF, or have our London courier dispatch directly to your office, event venue, or doorstep.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Trust & Testimonials */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
-        <div className="rounded-3xl bg-[#012169] p-8 sm:p-12 text-white shadow-xl border border-white/15">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-center">
+          {/* Section Header */}
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
             <div>
-              <div className="flex items-center gap-1 text-amber-300 mb-3">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Star key={i} className="h-5 w-5 fill-amber-300" />
-                ))}
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#012169]/10 text-[#012169] text-xs font-bold mb-2">
+                <Sparkle weight="fill" className="h-3.5 w-3.5 text-[#C8102E]" />
+                <span>Featured Collection</span>
               </div>
-              <h3 className="text-2xl font-black">Rated 4.9/5 by London Businesses</h3>
-              <p className="mt-2 text-sm text-white/80 leading-relaxed">
-                Trusted by hundreds of event organizers, restaurants, retail shops, agencies, and corporations across Greater London.
+              <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                In the Spotlight: Best-Selling Products
+              </h2>
+              <p className="mt-1 text-sm text-slate-600">
+                Customizable print specifications with instant online pricing and same-day turnaround.
               </p>
+            </div>
+
+            {/* Vistaprint-Style Filter Tabs */}
+            <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-100 border border-slate-200/80 overflow-x-auto shrink-0">
               <button
-                onClick={() => openCallMe('General Printing Consultation')}
-                className="mt-6 px-6 py-3 rounded-xl bg-[#C8102E] hover:bg-[#A80C24] text-white font-bold text-sm shadow-md transition-all cursor-pointer border border-[#C8102E]"
+                type="button"
+                onClick={() => handleTabChange('all')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                  activeCatalogTab === 'all'
+                    ? 'bg-[#012169] text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
               >
-                Speak to a Print Expert
+                All Bestsellers
+              </button>
+              <button
+                type="button"
+                onClick={() => handleTabChange('same-day')}
+                className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                  activeCatalogTab === 'same-day'
+                    ? 'bg-[#C8102E] text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Lightning weight="fill" className="h-3 w-3 text-amber-300" />
+                <span>Same-Day Ready</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleTabChange('printing')}
+                className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                  activeCatalogTab === 'printing'
+                    ? 'bg-[#012169] text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Printer weight="bold" className="h-3 w-3" />
+                <span>Printing</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleTabChange('clothing')}
+                className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                  activeCatalogTab === 'clothing'
+                    ? 'bg-[#012169] text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <TShirt weight="bold" className="h-3 w-3" />
+                <span>Clothing</span>
               </button>
             </div>
-
-            <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="rounded-2xl bg-white/10 p-6 border border-white/15 backdrop-blur-md">
-                <p className="text-sm text-white/90 italic leading-relaxed">
-                  &ldquo;Saved our event! Requested an urgent turnaround in the morning and our order was ready for pickup by early afternoon. Flawless quality.&rdquo;
-                </p>
-                <div className="mt-4 flex items-center justify-between text-xs">
-                  <span className="font-bold text-white">Marcus Sterling</span>
-                  <span className="text-white/70">Tech Summit London</span>
-                </div>
-              </div>
-
-              <div className="rounded-2xl bg-white/10 p-6 border border-white/15 backdrop-blur-md">
-                <p className="text-sm text-white/90 italic leading-relaxed">
-                  &ldquo;The print finish and paper quality exceeded all expectations. The Print Today team on Green St is unmatched in turnaround speed and service.&rdquo;
-                </p>
-                <div className="mt-4 flex items-center justify-between text-xs">
-                  <span className="font-bold text-white">Priya Patel</span>
-                  <span className="text-white/70">Architecture Studio</span>
-                </div>
-              </div>
-            </div>
           </div>
+
+          {/* Search, Subcategory Dropdown & Sorter */}
+          <SearchFilterBar
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            subcategories={subcategories}
+            selectedSubcategory={selectedSubcategory}
+            onSelectSubcategory={setSelectedSubcategory}
+            sameDayOnly={sameDayOnly}
+            onToggleSameDayOnly={() => setSameDayOnly(!sameDayOnly)}
+            sortBy={sortBy}
+            onSortChange={setSortBy}
+            totalResults={filteredProducts.length}
+          />
+
+          {/* Product Cards Grid */}
+          <ProductGrid
+            products={filteredProducts}
+            isLoading={loading}
+            onResetFilters={handleReset}
+          />
         </div>
       </section>
+
+      {/* 6. High-Impact Promo Callout Banner with Code */}
+      <PromoCalloutBanner />
+
+      {/* 7. Real Customer Showcase & 4.9/5 Trustpilot Reviews */}
+      <CustomerShowcaseSection />
+
+      {/* 8. Why London Businesses Choose Print Today UK */}
+      <WhyChooseUsSection />
+
+      {/* 9. Newsletter Voucher Offer (Claim 10% Off) */}
+      <NewsletterSection />
     </div>
   );
 }

@@ -17,12 +17,14 @@ import {
   ShareNetwork,
   CheckCircle,
   CaretDown,
+  Star,
 } from '@phosphor-icons/react';
 import { Product } from '@/lib/types';
 import { getProductById, getProducts } from '@/lib/db';
 import { formatCurrency, calculateDiscount } from '@/lib/utils';
 import { ImageWithFallback } from '@/components/storefront/ImageWithFallback';
 import { ProductCard } from '@/components/storefront/ProductCard';
+import { ProductDetailTabs } from '@/components/storefront/ProductDetailTabs';
 import { Badge } from '@/components/ui/Badge';
 import { useCallMe } from '@/components/storefront/CallMeContext';
 
@@ -38,6 +40,7 @@ export default function ProductDetailPage() {
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState<number>(100);
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
+  const [selectedImageIndex, setSelectedImageIndex] = useState<number>(0);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -47,6 +50,7 @@ export default function ProductDetailPage() {
       try {
         const prod = await getProductById(idOrSlug);
         setProduct(prod);
+        setSelectedImageIndex(0);
         if (prod) {
           setQuantity(prod.minQuantity || 1);
           // Initialize default selected options
@@ -130,6 +134,14 @@ export default function ProductDetailPage() {
     }
   };
 
+  const productImages =
+    product.images && product.images.length > 0
+      ? product.images
+      : product.imageUrl
+      ? [product.imageUrl]
+      : [];
+  const currentImage = productImages[selectedImageIndex] || product.imageUrl;
+
   return (
     <div className="py-8 sm:py-12 space-y-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -167,7 +179,7 @@ export default function ProductDetailPage() {
           <div className="lg:col-span-6 space-y-4 lg:sticky lg:top-24">
             <div className="relative w-full aspect-square bg-white rounded-3xl overflow-hidden shadow-lg border border-slate-200/80">
               <ImageWithFallback
-                src={product.imageUrl}
+                src={currentImage}
                 alt={product.title}
                 fallbackText={product.title}
                 priority
@@ -189,6 +201,34 @@ export default function ProductDetailPage() {
                 )}
               </div>
             </div>
+
+            {/* Thumbnail Gallery for Multiple Pictures */}
+            {productImages.length > 1 && (
+              <div className="flex items-center gap-2.5 overflow-x-auto pb-1 pt-0.5">
+                {productImages.map((imgUrl, idx) => {
+                  const isSelected = idx === selectedImageIndex;
+                  return (
+                    <button
+                      key={`${imgUrl}-${idx}`}
+                      type="button"
+                      onClick={() => setSelectedImageIndex(idx)}
+                      className={`relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden shrink-0 border-2 transition-all cursor-pointer bg-slate-100 ${
+                        isSelected
+                          ? 'border-[#012169] ring-2 ring-[#012169]/30 shadow-md scale-105'
+                          : 'border-slate-200 opacity-70 hover:opacity-100 hover:border-slate-300'
+                      }`}
+                    >
+                      <ImageWithFallback
+                        src={imgUrl}
+                        alt={`${product.title} view ${idx + 1}`}
+                        fallbackText={`${idx + 1}`}
+                        className="object-cover"
+                      />
+                    </button>
+                  );
+                })}
+              </div>
+            )}
 
             {/* Studio Guarantee Cards */}
             <div className="grid grid-cols-3 gap-3">
@@ -223,59 +263,115 @@ export default function ProductDetailPage() {
                 <span className="text-xs font-semibold text-slate-500">
                   {product.subcategory}
                 </span>
+                <span className="text-slate-300">•</span>
+                <span className="text-xs font-bold text-amber-600 flex items-center gap-1">
+                  <Star weight="fill" className="h-3.5 w-3.5" />
+                  <span>4.9 (1,240+ reviews)</span>
+                </span>
               </div>
 
               <h1 className="text-2xl sm:text-3xl font-black text-slate-900 leading-tight">
                 {product.title}
               </h1>
 
-              <div className="mt-4 flex items-baseline gap-3">
-                <span className="text-3xl font-black text-[#012169]">
-                  {formatCurrency(basePrice)}
-                </span>
-                {product.discountedPrice && (
-                  <span className="text-base text-slate-400 line-through">
-                    {formatCurrency(product.price)}
-                  </span>
-                )}
-                <span className="text-xs font-bold text-slate-500">
-                  {product.minQuantity ? `(Min order: ${product.minQuantity} units)` : ''}
-                </span>
-              </div>
-            </div>
-
-            {/* Same-day Emergency Callout */}
-            {product.isSameDayAvailable && (
-              <div className="rounded-2xl bg-blue-50 border border-blue-200/80 p-4">
-                <div className="flex items-start gap-3">
-                  <div className="p-2 rounded-xl bg-[#012169] text-white shrink-0 mt-0.5">
-                    <Lightning weight="fill" className="h-4 w-4 text-amber-300" />
+              {/* Dynamic Price Breakdown (Vistaprint Style) */}
+              <div className="mt-4 p-4 rounded-2xl bg-slate-50 border border-slate-200/90 flex flex-col sm:flex-row sm:items-baseline justify-between gap-2">
+                <div>
+                  <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                    Total Estimated Price
                   </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-[#012169]">
-                      Need This Today in London?
-                    </h4>
-                    <p className="mt-0.5 text-xs text-[#012169]/80 leading-relaxed">
-                      Order or request a quote before 12pm for guaranteed same-day collection at our Green St studio or London express courier.
-                    </p>
+                  <div className="flex items-baseline gap-3 mt-0.5">
+                    <span className="text-3xl font-black text-[#012169]">
+                      {formatCurrency(basePrice * (quantity === product.minQuantity ? 1 : Math.max(1, (quantity / (product.minQuantity || 100)) * 0.85)))}
+                    </span>
+                    {product.discountedPrice && (
+                      <span className="text-base text-slate-400 line-through">
+                        {formatCurrency(product.price * (quantity === product.minQuantity ? 1 : Math.max(1, (quantity / (product.minQuantity || 100)) * 0.85)))}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="sm:text-right">
+                  <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                    Unit Price
+                  </div>
+                  <div className="text-sm font-bold text-slate-700 mt-0.5">
+                    £{((basePrice * (quantity === product.minQuantity ? 1 : Math.max(1, (quantity / (product.minQuantity || 100)) * 0.85))) / quantity).toFixed(2)} each
                   </div>
                 </div>
               </div>
-            )}
+            </div>
 
-            {/* Description */}
-            <div className="pt-1">
-              <h4 className="text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">
-                Description & Specifications
-              </h4>
-              <p className="text-sm text-slate-600 leading-relaxed">
-                {product.description}
-              </p>
+            {/* Vistaprint-Style Quantity Selection Pills */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                  Select Quantity
+                </label>
+                <span className="text-xs font-bold text-[#012169]">
+                  {quantity} units selected
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {[
+                  { qty: product.minQuantity || 100, label: 'Standard' },
+                  { qty: (product.minQuantity || 100) * 2, label: 'Popular' },
+                  { qty: (product.minQuantity || 100) * 5, label: 'Best Value' },
+                  { qty: (product.minQuantity || 100) * 10, label: 'Bulk Savings' },
+                ].map((tier) => {
+                  const isSelected = quantity === tier.qty;
+                  return (
+                    <button
+                      key={tier.qty}
+                      type="button"
+                      onClick={() => setQuantity(tier.qty)}
+                      className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer relative ${
+                        isSelected
+                          ? 'border-[#012169] bg-[#012169]/8 ring-2 ring-[#012169]/20 text-[#012169] font-bold'
+                          : 'border-slate-200 hover:border-slate-300 bg-white text-slate-700'
+                      }`}
+                    >
+                      <div className="text-xs font-black">{tier.qty} units</div>
+                      <div className="text-[10px] text-slate-500 font-medium mt-0.5">
+                        {tier.label}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* London Studio Delivery & Collection Speed Box */}
+            <div className="rounded-2xl border border-slate-200/90 bg-white p-4 space-y-2.5">
+              <div className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                <Clock weight="bold" className="h-4 w-4 text-[#C8102E]" />
+                <span>London Dispatch & Collection Options</span>
+              </div>
+
+              <div className="space-y-2 text-xs">
+                <div className="flex items-start gap-2.5 p-2 rounded-xl bg-slate-50">
+                  <Lightning weight="fill" className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <div className="font-bold text-slate-900">Same-Day Studio Pickup (Free)</div>
+                    <div className="text-slate-500 text-[11px]">Ready today from 2:00 PM at 75 Green St, E7 8JF if ordered before 12pm.</div>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-2.5 p-2 rounded-xl bg-slate-50">
+                  <Truck weight="bold" className="h-4 w-4 text-[#012169] shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <div className="font-bold text-slate-900">London Express Courier</div>
+                    <div className="text-slate-500 text-[11px]">Same-day evening door delivery anywhere in Greater London.</div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Custom Product Options & Dropdowns */}
             {product.customFields && product.customFields.length > 0 && (
-              <div className="space-y-4 p-5 rounded-2xl bg-white border border-slate-200/90 shadow-sm">
+              <div className="space-y-4 p-5 rounded-2xl bg-white border border-slate-200/90 shadow-xs">
                 <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-slate-900 border-b border-slate-100 pb-3">
                   <Sparkle weight="fill" className="h-4 w-4 text-[#C8102E]" />
                   <span>Choose Your Specifications</span>
@@ -321,46 +417,38 @@ export default function ProductDetailPage() {
               </div>
             )}
 
-            {/* Features Checklist */}
-            {product.features && product.features.length > 0 && (
-              <div className="space-y-2 pt-2">
-                <h4 className="text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">
-                  Key Specifications
-                </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {product.features.map((feat, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-100/70 border border-slate-200/60 text-xs font-medium text-slate-800"
-                    >
-                      <Check weight="bold" className="h-3.5 w-3.5 text-[#012169] shrink-0" />
-                      <span className="truncate">{feat}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* CTAs */}
-            <div className="pt-4 space-y-3">
+            <div className="pt-2 space-y-3">
               <button
-                onClick={() => openCallMe(product.title, selectedOptions)}
+                onClick={() =>
+                  openCallMe(
+                    `${product.title} (${quantity} units)`,
+                    selectedOptions
+                  )
+                }
                 className="w-full h-13 rounded-2xl bg-gradient-to-r from-[#C8102E] to-[#A80C24] hover:from-[#A80C24] hover:to-[#85081C] text-white font-black text-sm flex items-center justify-center gap-2.5 shadow-xl shadow-red-900/20 transition-all transform hover:scale-102 cursor-pointer border border-red-700/40"
               >
                 <Phone weight="fill" className="h-4 w-4 text-white" />
-                <span>Request Same-Day Quote / Call Me</span>
+                <span>Confirm Order / Request Same-Day Quote</span>
               </button>
 
               <div className="grid grid-cols-2 gap-3">
                 <a
-                  href="tel:+447969559746"
-                  className="flex items-center justify-center gap-2 h-11 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs border border-slate-200 transition-colors"
+                  href="https://wa.me/447969559746"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 h-11 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold text-xs shadow-sm transition-colors text-center"
                 >
-                  <span>Dial +44 7969 559746</span>
+                  <span>Chat on WhatsApp</span>
                 </a>
 
                 <button
-                  onClick={() => openCallMe(`Artwork Check for ${product.title}`, selectedOptions)}
+                  onClick={() =>
+                    openCallMe(
+                      `Artwork Proof Check for ${product.title}`,
+                      selectedOptions
+                    )
+                  }
                   className="flex items-center justify-center gap-2 h-11 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs border border-slate-200 transition-colors cursor-pointer"
                 >
                   <Sparkle weight="fill" className="h-3.5 w-3.5 text-[#012169]" />
@@ -370,6 +458,9 @@ export default function ProductDetailPage() {
             </div>
           </div>
         </div>
+
+        {/* Vistaprint-Style Lower Tabs: Overview, Specs, Finishes, Reviews & FAQs */}
+        <ProductDetailTabs product={product} />
       </div>
 
       {/* Related Products */}

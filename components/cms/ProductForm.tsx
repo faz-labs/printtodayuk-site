@@ -5,7 +5,7 @@ import { Product, ProductInput, CategoryConfig, CustomField } from '@/lib/types'
 import { slugify } from '@/lib/utils';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
-import { ImagePreviewer } from './ImagePreviewer';
+import { MultiImageUploader } from './MultiImageUploader';
 import { Plus, Trash, Lightning, Sparkle, SlidersHorizontal, X, FloppyDisk } from '@phosphor-icons/react';
 
 interface ProductFormProps {
@@ -26,6 +26,7 @@ export function ProductForm({
   const [title, setTitle] = useState('');
   const [slug, setSlug] = useState('');
   const [description, setDescription] = useState('');
+  const [images, setImages] = useState<string[]>([]);
   const [imageUrl, setImageUrl] = useState('');
   const [price, setPrice] = useState<string>('25.00');
   const [discountedPrice, setDiscountedPrice] = useState<string>('');
@@ -49,7 +50,14 @@ export function ProductForm({
       setTitle(initialProduct.title);
       setSlug(initialProduct.slug);
       setDescription(initialProduct.description);
-      setImageUrl(initialProduct.imageUrl);
+      const prodImages =
+        initialProduct.images && initialProduct.images.length > 0
+          ? initialProduct.images
+          : initialProduct.imageUrl
+          ? [initialProduct.imageUrl]
+          : [];
+      setImages(prodImages);
+      setImageUrl(prodImages[0] || initialProduct.imageUrl || '');
       setPrice(initialProduct.price.toString());
       setDiscountedPrice(
         initialProduct.discountedPrice ? initialProduct.discountedPrice.toString() : ''
@@ -65,7 +73,8 @@ export function ProductForm({
       setTitle('');
       setSlug('');
       setDescription('');
-      setImageUrl('https://images.unsplash.com/photo-1589829085413-56de8ae18c73?q=80&w=1000&auto=format&fit=crop');
+      setImages([]);
+      setImageUrl('');
       setPrice('29.00');
       setDiscountedPrice('');
       setCategory('Printing');
@@ -81,6 +90,15 @@ export function ProductForm({
     setActiveNewOptionText({});
     setError('');
   }, [initialProduct, isOpen]);
+
+  const handleImagesChange = (newImages: string[]) => {
+    setImages(newImages);
+    if (newImages.length > 0) {
+      setImageUrl(newImages[0]);
+    } else {
+      setImageUrl('');
+    }
+  };
 
   // When category changes, auto-adjust subcategory if not in list
   useEffect(() => {
@@ -205,8 +223,9 @@ export function ProductForm({
       return;
     }
 
-    if (!imageUrl.trim()) {
-      setError('Please provide a valid product image URL.');
+    const finalImages = images.length > 0 ? images : imageUrl.trim() ? [imageUrl.trim()] : [];
+    if (finalImages.length === 0) {
+      setError('Please upload at least one product picture.');
       return;
     }
 
@@ -224,7 +243,8 @@ export function ProductForm({
         title: title.trim(),
         slug: slug.trim() || slugify(title),
         description: description.trim(),
-        imageUrl: imageUrl.trim(),
+        imageUrl: finalImages[0],
+        images: finalImages,
         price: parsedPrice,
         discountedPrice: parsedDiscount,
         category,
@@ -327,8 +347,8 @@ export function ProductForm({
           </div>
         </div>
 
-        {/* Image Previewer */}
-        <ImagePreviewer url={imageUrl} onUrlChange={setImageUrl} />
+        {/* Multi-Image S3 Uploader */}
+        <MultiImageUploader images={images} onImagesChange={handleImagesChange} />
 
         {/* Pricing & Min Quantity */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
