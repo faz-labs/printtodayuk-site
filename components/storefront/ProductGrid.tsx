@@ -26,16 +26,12 @@ export function ProductGrid({
         {Array.from({ length: 8 }).map((_, i) => (
           <div
             key={i}
-            className="rounded-2xl bg-white p-4 border border-slate-200 shadow-xs animate-pulse flex flex-col space-y-4"
+            className="flex flex-col space-y-2.5 animate-pulse"
           >
-            <div className="h-[265px] aspect-square w-full bg-slate-200 rounded-xl" />
-            <div className="h-4 bg-slate-200 rounded-md w-3/4" />
-            <div className="h-3 bg-slate-100 rounded-md w-full" />
-            <div className="h-3 bg-slate-100 rounded-md w-2/3" />
-            <div className="pt-4 mt-auto border-t border-slate-100 flex justify-between items-center">
-              <div className="h-6 bg-slate-200 rounded-md w-1/3" />
-              <div className="h-8 bg-slate-200 rounded-xl w-1/3" />
-            </div>
+            <div className="aspect-square w-full bg-slate-100 border border-slate-200 rounded-2xl" />
+            <div className="h-4 bg-slate-200 rounded-md w-3/4 mt-1" />
+            <div className="h-3.5 bg-slate-200 rounded-md w-1/3" />
+            <div className="h-2.5 bg-slate-100 rounded-md w-1/4" />
           </div>
         ))}
       </div>

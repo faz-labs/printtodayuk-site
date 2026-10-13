@@ -12,6 +12,7 @@ import {
   getCategories,
   updateCategorySubcategories,
   createCategory,
+  updateCategory,
   deleteCategory,
   getInquiries,
   updateInquiryStatus,
@@ -95,7 +96,9 @@ export default function CMSDashboardPage() {
   const handleCreateCategory = async (cat: {
     name: string;
     description?: string;
+    imageUrl?: string;
     subcategories?: string[];
+    subcategoryImages?: Record<string, string>;
   }) => {
     const created = await createCategory(cat);
     setCategories((prev) => [...prev.filter((c) => c.name.toLowerCase() !== created.name.toLowerCase()), created]);
@@ -112,6 +115,16 @@ export default function CMSDashboardPage() {
   ) => {
     const updated = await updateCategorySubcategories(categoryName, subcategories);
     setCategories([...updated]);
+  };
+
+  const handleUpdateCategory = async (
+    categoryName: string,
+    updates: Partial<CategoryConfig>
+  ) => {
+    const updated = await updateCategory(categoryName, updates);
+    setCategories((prev) =>
+      prev.map((c) => (c.name.toLowerCase() === categoryName.toLowerCase() ? updated : c))
+    );
   };
 
   // Inquiry CRUD Handlers
@@ -247,6 +260,7 @@ export default function CMSDashboardPage() {
                 onUpdateSubcategories={handleUpdateSubcategories}
                 onCreateCategory={handleCreateCategory}
                 onDeleteCategory={handleDeleteCategory}
+                onUpdateCategory={handleUpdateCategory}
               />
             )}
 

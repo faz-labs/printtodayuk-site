@@ -12,20 +12,23 @@ import {
 } from 'firebase/firestore';
 import { db, isConfigured } from './firebase';
 import { Product, CategoryConfig, Inquiry, ProductInput } from './types';
-import { INITIAL_CATEGORIES } from './data';
+import { INITIAL_CATEGORIES, SEED_PRODUCTS } from './data';
 import { slugify } from './utils';
 
 
 // Helper to get local stored products if offline
 function getLocalProducts(): Product[] {
-  if (typeof window === 'undefined') return [];
+  if (typeof window === 'undefined') return SEED_PRODUCTS;
   try {
     const data = localStorage.getItem('print_today_products');
     if (data) {
-      return JSON.parse(data);
+      const parsed = JSON.parse(data);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
     }
   } catch {}
-  return [];
+  return SEED_PRODUCTS;
 }
 
 function saveLocalProducts(products: Product[]) {
@@ -41,7 +44,22 @@ function getLocalCategories(): CategoryConfig[] {
   try {
     const data = localStorage.getItem('print_today_categories');
     if (data) {
-      return JSON.parse(data);
+      const parsed: CategoryConfig[] = JSON.parse(data);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        // Merge any new default categories (e.g. Gift Items) if missing
+        const existingNames = new Set(parsed.map((c) => c.name.toLowerCase()));
+        let hasNew = false;
+        for (const initCat of INITIAL_CATEGORIES) {
+          if (!existingNames.has(initCat.name.toLowerCase())) {
+            parsed.push(initCat);
+            hasNew = true;
+          }
+        }
+        if (hasNew) {
+          saveLocalCategories(parsed);
+        }
+        return parsed;
+      }
     }
   } catch {}
   return INITIAL_CATEGORIES;
@@ -246,12 +264,16 @@ export async function getCategories(): Promise<CategoryConfig[]> {
 export async function createCategory(cat: {
   name: string;
   description?: string;
+  imageUrl?: string;
   subcategories?: string[];
+  subcategoryImages?: Record<string, string>;
 }): Promise<CategoryConfig> {
   const newCat: CategoryConfig = {
     name: cat.name.trim(),
     description: cat.description?.trim(),
+    imageUrl: cat.imageUrl,
     subcategories: cat.subcategories || [],
+    subcategoryImages: cat.subcategoryImages || {},
   };
 
   const docId = cat.name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-');
@@ -320,6 +342,63 @@ export async function updateCategorySubcategories(
   }
   saveLocalCategories(local);
   return local;
+}
+
+export async function updateCategory(
+  categoryName: string,
+  updates: Partial<CategoryConfig>
+): Promise<CategoryConfig> {
+  const docId = categoryName.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-');
+
+  if (isConfigured && db) {
+    try {
+      const docRef = doc(db, 'categories', docId);
+      await setDoc(docRef, updates, { merge: true });
+    } catch (error) {
+      console.error('Firestore updateCategory failed:', error);
+      throw error;
+    }
+  }
+
+  const local = getLocalCategories();
+  const index = local.findIndex((c) => c.name.toLowerCase() === categoryName.toLowerCase());
+  if (index !== -1) {
+    local[index] = { ...local[index], ...updates };
+    saveLocalCategories(local);
+    return local[index];
+  } else {
+    const created: CategoryConfig = {
+      name: categoryName,
+      subcategories: [],
+      ...updates,
+    };
+    local.push(created);
+    saveLocalCategories(local);
+    return created;
+  }
+}
+
+export async function updateSubcategoryImage(
+  categoryName: string,
+  subcategory: string,
+  imageUrl: string
+): Promise<CategoryConfig> {
+  const local = getLocalCategories();
+  const cat = local.find((c) => c.name.toLowerCase() === categoryName.toLowerCase()) || {
+    name: categoryName,
+    subcategories: [subcategory],
+    subcategoryImages: {},
+  };
+
+  const subcategoryImages = { ...(cat.subcategoryImages || {}), [subcategory]: imageUrl };
+  return updateCategory(categoryName, { subcategoryImages });
+}
+
+export async function updateCategoryImage(
+  categoryName: string,
+  imageUrl: string
+): Promise<CategoryConfig> {
+  return updateCategory(categoryName, { imageUrl });
 }
 
 // ---------------- INQUIRIES CRUD ----------------

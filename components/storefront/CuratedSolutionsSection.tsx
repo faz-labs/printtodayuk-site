@@ -26,7 +26,7 @@ export function CuratedSolutionsSection() {
         'Official Letterheads & Invoices',
         'Staff Name Badges',
       ],
-      filterHref: '/?subcat=Business%20Cards',
+      filterHref: '/category/Printing?subcat=Business%20Cards',
     },
     {
       title: 'Cafes, Bars & Restaurants',
@@ -40,7 +40,7 @@ export function CuratedSolutionsSection() {
         'Embroidered Staff Aprons',
         'Loyalty & Takeaway Cards',
       ],
-      filterHref: '/?subcat=Flyers%20%26%20Leaflets',
+      filterHref: '/category/Printing?subcat=Flyers%20%26%20Leaflets',
     },
     {
       title: 'Events, Expos & Exhibitions',
@@ -54,7 +54,7 @@ export function CuratedSolutionsSection() {
         'Heavy Silk Handout Brochures',
         'Branded Cotton Tote Bags',
       ],
-      filterHref: '/?subcat=Posters',
+      filterHref: '/category/Printing?subcat=PVC%20Banners',
     },
     {
       title: 'Trades, Workwear & Fleets',
@@ -68,7 +68,7 @@ export function CuratedSolutionsSection() {
         'Warm Fleece Heavy Hoodies',
         'Durable Outdoor Decals',
       ],
-      filterHref: '/clothing',
+      filterHref: '/category/Clothing?subcat=Workwear%20%26%20High-Vis',
     },
   ];
 

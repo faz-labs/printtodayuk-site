@@ -33,8 +33,10 @@ export interface CategoryConfig {
   id?: string;
   name: string;
   icon?: string;
+  imageUrl?: string;
   description?: string;
   subcategories: string[];
+  subcategoryImages?: Record<string, string>;
 }
 
 export interface Inquiry {

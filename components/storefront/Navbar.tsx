@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Printer,
   TShirt,
+  Gift,
   Globe,
   TrendUp,
   MapPin,
@@ -28,7 +29,7 @@ export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [noticeModal, setNoticeModal] = useState<string | null>(null);
   const [categories, setCategories] = useState<CategoryConfig[]>([]);
-  const [hoveredMenu, setHoveredMenu] = useState<'printing' | 'clothing' | null>(null);
+  const [hoveredMenu, setHoveredMenu] = useState<'printing' | 'clothing' | 'gift' | null>(null);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
@@ -65,7 +66,17 @@ export function Navbar() {
     'Caps & Beanies',
   ];
 
-  const handleMouseEnter = (menu: 'printing' | 'clothing') => {
+  const giftCat = categories.find((c) => c.name.toLowerCase() === 'gift items');
+  const giftSubcategories = giftCat?.subcategories || [
+    'Mugs',
+    'Pens',
+    'Water Bottles',
+    'Notebooks & Diaries',
+    'Keyrings & Lanyards',
+    'Tote Bags',
+  ];
+
+  const handleMouseEnter = (menu: 'printing' | 'clothing' | 'gift') => {
     if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
     setHoveredMenu(menu);
   };
@@ -153,10 +164,10 @@ export function Navbar() {
                 onMouseLeave={handleMouseLeave}
               >
                 <Link
-                  href="/"
+                  href="/category/Printing"
                   className={cn(
                     'relative px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-1.5',
-                    pathname === '/' || (pathname.startsWith('/product') && !pathname.includes('/clothing'))
+                    pathname.toLowerCase().includes('printing')
                       ? 'text-[#012169] bg-[#012169]/10 shadow-xs'
                       : 'text-slate-700 hover:text-slate-950 hover:bg-slate-100/80'
                   )}
@@ -165,7 +176,7 @@ export function Navbar() {
                     weight="bold"
                     className={cn(
                       'h-4 w-4',
-                      pathname === '/' ? 'text-[#012169]' : 'text-slate-500'
+                      pathname.toLowerCase().includes('printing') ? 'text-[#012169]' : 'text-slate-500'
                     )}
                   />
                   <span>Printing</span>
@@ -196,7 +207,7 @@ export function Navbar() {
                         {printingSubcategories.map((subcat) => (
                           <Link
                             key={subcat}
-                            href={`/?subcat=${encodeURIComponent(subcat)}`}
+                            href={`/category/Printing?subcat=${encodeURIComponent(subcat)}`}
                             onClick={() => setHoveredMenu(null)}
                             className="flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:text-[#012169] hover:bg-[#012169]/5 transition-colors group"
                           >
@@ -209,7 +220,7 @@ export function Navbar() {
                       </div>
                       <div className="pt-2 mt-2 border-t border-slate-100">
                         <Link
-                          href="/"
+                          href="/category/Printing"
                           onClick={() => setHoveredMenu(null)}
                           className="flex items-center justify-between px-3 py-1.5 text-[11px] font-bold text-[#012169] hover:underline"
                         >
@@ -229,10 +240,10 @@ export function Navbar() {
                 onMouseLeave={handleMouseLeave}
               >
                 <Link
-                  href="/clothing"
+                  href="/category/Clothing"
                   className={cn(
                     'relative px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-1.5',
-                    pathname === '/clothing'
+                    pathname.toLowerCase().includes('clothing')
                       ? 'text-[#012169] bg-[#012169]/10 shadow-xs'
                       : 'text-slate-700 hover:text-slate-950 hover:bg-slate-100/80'
                   )}
@@ -241,7 +252,7 @@ export function Navbar() {
                     weight="bold"
                     className={cn(
                       'h-4 w-4',
-                      pathname === '/clothing' ? 'text-[#012169]' : 'text-slate-500'
+                      pathname.toLowerCase().includes('clothing') ? 'text-[#012169]' : 'text-slate-500'
                     )}
                   />
                   <span>Clothing</span>
@@ -272,7 +283,7 @@ export function Navbar() {
                         {clothingSubcategories.map((subcat) => (
                           <Link
                             key={subcat}
-                            href={`/clothing?subcat=${encodeURIComponent(subcat)}`}
+                            href={`/category/Clothing?subcat=${encodeURIComponent(subcat)}`}
                             onClick={() => setHoveredMenu(null)}
                             className="flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:text-[#012169] hover:bg-[#012169]/5 transition-colors group"
                           >
@@ -285,11 +296,87 @@ export function Navbar() {
                       </div>
                       <div className="pt-2 mt-2 border-t border-slate-100">
                         <Link
-                          href="/clothing"
+                          href="/category/Clothing"
                           onClick={() => setHoveredMenu(null)}
                           className="flex items-center justify-between px-3 py-1.5 text-[11px] font-bold text-[#012169] hover:underline"
                         >
                           <span>View All Clothing</span>
+                          <span>→</span>
+                        </Link>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* Gift Items Nav with Hover Dropdown */}
+              <div
+                className="relative"
+                onMouseEnter={() => handleMouseEnter('gift')}
+                onMouseLeave={handleMouseLeave}
+              >
+                <Link
+                  href="/category/Gift%20Items"
+                  className={cn(
+                    'relative px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-1.5',
+                    pathname.toLowerCase().includes('gift')
+                      ? 'text-[#012169] bg-[#012169]/10 shadow-xs'
+                      : 'text-slate-700 hover:text-slate-950 hover:bg-slate-100/80'
+                  )}
+                >
+                  <Gift
+                    weight="bold"
+                    className={cn(
+                      'h-4 w-4',
+                      pathname.toLowerCase().includes('gift') ? 'text-[#012169]' : 'text-slate-500'
+                    )}
+                  />
+                  <span>Gift Items</span>
+                  <CaretDown
+                    weight="bold"
+                    className={cn(
+                      'h-3.5 w-3.5 transition-transform duration-200 text-slate-400',
+                      hoveredMenu === 'gift' && 'rotate-180 text-[#012169]'
+                    )}
+                  />
+                </Link>
+
+                {/* Gift Items Hover Dropdown */}
+                <AnimatePresence>
+                  {hoveredMenu === 'gift' && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 6, scale: 0.98 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute left-0 top-full mt-1.5 w-72 bg-white rounded-2xl p-3 shadow-2xl border border-slate-200/90 z-50"
+                    >
+                      <div className="px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 mb-1.5 flex items-center justify-between">
+                        <span>Gift Items Categories</span>
+                        <span className="text-[10px] text-[#C8102E] font-bold">⚡ Custom Merch</span>
+                      </div>
+                      <div className="space-y-0.5 max-h-72 overflow-y-auto">
+                        {giftSubcategories.map((subcat) => (
+                          <Link
+                            key={subcat}
+                            href={`/category/Gift%20Items?subcat=${encodeURIComponent(subcat)}`}
+                            onClick={() => setHoveredMenu(null)}
+                            className="flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:text-[#012169] hover:bg-[#012169]/5 transition-colors group"
+                          >
+                            <span className="truncate">{subcat}</span>
+                            <span className="text-slate-300 group-hover:text-[#012169] group-hover:translate-x-0.5 transition-all text-xs">
+                              →
+                            </span>
+                          </Link>
+                        ))}
+                      </div>
+                      <div className="pt-2 mt-2 border-t border-slate-100">
+                        <Link
+                          href="/category/Gift%20Items"
+                          onClick={() => setHoveredMenu(null)}
+                          className="flex items-center justify-between px-3 py-1.5 text-[11px] font-bold text-[#012169] hover:underline"
+                        >
+                          <span>View All Gift Items</span>
                           <span>→</span>
                         </Link>
                       </div>
@@ -363,7 +450,7 @@ export function Navbar() {
                   Printing Catalog
                 </div>
                 <Link
-                  href="/"
+                  href="/category/Printing"
                   onClick={() => setMobileMenuOpen(false)}
                   className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-bold bg-[#012169]/10 text-[#012169]"
                 >
@@ -380,7 +467,7 @@ export function Navbar() {
                   {printingSubcategories.map((subcat) => (
                     <Link
                       key={subcat}
-                      href={`/?subcat=${encodeURIComponent(subcat)}`}
+                      href={`/category/Printing?subcat=${encodeURIComponent(subcat)}`}
                       onClick={() => setMobileMenuOpen(false)}
                       className="block px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:text-[#012169]"
                     >
@@ -393,7 +480,7 @@ export function Navbar() {
                   Clothing Catalog
                 </div>
                 <Link
-                  href="/clothing"
+                  href="/category/Clothing"
                   onClick={() => setMobileMenuOpen(false)}
                   className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-bold bg-[#012169]/10 text-[#012169]"
                 >
@@ -410,7 +497,37 @@ export function Navbar() {
                   {clothingSubcategories.map((subcat) => (
                     <Link
                       key={subcat}
-                      href={`/clothing?subcat=${encodeURIComponent(subcat)}`}
+                      href={`/category/Clothing?subcat=${encodeURIComponent(subcat)}`}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="block px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:text-[#012169]"
+                    >
+                      {subcat}
+                    </Link>
+                  ))}
+                </div>
+
+                <div className="pt-3 px-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                  Gift Items Catalog
+                </div>
+                <Link
+                  href="/category/Gift%20Items"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-bold bg-[#012169]/10 text-[#012169]"
+                >
+                  <div className="flex items-center gap-3">
+                    <Gift weight="bold" className="h-5 w-5" />
+                    <span>All Gift & Promo Items</span>
+                  </div>
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-white/60 text-slate-700">
+                    Custom
+                  </span>
+                </Link>
+
+                <div className="pl-4 pr-1 py-1 space-y-0.5 border-l-2 border-slate-100 ml-3">
+                  {giftSubcategories.map((subcat) => (
+                    <Link
+                      key={subcat}
+                      href={`/category/Gift%20Items?subcat=${encodeURIComponent(subcat)}`}
                       onClick={() => setMobileMenuOpen(false)}
                       className="block px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:text-[#012169]"
                     >

@@ -2,108 +2,71 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Lightning, Phone, ArrowUpRight } from '@phosphor-icons/react';
+import { Heart } from '@phosphor-icons/react';
 import { Product } from '@/lib/types';
-import { formatCurrency, calculateDiscount } from '@/lib/utils';
-import { Card3D } from '@/components/ui/Card3D';
+import { formatCurrency } from '@/lib/utils';
 import { ImageWithFallback } from './ImageWithFallback';
-import { useCallMe } from './CallMeContext';
 
 interface ProductCardProps {
   product: Product;
 }
 
 export function ProductCard({ product }: ProductCardProps) {
-  const { openCallMe } = useCallMe();
-
-  const discount = calculateDiscount(product.price, product.discountedPrice);
   const activePrice = product.discountedPrice || product.price;
 
   return (
-    <Card3D className="flex flex-col h-full overflow-hidden group">
-      {/* Image Container: 265x265px square - Clickable to details page */}
-      <Link
-        href={`/product/${product.id || product.slug}`}
-        className="relative block w-full h-[265px] aspect-square bg-slate-100 overflow-hidden cursor-pointer"
-      >
+    <Link
+      href={`/product/${product.id || product.slug}`}
+      className="group block w-full focus:outline-hidden"
+    >
+      {/* 1. Bordered Image Box matching reference screenshot */}
+      <div className="relative w-full aspect-square bg-white rounded-2xl border border-slate-200 overflow-hidden p-4 flex items-center justify-center transition-all duration-200 group-hover:border-slate-300">
         <ImageWithFallback
           src={product.imageUrl}
           alt={product.title}
           fallbackText={product.title}
-          className="group-hover:scale-105 transition-transform duration-300"
+          className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
         />
 
-        {/* Badges Overlay */}
-        <div className="absolute top-3 left-3 right-3 flex items-start justify-between gap-2 pointer-events-none">
-          <div className="flex flex-col gap-1.5 items-start">
-            {product.isSameDayAvailable && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-[#012169] text-white shadow-md">
-                <Lightning weight="fill" className="h-3 w-3 text-amber-300" />
-                <span>Same Day</span>
-              </span>
-            )}
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-bold bg-white/95 text-[#012169] shadow-xs border border-slate-200">
-              {product.subcategory}
+        {/* Top-left pill badge */}
+        <div className="absolute top-3 left-3 flex items-center gap-1 pointer-events-none">
+          {product.isSameDayAvailable ? (
+            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#012169] text-white">
+              Same Day
             </span>
-          </div>
-
-          {discount && (
-            <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-extrabold bg-[#C8102E] text-white shadow-md">
-              -{discount}%
+          ) : (
+            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-sky-100 text-sky-800">
+              Bestseller
             </span>
           )}
         </div>
-      </Link>
 
-      {/* Content Body */}
-      <div className="flex flex-col flex-1 p-5">
-        <div className="flex-1">
-          {/* Title */}
-          <Link href={`/product/${product.id || product.slug}`}>
-            <h3 className="text-base font-bold text-slate-900 line-clamp-2 group-hover:text-[#012169] transition-colors leading-snug">
-              {product.title}
-            </h3>
-          </Link>
-        </div>
-
-        {/* Pricing & Order Info */}
-        <div className="mt-4 pt-3 border-t border-slate-100 flex items-end justify-between gap-2">
-          <div>
-            <div className="text-xs uppercase font-bold text-slate-400 tracking-wider">
-              {product.minQuantity ? `From ${product.minQuantity} units` : 'From'}
-            </div>
-            <div className="flex items-baseline gap-2 mt-0.5">
-              <span className="text-2xl font-black text-[#012169]">
-                {formatCurrency(activePrice)}
-              </span>
-              {product.discountedPrice && (
-                <span className="text-sm text-slate-400 line-through font-semibold">
-                  {formatCurrency(product.price)}
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          <button
-            onClick={() => openCallMe(product.title)}
-            className="flex items-center justify-center gap-1.5 h-10 rounded-xl bg-slate-100 hover:bg-[#C8102E] text-slate-700 hover:text-white text-xs font-bold transition-colors cursor-pointer"
-          >
-            <Phone className="h-3.5 w-3.5" />
-            <span>Call Me</span>
-          </button>
-
-          <Link
-            href={`/product/${product.id || product.slug}`}
-            className="flex items-center justify-center gap-1 h-10 rounded-xl bg-[#012169] hover:bg-[#0A358C] text-white text-xs font-bold transition-all shadow-xs"
-          >
-            <span>Details</span>
-            <ArrowUpRight className="h-3.5 w-3.5" />
-          </Link>
+        {/* Top-right Heart outline icon */}
+        <div className="absolute top-3 right-3 text-slate-700 group-hover:text-[#C8102E] transition-colors pointer-events-none">
+          <Heart weight="regular" className="w-5 h-5" />
         </div>
       </div>
-    </Card3D>
+
+      {/* 2. Title & Pricing below the image box */}
+      <div className="mt-2.5 space-y-0.5">
+        <h3 className="text-sm sm:text-base font-bold text-slate-900 group-hover:text-[#012169] transition-colors line-clamp-2 leading-snug">
+          {product.title}
+        </h3>
+
+        <div className="pt-0.5">
+          <p className="text-sm sm:text-base font-bold text-slate-900">
+            From {formatCurrency(activePrice)} each
+          </p>
+          <p className="text-xs text-slate-500 leading-tight">
+            Incl. VAT
+          </p>
+          <p className="text-xs text-slate-500 leading-tight">
+            {product.minQuantity && product.minQuantity > 1
+              ? `Min. quantity ${product.minQuantity}`
+              : 'No minimum quantity'}
+          </p>
+        </div>
+      </div>
+    </Link>
   );
 }
