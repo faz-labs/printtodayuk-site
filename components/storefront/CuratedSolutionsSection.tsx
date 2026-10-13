@@ -99,19 +99,13 @@ export function CuratedSolutionsSection() {
                 transition={{ duration: 0.4, delay: idx * 0.08 }}
                 className="rounded-3xl bg-white border border-slate-200 overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 flex flex-col justify-between group"
               >
-                {/* Visual Header Image */}
-                <div className="relative w-full h-44 overflow-hidden bg-slate-900">
+                {/* Clean Image Container without overlays */}
+                <div className="relative w-full h-44 overflow-hidden bg-slate-50">
                   <img
                     src={item.imageUrl}
                     alt={item.title}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-108"
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent" />
-
-                  {/* Icon Badge */}
-                  <div className="absolute top-3 left-3 h-10 w-10 rounded-xl bg-white/95 text-[#012169] flex items-center justify-center shadow-lg backdrop-blur-xs">
-                    <Icon weight="bold" className="h-5 w-5" />
-                  </div>
                 </div>
 
                 {/* Content */}
