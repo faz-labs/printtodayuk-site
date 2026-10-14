@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Printer,
@@ -17,20 +17,36 @@ import {
   ArrowSquareOut,
   Sparkle,
   CaretDown,
+  SquaresFour,
+  MagnifyingGlass,
+  Chats,
+  Clock,
+  Lightning,
 } from '@phosphor-icons/react';
 import { cn } from '@/lib/utils';
 import { useCallMe } from './CallMeContext';
 import { CategoryConfig } from '@/lib/types';
 import { getCategories } from '@/lib/db';
+import { AllProductsMegaMenu, COLUMNS_DATA } from './AllProductsMegaMenu';
 
 export function Navbar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { openCallMe } = useCallMe();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileAtoZOpen, setMobileAtoZOpen] = useState(false);
   const [noticeModal, setNoticeModal] = useState<string | null>(null);
   const [categories, setCategories] = useState<CategoryConfig[]>([]);
-  const [hoveredMenu, setHoveredMenu] = useState<'printing' | 'clothing' | 'gift' | null>(null);
+  const [hoveredMenu, setHoveredMenu] = useState<'all-products' | 'printing' | 'clothing' | 'gift' | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      router.push(`/category/Printing?q=${encodeURIComponent(searchQuery.trim())}`);
+    }
+  };
 
   useEffect(() => {
     async function loadCategories() {
@@ -76,7 +92,7 @@ export function Navbar() {
     'Tote Bags',
   ];
 
-  const handleMouseEnter = (menu: 'printing' | 'clothing' | 'gift') => {
+  const handleMouseEnter = (menu: 'all-products' | 'printing' | 'clothing' | 'gift') => {
     if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
     setHoveredMenu(menu);
   };
@@ -116,13 +132,17 @@ export function Navbar() {
 
   return (
     <>
-      <header className="sticky top-0 z-40 w-full bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex h-18 items-center justify-between gap-4">
-            {/* Logo: Image with automatic graceful fallback */}
+      <header
+        className="sticky top-0 z-40 w-full relative bg-white border-b border-slate-200/90 shadow-xs"
+        onMouseLeave={handleMouseLeave}
+      >
+        {/* LINE 1: Top Row (Logo, Solopress Search Bar, Operation Hours, Same-Day Delivery & Live Chat) */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+          <div className="flex items-center justify-between gap-4 lg:gap-8">
+            {/* 1. Logo (Left) */}
             <Link
               href="/"
-              className="flex items-center gap-2.5 group focus:outline-hidden"
+              className="flex items-center gap-2.5 group focus:outline-hidden shrink-0"
             >
               <div className="relative flex items-center">
                 <img
@@ -130,15 +150,14 @@ export function Navbar() {
                   alt="Print Today UK"
                   className="h-10 sm:h-12 w-auto max-w-[200px] object-contain block"
                   onError={(e) => {
-                    // If image is not placed yet, gracefully show stylized typography logo
                     e.currentTarget.style.display = 'none';
                     const fallbackEl = document.getElementById('navbar-text-logo');
                     if (fallbackEl) fallbackEl.style.display = 'flex';
                   }}
                 />
                 <div id="navbar-text-logo" className="hidden items-center gap-2.5">
-                  <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-[#012169] to-[#0B2559] flex items-center justify-center text-white shadow-md shadow-[#012169]/20 group-hover:scale-105 transition-transform">
-                    <Printer weight="bold" className="h-6 w-6 text-red-300" />
+                  <div className="h-10 sm:h-11 w-10 sm:w-11 rounded-xl bg-gradient-to-br from-[#012169] to-[#0B2559] flex items-center justify-center text-white shadow-md shadow-[#012169]/20 group-hover:scale-105 transition-transform">
+                    <Printer weight="bold" className="h-5 sm:h-6 w-5 sm:w-6 text-red-300" />
                   </div>
                   <div className="flex flex-col">
                     <span className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 leading-none">
@@ -155,275 +174,72 @@ export function Navbar() {
               </div>
             </Link>
 
-            {/* Desktop Navigation */}
-            <nav className="hidden lg:flex items-center gap-1 xl:gap-2">
-              {/* Printing Nav with Hover Dropdown */}
-              <div
-                className="relative"
-                onMouseEnter={() => handleMouseEnter('printing')}
-                onMouseLeave={handleMouseLeave}
+            {/* 2. Solopress Center Search Bar */}
+            <form
+              onSubmit={handleSearch}
+              className="hidden md:flex flex-1 max-w-lg lg:max-w-xl items-center"
+            >
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="What are you looking for?"
+                className="w-full h-10.5 pl-4 pr-3 bg-slate-100 hover:bg-slate-50 focus:bg-white border border-r-0 border-slate-300 rounded-l-md text-sm text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:border-[#012169] transition-all"
+              />
+              <button
+                type="submit"
+                className="h-10.5 px-5 bg-[#012169] hover:bg-[#082b7d] text-white font-bold text-xs uppercase tracking-wider rounded-r-md flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 shadow-xs"
               >
-                <Link
-                  href="/category/Printing"
-                  className={cn(
-                    'relative px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-1.5',
-                    pathname.toLowerCase().includes('printing')
-                      ? 'text-[#012169] bg-[#012169]/10 shadow-xs'
-                      : 'text-slate-700 hover:text-slate-950 hover:bg-slate-100/80'
-                  )}
-                >
-                  <Printer
-                    weight="bold"
-                    className={cn(
-                      'h-4 w-4',
-                      pathname.toLowerCase().includes('printing') ? 'text-[#012169]' : 'text-slate-500'
-                    )}
-                  />
-                  <span>Printing</span>
-                  <CaretDown
-                    weight="bold"
-                    className={cn(
-                      'h-3.5 w-3.5 transition-transform duration-200 text-slate-400',
-                      hoveredMenu === 'printing' && 'rotate-180 text-[#012169]'
-                    )}
-                  />
-                </Link>
+                <span>Search</span>
+                <MagnifyingGlass weight="bold" className="h-3.5 w-3.5" />
+              </button>
+            </form>
 
-                {/* Printing Hover Dropdown */}
-                <AnimatePresence>
-                  {hoveredMenu === 'printing' && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 8, scale: 0.98 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 6, scale: 0.98 }}
-                      transition={{ duration: 0.15 }}
-                      className="absolute left-0 top-full mt-1.5 w-72 bg-white rounded-2xl p-3 shadow-2xl border border-slate-200/90 z-50"
-                    >
-                      <div className="px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 mb-1.5 flex items-center justify-between">
-                        <span>Printing Categories</span>
-                        <span className="text-[10px] text-[#C8102E] font-bold">⚡ Same Day</span>
-                      </div>
-                      <div className="space-y-0.5 max-h-72 overflow-y-auto">
-                        {printingSubcategories.map((subcat) => (
-                          <Link
-                            key={subcat}
-                            href={`/category/Printing?subcat=${encodeURIComponent(subcat)}`}
-                            onClick={() => setHoveredMenu(null)}
-                            className="flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:text-[#012169] hover:bg-[#012169]/5 transition-colors group"
-                          >
-                            <span className="truncate">{subcat}</span>
-                            <span className="text-slate-300 group-hover:text-[#012169] group-hover:translate-x-0.5 transition-all text-xs">
-                              →
-                            </span>
-                          </Link>
-                        ))}
-                      </div>
-                      <div className="pt-2 mt-2 border-t border-slate-100">
-                        <Link
-                          href="/category/Printing"
-                          onClick={() => setHoveredMenu(null)}
-                          className="flex items-center justify-between px-3 py-1.5 text-[11px] font-bold text-[#012169] hover:underline"
-                        >
-                          <span>View All Printing</span>
-                          <span>→</span>
-                        </Link>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+            {/* 3. Right: Opening Times, Same Day Delivery & Live Chat */}
+            <div className="hidden lg:flex flex-col items-end shrink-0">
+              {/* Opening Hours text - matching Solopress top right */}
+              <div className="text-xs font-semibold text-slate-700 flex items-center gap-1.5 leading-snug">
+                <Clock weight="fill" className="h-3.5 w-3.5 text-slate-400" />
+                <span>Open <strong className="text-slate-900">8:00am to 8:00pm</strong>, Monday to Friday</span>
               </div>
 
-              {/* Clothing Nav with Hover Dropdown */}
-              <div
-                className="relative"
-                onMouseEnter={() => handleMouseEnter('clothing')}
-                onMouseLeave={handleMouseLeave}
-              >
+              {/* Second sub-line: Same Day Delivery badge & Live Chat button */}
+              <div className="flex items-center gap-3 mt-1">
                 <Link
-                  href="/category/Clothing"
-                  className={cn(
-                    'relative px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-1.5',
-                    pathname.toLowerCase().includes('clothing')
-                      ? 'text-[#012169] bg-[#012169]/10 shadow-xs'
-                      : 'text-slate-700 hover:text-slate-950 hover:bg-slate-100/80'
-                  )}
+                  href="/category/Printing?sameDay=true"
+                  className="inline-flex items-center gap-1 text-[11px] font-bold text-[#012169] bg-blue-50/90 hover:bg-blue-100 border border-blue-200/80 px-2.5 py-0.5 rounded-full transition-colors"
                 >
-                  <TShirt
-                    weight="bold"
-                    className={cn(
-                      'h-4 w-4',
-                      pathname.toLowerCase().includes('clothing') ? 'text-[#012169]' : 'text-slate-500'
-                    )}
-                  />
-                  <span>Clothing</span>
-                  <CaretDown
-                    weight="bold"
-                    className={cn(
-                      'h-3.5 w-3.5 transition-transform duration-200 text-slate-400',
-                      hoveredMenu === 'clothing' && 'rotate-180 text-[#012169]'
-                    )}
-                  />
+                  <Lightning weight="fill" className="h-3 w-3 text-[#C8102E]" />
+                  <span>Same Day Delivery</span>
                 </Link>
 
-                {/* Clothing Hover Dropdown */}
-                <AnimatePresence>
-                  {hoveredMenu === 'clothing' && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 8, scale: 0.98 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 6, scale: 0.98 }}
-                      transition={{ duration: 0.15 }}
-                      className="absolute left-0 top-full mt-1.5 w-72 bg-white rounded-2xl p-3 shadow-2xl border border-slate-200/90 z-50"
-                    >
-                      <div className="px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 mb-1.5 flex items-center justify-between">
-                        <span>Clothing Categories</span>
-                        <span className="text-[10px] text-[#C8102E] font-bold">⚡ Custom Apparel</span>
-                      </div>
-                      <div className="space-y-0.5 max-h-72 overflow-y-auto">
-                        {clothingSubcategories.map((subcat) => (
-                          <Link
-                            key={subcat}
-                            href={`/category/Clothing?subcat=${encodeURIComponent(subcat)}`}
-                            onClick={() => setHoveredMenu(null)}
-                            className="flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:text-[#012169] hover:bg-[#012169]/5 transition-colors group"
-                          >
-                            <span className="truncate">{subcat}</span>
-                            <span className="text-slate-300 group-hover:text-[#012169] group-hover:translate-x-0.5 transition-all text-xs">
-                              →
-                            </span>
-                          </Link>
-                        ))}
-                      </div>
-                      <div className="pt-2 mt-2 border-t border-slate-100">
-                        <Link
-                          href="/category/Clothing"
-                          onClick={() => setHoveredMenu(null)}
-                          className="flex items-center justify-between px-3 py-1.5 text-[11px] font-bold text-[#012169] hover:underline"
-                        >
-                          <span>View All Clothing</span>
-                          <span>→</span>
-                        </Link>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-
-              {/* Gift Items Nav with Hover Dropdown */}
-              <div
-                className="relative"
-                onMouseEnter={() => handleMouseEnter('gift')}
-                onMouseLeave={handleMouseLeave}
-              >
-                <Link
-                  href="/category/Gift%20Items"
-                  className={cn(
-                    'relative px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-1.5',
-                    pathname.toLowerCase().includes('gift')
-                      ? 'text-[#012169] bg-[#012169]/10 shadow-xs'
-                      : 'text-slate-700 hover:text-slate-950 hover:bg-slate-100/80'
-                  )}
+                <a
+                  href="https://wa.me/447969559746"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-[#012169] hover:text-[#0A358C] hover:underline transition-colors cursor-pointer"
                 >
-                  <Gift
-                    weight="bold"
-                    className={cn(
-                      'h-4 w-4',
-                      pathname.toLowerCase().includes('gift') ? 'text-[#012169]' : 'text-slate-500'
-                    )}
-                  />
-                  <span>Gift Items</span>
-                  <CaretDown
-                    weight="bold"
-                    className={cn(
-                      'h-3.5 w-3.5 transition-transform duration-200 text-slate-400',
-                      hoveredMenu === 'gift' && 'rotate-180 text-[#012169]'
-                    )}
-                  />
-                </Link>
-
-                {/* Gift Items Hover Dropdown */}
-                <AnimatePresence>
-                  {hoveredMenu === 'gift' && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 8, scale: 0.98 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 6, scale: 0.98 }}
-                      transition={{ duration: 0.15 }}
-                      className="absolute left-0 top-full mt-1.5 w-72 bg-white rounded-2xl p-3 shadow-2xl border border-slate-200/90 z-50"
-                    >
-                      <div className="px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 mb-1.5 flex items-center justify-between">
-                        <span>Gift Items Categories</span>
-                        <span className="text-[10px] text-[#C8102E] font-bold">⚡ Custom Merch</span>
-                      </div>
-                      <div className="space-y-0.5 max-h-72 overflow-y-auto">
-                        {giftSubcategories.map((subcat) => (
-                          <Link
-                            key={subcat}
-                            href={`/category/Gift%20Items?subcat=${encodeURIComponent(subcat)}`}
-                            onClick={() => setHoveredMenu(null)}
-                            className="flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:text-[#012169] hover:bg-[#012169]/5 transition-colors group"
-                          >
-                            <span className="truncate">{subcat}</span>
-                            <span className="text-slate-300 group-hover:text-[#012169] group-hover:translate-x-0.5 transition-all text-xs">
-                              →
-                            </span>
-                          </Link>
-                        ))}
-                      </div>
-                      <div className="pt-2 mt-2 border-t border-slate-100">
-                        <Link
-                          href="/category/Gift%20Items"
-                          onClick={() => setHoveredMenu(null)}
-                          className="flex items-center justify-between px-3 py-1.5 text-[11px] font-bold text-[#012169] hover:underline"
-                        >
-                          <span>View All Gift Items</span>
-                          <span>→</span>
-                        </Link>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                  <Chats weight="fill" className="h-4 w-4 text-[#012169]" />
+                  <span>Live chat</span>
+                </a>
               </div>
+            </div>
 
-              <div className="h-5 w-px bg-slate-200 mx-2" />
-
-              {/* Signs & Banners - External Direct Link */}
+            {/* Mobile actions (Live Chat / Hamburger) */}
+            <div className="flex lg:hidden items-center gap-2">
               <a
-                href="https://signtodayai.co.uk"
+                href="https://wa.me/447969559746"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-3 py-2 text-xs font-semibold text-slate-600 hover:text-[#012169] hover:bg-slate-50 rounded-lg transition-colors inline-flex items-center gap-1"
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-[#012169] bg-blue-50 px-2.5 py-1.5 rounded-lg border border-blue-200"
               >
-                <span>Signs & Banners</span>
-                <ArrowSquareOut weight="bold" className="h-3 w-3 text-slate-400" />
+                <Chats weight="fill" className="h-4 w-4" />
+                <span>Chat</span>
               </a>
 
-              {/* Other Secondary Service Links */}
-              {otherServices.map((link) => (
-                <button
-                  key={link.name}
-                  onClick={link.action}
-                  className="px-3 py-2 text-xs font-semibold text-slate-600 hover:text-[#012169] hover:bg-slate-50 rounded-lg transition-colors cursor-pointer"
-                >
-                  {link.name}
-                </button>
-              ))}
-            </nav>
-
-            {/* Header Right Action */}
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => openCallMe()}
-                className="hidden sm:inline-flex items-center gap-2 bg-[#C8102E] hover:bg-[#A80C24] text-white px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 shadow-md shadow-[#C8102E]/20 hover:scale-102 cursor-pointer"
-              >
-                <Phone weight="fill" className="h-3.5 w-3.5 text-white" />
-                <span>Instant Quote</span>
-              </button>
-
-              {/* Mobile Menu Button */}
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="lg:hidden p-2 rounded-xl text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-colors cursor-pointer"
+                className="p-2 rounded-xl text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-colors cursor-pointer"
                 aria-label="Toggle navigation menu"
               >
                 {mobileMenuOpen ? (
@@ -434,7 +250,168 @@ export function Navbar() {
               </button>
             </div>
           </div>
+
+          {/* Mobile search bar */}
+          <form
+            onSubmit={handleSearch}
+            className="flex md:hidden mt-2.5 items-center"
+          >
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="What are you looking for?"
+              className="w-full h-9 pl-3.5 pr-2 bg-slate-100 border border-r-0 border-slate-300 rounded-l-md text-xs text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:bg-white"
+            />
+            <button
+              type="submit"
+              className="h-9 px-3.5 bg-[#012169] text-white font-bold text-xs rounded-r-md flex items-center justify-center shrink-0"
+            >
+              <MagnifyingGlass weight="bold" className="h-3.5 w-3.5" />
+            </button>
+          </form>
         </div>
+
+        {/* LINE 2: Bottom Row (All Products Mega Menu Trigger, Direct Category Links, Instant Quote) */}
+        <div className="hidden lg:block border-t border-slate-200/90 bg-white">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <nav className="flex items-center gap-1 xl:gap-2 h-11 text-xs xl:text-sm font-semibold">
+              {/* Solopress-Style "More Products" / "All Products" Mega Menu Trigger */}
+              <div
+                className="relative h-full flex items-center"
+                onMouseEnter={() => handleMouseEnter('all-products')}
+                onMouseLeave={handleMouseLeave}
+              >
+                <button
+                  type="button"
+                  className={cn(
+                    'h-full px-3.5 flex items-center gap-1.5 font-bold transition-all border-b-2 cursor-pointer',
+                    hoveredMenu === 'all-products'
+                      ? 'border-[#012169] text-[#012169] bg-slate-50/80'
+                      : 'border-transparent text-slate-800 hover:text-[#012169]'
+                  )}
+                >
+                  <SquaresFour weight="bold" className="h-4 w-4" />
+                  <span>More Products</span>
+                  <CaretDown
+                    weight="bold"
+                    className={cn(
+                      'h-3 w-3 transition-transform duration-200',
+                      hoveredMenu === 'all-products' ? 'rotate-180 text-[#012169]' : 'text-slate-400'
+                    )}
+                  />
+                </button>
+              </div>
+
+              {/* Direct Category Links (Solopress exact layout) */}
+              <Link
+                href="/category/Printing?subcat=Flyers%20%26%20Leaflets"
+                className={cn(
+                  'h-full px-3 flex items-center transition-colors border-b-2 whitespace-nowrap',
+                  pathname.includes('Flyers')
+                    ? 'border-[#012169] text-[#012169] font-bold'
+                    : 'border-transparent text-slate-700 hover:text-[#012169]'
+                )}
+              >
+                Flyers & Leaflets
+              </Link>
+
+              <Link
+                href="/category/Printing?subcat=Business%20Cards"
+                className={cn(
+                  'h-full px-3 flex items-center transition-colors border-b-2 whitespace-nowrap',
+                  pathname.includes('Business%20Cards')
+                    ? 'border-[#012169] text-[#012169] font-bold'
+                    : 'border-transparent text-slate-700 hover:text-[#012169]'
+                )}
+              >
+                Business Cards
+              </Link>
+
+              <Link
+                href="/category/Printing?subcat=Brochures%20%26%20Booklets"
+                className="h-full px-3 flex items-center transition-colors border-b-2 border-transparent text-slate-700 hover:text-[#012169] whitespace-nowrap"
+              >
+                Brochures & Books
+              </Link>
+
+              <Link
+                href="/category/Printing?subcat=PVC%20Banners"
+                className="h-full px-3 flex items-center transition-colors border-b-2 border-transparent text-slate-700 hover:text-[#012169] whitespace-nowrap"
+              >
+                Roller Banners
+              </Link>
+
+              <Link
+                href="/category/Printing?subcat=Posters%20%26%20Signs"
+                className="h-full px-3 flex items-center transition-colors border-b-2 border-transparent text-slate-700 hover:text-[#012169] whitespace-nowrap"
+              >
+                Posters
+              </Link>
+
+              <Link
+                href="/category/Printing?subcat=Stickers%20%26%20Labels"
+                className="h-full px-3 flex items-center transition-colors border-b-2 border-transparent text-slate-700 hover:text-[#012169] whitespace-nowrap"
+              >
+                Stickers & Packaging
+              </Link>
+
+              <Link
+                href="/category/Clothing"
+                className={cn(
+                  'h-full px-3 flex items-center transition-colors border-b-2 whitespace-nowrap',
+                  pathname.toLowerCase().includes('clothing')
+                    ? 'border-[#012169] text-[#012169] font-bold'
+                    : 'border-transparent text-slate-700 hover:text-[#012169]'
+                )}
+              >
+                Clothing & Apparel
+              </Link>
+
+              <Link
+                href="/category/Gift%20Items"
+                className={cn(
+                  'h-full px-3 flex items-center transition-colors border-b-2 whitespace-nowrap',
+                  pathname.toLowerCase().includes('gift')
+                    ? 'border-[#012169] text-[#012169] font-bold'
+                    : 'border-transparent text-slate-700 hover:text-[#012169]'
+                )}
+              >
+                Gift Items
+              </Link>
+
+              <a
+                href="https://signtodayai.co.uk"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="h-full px-3 flex items-center gap-1 transition-colors border-b-2 border-transparent text-slate-700 hover:text-[#012169] whitespace-nowrap ml-auto"
+              >
+                <span>Signs & Banners</span>
+                <ArrowSquareOut weight="bold" className="h-3 w-3 text-slate-400" />
+              </a>
+
+              {/* Instant Quote / Call Me button */}
+              <button
+                onClick={() => openCallMe()}
+                className="ml-2 inline-flex items-center gap-1.5 bg-[#C8102E] hover:bg-[#A80C24] text-white px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all shadow-xs hover:scale-102 cursor-pointer"
+              >
+                <Phone weight="fill" className="h-3 w-3" />
+                <span>Instant Quote</span>
+              </button>
+            </nav>
+          </div>
+        </div>
+
+        {/* Desktop All Products Solopress-Style A-Z Mega Menu */}
+        <AnimatePresence>
+          {hoveredMenu === 'all-products' && (
+            <AllProductsMegaMenu
+              onClose={() => setHoveredMenu(null)}
+              onMouseEnter={() => handleMouseEnter('all-products')}
+              onMouseLeave={handleMouseLeave}
+            />
+          )}
+        </AnimatePresence>
 
         {/* Mobile Navigation Drawer */}
         <AnimatePresence>
@@ -446,6 +423,87 @@ export function Navbar() {
               className="lg:hidden border-t border-slate-200 bg-white px-4 pt-3 pb-6 shadow-xl max-h-[85vh] overflow-y-auto"
             >
               <div className="flex flex-col space-y-1">
+                {/* Solopress-Style Mobile A-Z Directory Toggle */}
+                <div className="pb-3 mb-2 border-b border-slate-200/80">
+                  <button
+                    type="button"
+                    onClick={() => setMobileAtoZOpen(!mobileAtoZOpen)}
+                    className="w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-sm font-bold bg-[#012169] text-white shadow-xs transition-all"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <SquaresFour weight="bold" className="h-4 w-4 text-white" />
+                      <span>Explore All Products (A–Z)</span>
+                    </div>
+                    <CaretDown
+                      weight="bold"
+                      className={cn(
+                        'h-4 w-4 transition-transform duration-200 text-white/80',
+                        mobileAtoZOpen && 'rotate-180 text-white'
+                      )}
+                    />
+                  </button>
+
+                  {mobileAtoZOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="mt-2.5 p-3.5 bg-slate-50/90 rounded-2xl border border-slate-200/80 space-y-3.5 max-h-[60vh] overflow-y-auto"
+                    >
+                      <div className="text-[11px] font-black uppercase tracking-wider text-[#012169] flex items-center justify-between pb-1 border-b border-slate-200">
+                        <span>A–Z Directory</span>
+                        <span className="text-[10px] text-slate-500 font-semibold">Alphabetical Index</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                        {COLUMNS_DATA.flatMap((c) => c.groups).map((group) => (
+                          <div key={group.letter} className="space-y-1">
+                            <span className="text-xs font-black text-[#012169] block border-b border-slate-200 pb-0.5">
+                              {group.letter}
+                            </span>
+                            <div className="space-y-1">
+                              {group.items.map((item) => {
+                                const linkContent = (
+                                  <span className="block text-xs font-semibold text-slate-600 hover:text-[#012169] truncate">
+                                    {item.name}
+                                  </span>
+                                );
+                                if (item.isExternal) {
+                                  return (
+                                    <a
+                                      key={item.name}
+                                      href={item.href}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      onClick={() => {
+                                        setMobileAtoZOpen(false);
+                                        setMobileMenuOpen(false);
+                                      }}
+                                    >
+                                      {linkContent}
+                                    </a>
+                                  );
+                                }
+                                return (
+                                  <Link
+                                    key={item.name}
+                                    href={item.href}
+                                    onClick={() => {
+                                      setMobileAtoZOpen(false);
+                                      setMobileMenuOpen(false);
+                                    }}
+                                  >
+                                    {linkContent}
+                                  </Link>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </div>
+
                 <div className="px-2 py-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                   Printing Catalog
                 </div>

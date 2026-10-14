@@ -37,7 +37,7 @@ export default function CategoryPage() {
   const [sortBy, setSortBy] = useState<'a-z' | 'z-a' | 'price-asc' | 'price-desc' | 'featured'>('a-z');
   const [isLoading, setIsLoading] = useState(true);
 
-  // Sync subcat from URL query parameter
+  // Sync subcat & search query from URL query parameter
   useEffect(() => {
     const subcatFromUrl = searchParams.get('subcat');
     if (subcatFromUrl) {
@@ -46,6 +46,10 @@ export default function CategoryPage() {
     const sameDayFromUrl = searchParams.get('sameDay');
     if (sameDayFromUrl === 'true') {
       setSameDayOnly(true);
+    }
+    const qFromUrl = searchParams.get('q') || searchParams.get('search');
+    if (qFromUrl) {
+      setSearchQuery(qFromUrl);
     }
   }, [searchParams]);
 
