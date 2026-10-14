@@ -22,6 +22,9 @@ import {
   Chats,
   Clock,
   Lightning,
+  Tag,
+  Copy,
+  Check,
 } from '@phosphor-icons/react';
 import { cn } from '@/lib/utils';
 import { useCallMe } from './CallMeContext';
@@ -36,6 +39,8 @@ export function Navbar() {
   const { openCallMe } = useCallMe();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileAtoZOpen, setMobileAtoZOpen] = useState(false);
+  const [promoModalOpen, setPromoModalOpen] = useState(false);
+  const [copiedCode, setCopiedCode] = useState(false);
   const [noticeModal, setNoticeModal] = useState<string | null>(null);
   const [categories, setCategories] = useState<CategoryConfig[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -165,7 +170,7 @@ export function Navbar() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="What are you looking for?"
-                className="w-full h-10.5 pl-4 pr-11 bg-slate-100 hover:bg-slate-50 focus:bg-white border border-slate-300 rounded-lg text-sm text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:border-[#012169] transition-all"
+                className="w-full h-10.5 pl-4 pr-11 bg-white border border-slate-300 rounded-lg text-sm text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:border-[#012169] focus:ring-1 focus:ring-[#012169]/20 transition-all shadow-2xs"
               />
               <button
                 type="submit"
@@ -242,7 +247,7 @@ export function Navbar() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="What are you looking for?"
-              className="w-full h-9 pl-3.5 pr-10 bg-slate-100 border border-slate-300 rounded-lg text-xs text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:bg-white focus:border-[#012169]"
+              className="w-full h-9 pl-3.5 pr-10 bg-white border border-slate-300 rounded-lg text-xs text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:border-[#012169]"
             />
             <button
               type="submit"
@@ -254,13 +259,13 @@ export function Navbar() {
           </form>
         </div>
 
-        {/* LINE 2: Bottom Row (Only: More Products, Signage, Build Website in Open Sans 16px Medium) */}
-        <div className="hidden lg:block border-t border-slate-200/90 bg-white">
+        {/* LINE 2: Bottom Row: Left: More Products, Center: Signage & Build Website, Right: Get 10% off your next print order */}
+        <div className="hidden lg:block border-t border-slate-200/90 bg-white shadow-2xs">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <nav className="flex items-center gap-7 h-11">
-              {/* More Products Mega Menu Trigger */}
+            <nav className="flex items-center justify-between h-11 relative">
+              {/* Left: More Products Mega Menu Trigger */}
               <div
-                className="relative h-full flex items-center"
+                className="relative h-full flex items-center shrink-0"
                 onMouseEnter={() => handleMouseEnter('all-products')}
                 onMouseLeave={handleMouseLeave}
               >
@@ -286,27 +291,48 @@ export function Navbar() {
                 </button>
               </div>
 
-              {/* Signage - Redirects to signtoday.co.uk */}
-              <a
-                href="https://signtoday.co.uk"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="h-full px-3 flex items-center gap-1.5 transition-colors border-b-2 border-transparent font-['Open_Sans',sans-serif] text-[16px] font-medium text-slate-700 hover:text-[#012169] hover:border-[#012169] whitespace-nowrap"
-              >
-                <span>Signage</span>
-                <ArrowSquareOut weight="bold" className="h-3.5 w-3.5 text-slate-400" />
-              </a>
+              {/* Center: Signage & Build Website (Centered in line 2) */}
+              <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-6 h-full">
+                {/* Signage - Redirects to signtoday.co.uk */}
+                <a
+                  href="https://signtoday.co.uk"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="h-full px-3 flex items-center gap-1.5 transition-colors border-b-2 border-transparent font-['Open_Sans',sans-serif] text-[16px] font-medium text-slate-700 hover:text-[#012169] hover:border-[#012169] whitespace-nowrap"
+                >
+                  <span>Signage</span>
+                  <ArrowSquareOut weight="bold" className="h-3.5 w-3.5 text-slate-400" />
+                </a>
 
-              {/* Build Website - Redirects to todayai.co.uk */}
-              <a
-                href="https://todayai.co.uk"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="h-full px-3 flex items-center gap-1.5 transition-colors border-b-2 border-transparent font-['Open_Sans',sans-serif] text-[16px] font-medium text-slate-700 hover:text-[#012169] hover:border-[#012169] whitespace-nowrap"
-              >
-                <span>Build Website</span>
-                <ArrowSquareOut weight="bold" className="h-3.5 w-3.5 text-slate-400" />
-              </a>
+                {/* Build Website - Redirects to todayai.co.uk */}
+                <a
+                  href="https://todayai.co.uk"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="h-full px-3 flex items-center gap-1.5 transition-colors border-b-2 border-transparent font-['Open_Sans',sans-serif] text-[16px] font-medium text-slate-700 hover:text-[#012169] hover:border-[#012169] whitespace-nowrap"
+                >
+                  <span>Build Website</span>
+                  <ArrowSquareOut weight="bold" className="h-3.5 w-3.5 text-slate-400" />
+                </a>
+              </div>
+
+              {/* Right: Get 10% off your next print order */}
+              <div className="flex items-center shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setPromoModalOpen(true)}
+                  className="group inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-red-50/90 hover:bg-red-100/90 border border-red-200/90 transition-all shadow-2xs hover:shadow-xs cursor-pointer"
+                  title="Claim 10% off your next print order"
+                >
+                  <Tag weight="fill" className="h-3.5 w-3.5 text-[#C8102E] group-hover:scale-110 transition-transform" />
+                  <span className="font-['Open_Sans',sans-serif] font-medium text-[13px] text-slate-900 group-hover:text-[#C8102E] transition-colors">
+                    Get <strong className="text-[#C8102E] font-bold">10% off</strong> your next print order
+                  </span>
+                  <span className="text-[10px] font-mono font-bold bg-[#C8102E] text-white px-2 py-0.5 rounded shadow-2xs">
+                    FIRSTPRINT10
+                  </span>
+                </button>
+              </div>
             </nav>
           </div>
         </div>
@@ -334,6 +360,26 @@ export function Navbar() {
               className="lg:hidden border-t border-slate-200 bg-white px-4 pt-3 pb-6 shadow-xl max-h-[85vh] overflow-y-auto"
             >
               <div className="flex flex-col space-y-1">
+                {/* Mobile 10% Off Promo Offer */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    setPromoModalOpen(true);
+                  }}
+                  className="w-full mb-2.5 flex items-center justify-between p-3 rounded-xl bg-red-50 hover:bg-red-100/80 border border-red-200/90 text-left transition-colors cursor-pointer"
+                >
+                  <div className="flex items-center gap-2">
+                    <Tag weight="fill" className="h-4 w-4 text-[#C8102E]" />
+                    <span className="text-xs font-semibold text-slate-900 font-['Open_Sans',sans-serif]">
+                      Get <strong className="text-[#C8102E]">10% off</strong> your next print order
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-mono font-bold bg-[#C8102E] text-white px-2 py-0.5 rounded shadow-2xs">
+                    FIRSTPRINT10
+                  </span>
+                </button>
+
                 {/* Solopress-Style Mobile A-Z Directory Toggle */}
                 <div className="pb-3 mb-2 border-b border-slate-200/80">
                   <button
@@ -533,6 +579,93 @@ export function Navbar() {
           </motion.div>
         </div>
       )}
+
+      {/* 10% Off Promo Offer Modal */}
+      <AnimatePresence>
+        {promoModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-md bg-white rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-200 text-center"
+            >
+              <button
+                onClick={() => setPromoModalOpen(false)}
+                className="absolute right-4 top-4 p-2 text-slate-400 hover:text-slate-700 rounded-full hover:bg-slate-100 transition-colors cursor-pointer"
+                aria-label="Close dialog"
+              >
+                <X weight="bold" className="h-5 w-5" />
+              </button>
+
+              <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-red-50 border border-red-100 flex items-center justify-center text-[#C8102E]">
+                <Tag weight="fill" className="h-7 w-7" />
+              </div>
+
+              <span className="text-xs font-bold text-[#C8102E] uppercase tracking-wider bg-red-50 px-3 py-1 rounded-full border border-red-200/60 inline-block mb-2 font-['Open_Sans',sans-serif]">
+                Special Introductory Offer
+              </span>
+
+              <h3 className="text-2xl font-black text-slate-900 tracking-tight font-['Open_Sans',sans-serif]">
+                Get 10% Off Your Next Print Order
+              </h3>
+
+              <p className="mt-2 text-sm text-slate-600 leading-relaxed font-['Open_Sans',sans-serif]">
+                Quote or apply the promo code below at checkout, in store at 75 Green St, or when placing your order over the phone / live chat.
+              </p>
+
+              <div className="mt-6 p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3">
+                <div className="text-left">
+                  <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-['Open_Sans',sans-serif]">Promo Code</div>
+                  <div className="text-xl font-mono font-extrabold text-[#012169]">FIRSTPRINT10</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText('FIRSTPRINT10');
+                    setCopiedCode(true);
+                    setTimeout(() => setCopiedCode(false), 2500);
+                  }}
+                  className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#012169] hover:bg-[#0A358C] text-white text-xs font-bold transition-colors cursor-pointer shadow-xs"
+                >
+                  {copiedCode ? (
+                    <>
+                      <Check weight="bold" className="h-4 w-4 text-emerald-300" />
+                      <span>Copied!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy weight="bold" className="h-4 w-4" />
+                      <span>Copy Code</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              <div className="mt-6 flex flex-col gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPromoModalOpen(false);
+                    router.push('/category/Printing');
+                  }}
+                  className="w-full py-3 rounded-xl bg-[#C8102E] hover:bg-[#A80C24] text-white font-bold text-sm shadow-md transition-colors cursor-pointer font-['Open_Sans',sans-serif]"
+                >
+                  Browse Products & Redeem
+                </button>
+                <a
+                  href="https://wa.me/447969559746?text=Hi%2C%20I%20would%20like%20to%20use%20code%20FIRSTPRINT10%20for%2010%25%20off"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full py-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs border border-emerald-200/80 transition-colors flex items-center justify-center gap-1.5 font-['Open_Sans',sans-serif]"
+                >
+                  <span>Order via WhatsApp Live Chat</span>
+                </a>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </>
   );
 }

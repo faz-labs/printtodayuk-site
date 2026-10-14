@@ -37,32 +37,31 @@ export function FeatureHighlights() {
   ];
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-6 sm:-mt-8 relative z-30 mb-8">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        {features.map((item, idx) => {
-          const Icon = item.icon;
-          return (
-            <motion.div
-              key={item.title}
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: idx * 0.05 }}
-              className="flex items-center gap-3 p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-200/90 shadow-md shadow-slate-200/50 hover:shadow-lg hover:border-[#012169]/30 transition-all"
-            >
-              <div className={`p-2.5 rounded-xl ${item.bgLight} ${item.iconColor} shrink-0`}>
-                <Icon weight="duotone" className="h-5 w-5" />
-              </div>
-              <div className="min-w-0">
-                <div className="text-xs sm:text-sm font-bold text-slate-900 truncate">
-                  {item.title}
+    <div className="w-full bg-white border-y border-slate-200/90 shadow-2xs relative z-20">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-200/80">
+          {features.map((item, idx) => {
+            const Icon = item.icon;
+            return (
+              <div
+                key={item.title}
+                className="flex items-center gap-3.5 px-3 sm:px-6 py-4 bg-white hover:bg-slate-50/80 transition-colors"
+              >
+                <div className={`p-2.5 rounded-xl ${item.bgLight} ${item.iconColor} shrink-0`}>
+                  <Icon weight="bold" className="h-5 w-5" />
                 </div>
-                <div className="text-[11px] sm:text-xs text-slate-500 truncate mt-0.5">
-                  {item.description}
+                <div className="min-w-0">
+                  <div className="text-xs sm:text-sm font-extrabold text-slate-900 tracking-tight truncate font-['Open_Sans',sans-serif]">
+                    {item.title}
+                  </div>
+                  <div className="text-[11px] sm:text-xs text-slate-500 truncate mt-0.5 font-medium font-['Open_Sans',sans-serif]">
+                    {item.description}
+                  </div>
                 </div>
               </div>
-            </motion.div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
     </div>
   );
