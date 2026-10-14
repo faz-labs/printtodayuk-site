@@ -54,6 +54,14 @@ export interface Inquiry {
   createdAt: number;
 }
 
+export interface HeroSlide {
+  id: string;
+  imageUrl: string;
+  title?: string;
+  linkUrl?: string;
+  order?: number;
+}
+
 export type ProductInput = Omit<Product, 'id' | 'createdAt' | 'updatedAt'>;
 export type InquiryInput = Omit<Inquiry, 'id' | 'createdAt'>;
 

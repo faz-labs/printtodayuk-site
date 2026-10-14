@@ -11,8 +11,8 @@ import {
   where,
 } from 'firebase/firestore';
 import { db, isConfigured } from './firebase';
-import { Product, CategoryConfig, Inquiry, ProductInput } from './types';
-import { INITIAL_CATEGORIES, SEED_PRODUCTS } from './data';
+import { Product, CategoryConfig, Inquiry, ProductInput, HeroSlide } from './types';
+import { INITIAL_CATEGORIES, SEED_PRODUCTS, DEFAULT_HERO_SLIDES } from './data';
 import { slugify } from './utils';
 
 
@@ -486,5 +486,71 @@ export async function deleteInquiry(id: string): Promise<boolean> {
   const local = getLocalInquiries();
   const filtered = local.filter((i) => i.id !== id);
   saveLocalInquiries(filtered);
+  return true;
+}
+
+// ---------------- HERO BANNER SLIDES CRUD ----------------
+
+function getLocalHeroSlides(): HeroSlide[] {
+  if (typeof window === 'undefined') return DEFAULT_HERO_SLIDES;
+  try {
+    const data = localStorage.getItem('print_today_hero_slides');
+    if (data) {
+      const parsed = JSON.parse(data);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch {}
+  return DEFAULT_HERO_SLIDES;
+}
+
+function saveLocalHeroSlides(slides: HeroSlide[]) {
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem('print_today_hero_slides', JSON.stringify(slides));
+    } catch {}
+  }
+}
+
+export async function getHeroSlides(): Promise<HeroSlide[]> {
+  if (isConfigured && db) {
+    try {
+      const snap = await getDocs(collection(db, 'hero_slides'));
+      if (!snap.empty) {
+        const slides = snap.docs.map((d) => ({ id: d.id, ...d.data() })) as HeroSlide[];
+        slides.sort((a, b) => (a.order || 0) - (b.order || 0));
+        return slides;
+      }
+    } catch (error) {
+      console.warn('Firestore getHeroSlides error, using fallback:', error);
+    }
+  }
+  return getLocalHeroSlides();
+}
+
+export async function saveHeroSlides(slides: HeroSlide[]): Promise<HeroSlide[]> {
+  if (isConfigured && db) {
+    try {
+      for (const slide of slides) {
+        const docRef = doc(db, 'hero_slides', slide.id);
+        await setDoc(docRef, slide, { merge: true });
+      }
+    } catch (error) {
+      console.error('Firestore saveHeroSlides failed:', error);
+    }
+  }
+  saveLocalHeroSlides(slides);
+  return slides;
+}
+
+export async function deleteHeroSlide(slideId: string): Promise<boolean> {
+  if (isConfigured && db) {
+    try {
+      await deleteDoc(doc(db, 'hero_slides', slideId));
+    } catch (error) {
+      console.error('Firestore deleteHeroSlide error:', error);
+    }
+  }
+  const local = getLocalHeroSlides().filter((s) => s.id !== slideId);
+  saveLocalHeroSlides(local);
   return true;
 }

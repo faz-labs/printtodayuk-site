@@ -1,146 +1,167 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { motion } from 'framer-motion';
-import {
-  Lightning,
-  Printer,
-  TShirt,
-  PhoneCall,
-} from '@phosphor-icons/react';
-import { useCallMe } from './CallMeContext';
+import { motion, AnimatePresence } from 'framer-motion';
+import { CaretLeft, CaretRight } from '@phosphor-icons/react';
+import { HeroSlide } from '@/lib/types';
+import { getHeroSlides } from '@/lib/db';
+import { DEFAULT_HERO_SLIDES } from '@/lib/data';
 
 interface HeroSectionProps {
   categoryType?: 'Printing' | 'Clothing';
-  videoSrc?: string;
 }
 
-export function HeroSection({
-  categoryType = 'Printing',
-  videoSrc,
-}: HeroSectionProps) {
-  const { openCallMe } = useCallMe();
+export function HeroSection({ categoryType }: HeroSectionProps) {
+  const [slides, setSlides] = useState<HeroSlide[]>(DEFAULT_HERO_SLIDES);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+  const [direction, setDirection] = useState<1 | -1>(1);
 
-  const isPrinting = categoryType === 'Printing';
-  const defaultVideoSrc =
-    videoSrc || (isPrinting ? '/videos/hero-printing.webm' : '/videos/hero-clothing.webm');
+  // Load hero slides from CMS/database
+  useEffect(() => {
+    async function load() {
+      try {
+        const data = await getHeroSlides();
+        if (data && data.length > 0) {
+          setSlides(data);
+        }
+      } catch (err) {
+        console.error('Failed to load hero slides:', err);
+      }
+    }
+    load();
+  }, []);
 
-  return (
-    <section className="relative overflow-hidden bg-[#012169] text-white pt-16 pb-20 lg:pt-24 lg:pb-28">
-      {/* Background WebM Video (Crystal Clear & Vivid) */}
-      <video
-        autoPlay
-        loop
-        muted
-        playsInline
-        preload="auto"
-        className="absolute inset-0 w-full h-full object-cover opacity-90 pointer-events-none transition-opacity duration-1000 z-0"
-        onError={(e) => {
-          e.currentTarget.style.display = 'none';
-        }}
-      >
-        <source src={defaultVideoSrc} type="video/webm" />
-        <source src="/videos/hero.webm" type="video/webm" />
-      </video>
+  // Auto sliding interval (every 4.5 seconds)
+  useEffect(() => {
+    if (slides.length <= 1 || isPaused) return;
 
-      {/* Clear, subtle contrast gradient overlay so video is visible and text is sharp */}
-      <div className="absolute inset-0 bg-gradient-to-b from-[#012169]/40 via-black/25 to-[#012169]/70 pointer-events-none z-1" />
+    const timer = setInterval(() => {
+      setDirection(1);
+      setCurrentIndex((prev) => (prev + 1) % slides.length);
+    }, 4500);
 
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 z-10">
-        <div className="text-center max-w-3xl mx-auto">
-          {/* Top Banner Tag */}
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-950/60 backdrop-blur-md border border-white/30 text-white text-xs font-bold mb-6 shadow-xl"
+    return () => clearInterval(timer);
+  }, [slides.length, isPaused]);
+
+  const handlePrev = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDirection(-1);
+    setCurrentIndex((prev) => (prev - 1 + slides.length) % slides.length);
+  };
+
+  const handleNext = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDirection(1);
+    setCurrentIndex((prev) => (prev + 1) % slides.length);
+  };
+
+  if (slides.length === 0) return null;
+
+  const currentSlide = slides[currentIndex];
+
+  const slideContent = (
+    <div
+      className="relative w-full h-[450px] overflow-hidden bg-slate-900 select-none group"
+      onMouseEnter={() => setIsPaused(true)}
+      onMouseLeave={() => setIsPaused(false)}
+    >
+      {/* Sliding Image with AnimatePresence */}
+      <AnimatePresence initial={false} custom={direction}>
+        <motion.div
+          key={currentSlide.id || currentIndex}
+          custom={direction}
+          initial={{ opacity: 0, x: direction === 1 ? 80 : -80 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: direction === 1 ? -80 : 80 }}
+          transition={{ duration: 0.6, ease: [0.25, 1, 0.5, 1] }}
+          className="absolute inset-0 w-full h-full"
+        >
+          <img
+            src={currentSlide.imageUrl}
+            alt={currentSlide.title || `Hero banner ${currentIndex + 1}`}
+            className="w-full h-[450px] object-cover object-center block"
+            loading="eager"
+            onError={(e) => {
+              e.currentTarget.src = 'https://images.unsplash.com/photo-1561070791-2526d30994b5?q=80&w=1800&auto=format&fit=crop';
+            }}
+          />
+        </motion.div>
+      </AnimatePresence>
+
+      {/* Navigation Arrows (visible on hover) */}
+      {slides.length > 1 && (
+        <>
+          <button
+            onClick={handlePrev}
+            aria-label="Previous slide"
+            type="button"
+            className="absolute left-4 top-1/2 -translate-y-1/2 h-11 w-11 rounded-full bg-black/40 hover:bg-black/75 backdrop-blur-xs text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 z-20 cursor-pointer hover:scale-105"
           >
-            <Lightning weight="fill" className="h-3.5 w-3.5 text-amber-400" />
-            <span className="drop-shadow-xs">London Express Hub • Same-Day Dispatch</span>
-            <span className="h-1.5 w-1.5 rounded-full bg-[#C8102E]" />
-            <span className="text-red-300 font-extrabold drop-shadow-xs">Order by 12pm</span>
-          </motion.div>
+            <CaretLeft weight="bold" className="h-6 w-6" />
+          </button>
 
-          {/* Main Headline - Clean Mix of White & Red (No Underline) */}
-          <motion.h1
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.1 }}
-            className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.15] drop-shadow-[0_3px_10px_rgba(0,0,0,0.9)]"
+          <button
+            onClick={handleNext}
+            aria-label="Next slide"
+            type="button"
+            className="absolute right-4 top-1/2 -translate-y-1/2 h-11 w-11 rounded-full bg-black/40 hover:bg-black/75 backdrop-blur-xs text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 z-20 cursor-pointer hover:scale-105"
           >
-            {isPrinting ? (
-              <>
-                <span className="text-white">London&apos;s Fastest </span>
-                <span className="text-[#C8102E] bg-white/95 px-3 py-0.5 rounded-xl inline-block shadow-xl my-1">
-                  Same Day
-                </span>{' '}
-                <span className="text-white">Custom Printing</span>
-              </>
-            ) : (
-              <>
-                <span className="text-white">Premium Custom </span>
-                <span className="text-[#C8102E] bg-white/95 px-3 py-0.5 rounded-xl inline-block shadow-xl my-1">
-                  Apparel & Workwear
-                </span>{' '}
-                <span className="text-white">in London</span>
-              </>
-            )}
-          </motion.h1>
+            <CaretRight weight="bold" className="h-6 w-6" />
+          </button>
+        </>
+      )}
 
-          {/* Subtitle - High Legibility & Mixed Accent Highlights */}
-          <motion.p
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-            className="mt-6 text-base sm:text-lg text-white font-medium max-w-2xl mx-auto leading-relaxed drop-shadow-[0_2px_6px_rgba(0,0,0,0.85)]"
-          >
-            {isPrinting ? (
-              <>
-                Luxury <span className="text-red-300 font-bold">business cards</span>, flyers, folded brochures, PVC banners, canopies, ID cards, and promotional merchandise printed on-demand with <span className="text-white font-bold">London studio collection</span> or rapid courier delivery.
-              </>
-            ) : (
-              <>
-                Direct-to-Film (DTF) printed <span className="text-red-300 font-bold">t-shirts</span>, heavy fleece hoodies, embroidered corporate polos, and safety high-vis workwear. <span className="text-white font-bold">Delivered fast</span> across London.
-              </>
-            )}
-          </motion.p>
-
-          {/* CTAs */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.3 }}
-            className="mt-8 flex flex-wrap items-center justify-center gap-3 sm:gap-4"
-          >
+      {/* Bottom Pagination Dots */}
+      {slides.length > 1 && (
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 z-20 bg-black/30 backdrop-blur-xs px-3 py-1.5 rounded-full">
+          {slides.map((_, idx) => (
             <button
-              onClick={() => openCallMe(isPrinting ? 'Same-Day Printing Quote' : 'Clothing Quote')}
-              className="inline-flex items-center gap-2 bg-[#C8102E] hover:bg-[#A80C24] text-white font-bold px-6 py-3.5 rounded-xl shadow-xl text-sm transition-all transform hover:scale-105 active:scale-95 cursor-pointer border border-[#C8102E]"
-            >
-              <PhoneCall weight="bold" className="h-4 w-4" />
-              <span>Get Same-Day Quote</span>
-            </button>
-
-            {isPrinting ? (
-              <Link
-                href="/clothing"
-                className="inline-flex items-center gap-2 bg-white hover:bg-white/90 text-[#012169] font-bold px-6 py-3.5 rounded-xl text-sm transition-all hover:scale-105 shadow-lg"
-              >
-                <TShirt weight="bold" className="h-4 w-4 text-[#012169]" />
-                <span>Explore Clothing Catalog</span>
-              </Link>
-            ) : (
-              <Link
-                href="/"
-                className="inline-flex items-center gap-2 bg-white hover:bg-white/90 text-[#012169] font-bold px-6 py-3.5 rounded-xl text-sm transition-all hover:scale-105 shadow-lg"
-              >
-                <Printer weight="bold" className="h-4 w-4 text-[#012169]" />
-                <span>Explore Printing Catalog</span>
-              </Link>
-            )}
-          </motion.div>
+              key={idx}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setDirection(idx > currentIndex ? 1 : -1);
+                setCurrentIndex(idx);
+              }}
+              aria-label={`Go to slide ${idx + 1}`}
+              type="button"
+              className={`h-2.5 rounded-full transition-all duration-300 cursor-pointer ${
+                idx === currentIndex
+                  ? 'w-7 bg-white shadow-sm'
+                  : 'w-2.5 bg-white/50 hover:bg-white/80'
+              }`}
+            />
+          ))}
         </div>
-      </div>
-    </section>
+      )}
+    </div>
   );
+
+  // If slide has a linkUrl, wrap with Link
+  if (currentSlide.linkUrl) {
+    if (currentSlide.linkUrl.startsWith('http')) {
+      return (
+        <a
+          href={currentSlide.linkUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block w-full cursor-pointer"
+        >
+          {slideContent}
+        </a>
+      );
+    }
+
+    return (
+      <Link href={currentSlide.linkUrl} className="block w-full cursor-pointer">
+        {slideContent}
+      </Link>
+    );
+  }
+
+  return slideContent;
 }

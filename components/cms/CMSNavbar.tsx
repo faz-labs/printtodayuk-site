@@ -11,11 +11,12 @@ import {
   SignOut,
   ArrowSquareOut,
   ShieldCheck,
+  Images,
 } from '@phosphor-icons/react';
 
 interface CMSNavbarProps {
-  activeTab: 'products' | 'categories' | 'inquiries';
-  onTabChange: (tab: 'products' | 'categories' | 'inquiries') => void;
+  activeTab: 'products' | 'categories' | 'inquiries' | 'banners';
+  onTabChange: (tab: 'products' | 'categories' | 'inquiries' | 'banners') => void;
   pendingInquiriesCount?: number;
 }
 
@@ -76,6 +77,18 @@ export function CMSNavbar({
             >
               <Stack weight="bold" className="h-3.5 w-3.5" />
               <span>Categories</span>
+            </button>
+
+            <button
+              onClick={() => onTabChange('banners')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                activeTab === 'banners'
+                  ? 'bg-white text-[#012169] shadow-xs'
+                  : 'text-slate-300 hover:text-white'
+              }`}
+            >
+              <Images weight="bold" className="h-3.5 w-3.5" />
+              <span>Hero Banners</span>
             </button>
 
             <button

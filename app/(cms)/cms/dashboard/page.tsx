@@ -22,6 +22,7 @@ import { CMSNavbar } from '@/components/cms/CMSNavbar';
 import { ProductManager } from '@/components/cms/ProductManager';
 import { CategoryManager } from '@/components/cms/CategoryManager';
 import { InquiryInbox } from '@/components/cms/InquiryInbox';
+import { HeroBannerManager } from '@/components/cms/HeroBannerManager';
 import {
   Package,
   Stack,
@@ -36,7 +37,7 @@ export default function CMSDashboardPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<'products' | 'categories' | 'inquiries'>('products');
+  const [activeTab, setActiveTab] = useState<'products' | 'categories' | 'inquiries' | 'banners'>('products');
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<CategoryConfig[]>([]);
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
@@ -262,6 +263,10 @@ export default function CMSDashboardPage() {
                 onDeleteCategory={handleDeleteCategory}
                 onUpdateCategory={handleUpdateCategory}
               />
+            )}
+
+            {activeTab === 'banners' && (
+              <HeroBannerManager />
             )}
 
             {activeTab === 'inquiries' && (

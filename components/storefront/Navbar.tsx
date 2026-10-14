@@ -25,9 +25,9 @@ import {
 } from '@phosphor-icons/react';
 import { cn } from '@/lib/utils';
 import { useCallMe } from './CallMeContext';
-import { CategoryConfig } from '@/lib/types';
-import { getCategories } from '@/lib/db';
-import { AllProductsMegaMenu, COLUMNS_DATA } from './AllProductsMegaMenu';
+import { CategoryConfig, Product } from '@/lib/types';
+import { getCategories, getProducts } from '@/lib/db';
+import { AllProductsMegaMenu } from './AllProductsMegaMenu';
 
 export function Navbar() {
   const pathname = usePathname();
@@ -37,6 +37,7 @@ export function Navbar() {
   const [mobileAtoZOpen, setMobileAtoZOpen] = useState(false);
   const [noticeModal, setNoticeModal] = useState<string | null>(null);
   const [categories, setCategories] = useState<CategoryConfig[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [hoveredMenu, setHoveredMenu] = useState<'all-products' | 'printing' | 'clothing' | 'gift' | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -49,15 +50,19 @@ export function Navbar() {
   };
 
   useEffect(() => {
-    async function loadCategories() {
+    async function loadData() {
       try {
-        const data = await getCategories();
-        setCategories(data);
+        const [cats, prods] = await Promise.all([
+          getCategories(),
+          getProducts(),
+        ]);
+        setCategories(cats);
+        setProducts(prods);
       } catch (err) {
-        console.error('Failed to load navbar categories:', err);
+        console.error('Failed to load navbar data:', err);
       }
     }
-    loadCategories();
+    loadData();
   }, []);
 
   const printingCat = categories.find((c) => c.name.toLowerCase() === 'printing');
@@ -174,24 +179,24 @@ export function Navbar() {
               </div>
             </Link>
 
-            {/* 2. Solopress Center Search Bar */}
+            {/* 2. Solopress Center Search Bar - Blue icon, no solid background */}
             <form
               onSubmit={handleSearch}
-              className="hidden md:flex flex-1 max-w-lg lg:max-w-xl items-center"
+              className="hidden md:flex flex-1 max-w-lg lg:max-w-xl items-center relative"
             >
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="What are you looking for?"
-                className="w-full h-10.5 pl-4 pr-3 bg-slate-100 hover:bg-slate-50 focus:bg-white border border-r-0 border-slate-300 rounded-l-md text-sm text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:border-[#012169] transition-all"
+                className="w-full h-10.5 pl-4 pr-11 bg-slate-100 hover:bg-slate-50 focus:bg-white border border-slate-300 rounded-lg text-sm text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:border-[#012169] transition-all"
               />
               <button
                 type="submit"
-                className="h-10.5 px-5 bg-[#012169] hover:bg-[#082b7d] text-white font-bold text-xs uppercase tracking-wider rounded-r-md flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 shadow-xs"
+                aria-label="Search"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-8.5 w-8.5 flex items-center justify-center text-[#012169] hover:bg-blue-50/80 rounded-md transition-colors cursor-pointer"
               >
-                <span>Search</span>
-                <MagnifyingGlass weight="bold" className="h-3.5 w-3.5" />
+                <MagnifyingGlass weight="bold" className="h-4.5 w-4.5 text-[#012169]" />
               </button>
             </form>
 
@@ -254,29 +259,30 @@ export function Navbar() {
           {/* Mobile search bar */}
           <form
             onSubmit={handleSearch}
-            className="flex md:hidden mt-2.5 items-center"
+            className="flex md:hidden mt-2.5 items-center relative"
           >
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="What are you looking for?"
-              className="w-full h-9 pl-3.5 pr-2 bg-slate-100 border border-r-0 border-slate-300 rounded-l-md text-xs text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:bg-white"
+              className="w-full h-9 pl-3.5 pr-10 bg-slate-100 border border-slate-300 rounded-lg text-xs text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:bg-white focus:border-[#012169]"
             />
             <button
               type="submit"
-              className="h-9 px-3.5 bg-[#012169] text-white font-bold text-xs rounded-r-md flex items-center justify-center shrink-0"
+              aria-label="Search"
+              className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 flex items-center justify-center text-[#012169] hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
             >
-              <MagnifyingGlass weight="bold" className="h-3.5 w-3.5" />
+              <MagnifyingGlass weight="bold" className="h-4 w-4 text-[#012169]" />
             </button>
           </form>
         </div>
 
-        {/* LINE 2: Bottom Row (All Products Mega Menu Trigger, Direct Category Links, Instant Quote) */}
+        {/* LINE 2: Bottom Row (Only: More Products, Signage, Build Website) */}
         <div className="hidden lg:block border-t border-slate-200/90 bg-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <nav className="flex items-center gap-1 xl:gap-2 h-11 text-xs xl:text-sm font-semibold">
-              {/* Solopress-Style "More Products" / "All Products" Mega Menu Trigger */}
+            <nav className="flex items-center gap-6 h-11 text-xs xl:text-sm font-semibold">
+              {/* More Products Mega Menu Trigger */}
               <div
                 className="relative h-full flex items-center"
                 onMouseEnter={() => handleMouseEnter('all-products')}
@@ -303,101 +309,27 @@ export function Navbar() {
                 </button>
               </div>
 
-              {/* Direct Category Links (Solopress exact layout) */}
-              <Link
-                href="/category/Printing?subcat=Flyers%20%26%20Leaflets"
-                className={cn(
-                  'h-full px-3 flex items-center transition-colors border-b-2 whitespace-nowrap',
-                  pathname.includes('Flyers')
-                    ? 'border-[#012169] text-[#012169] font-bold'
-                    : 'border-transparent text-slate-700 hover:text-[#012169]'
-                )}
-              >
-                Flyers & Leaflets
-              </Link>
-
-              <Link
-                href="/category/Printing?subcat=Business%20Cards"
-                className={cn(
-                  'h-full px-3 flex items-center transition-colors border-b-2 whitespace-nowrap',
-                  pathname.includes('Business%20Cards')
-                    ? 'border-[#012169] text-[#012169] font-bold'
-                    : 'border-transparent text-slate-700 hover:text-[#012169]'
-                )}
-              >
-                Business Cards
-              </Link>
-
-              <Link
-                href="/category/Printing?subcat=Brochures%20%26%20Booklets"
-                className="h-full px-3 flex items-center transition-colors border-b-2 border-transparent text-slate-700 hover:text-[#012169] whitespace-nowrap"
-              >
-                Brochures & Books
-              </Link>
-
-              <Link
-                href="/category/Printing?subcat=PVC%20Banners"
-                className="h-full px-3 flex items-center transition-colors border-b-2 border-transparent text-slate-700 hover:text-[#012169] whitespace-nowrap"
-              >
-                Roller Banners
-              </Link>
-
-              <Link
-                href="/category/Printing?subcat=Posters%20%26%20Signs"
-                className="h-full px-3 flex items-center transition-colors border-b-2 border-transparent text-slate-700 hover:text-[#012169] whitespace-nowrap"
-              >
-                Posters
-              </Link>
-
-              <Link
-                href="/category/Printing?subcat=Stickers%20%26%20Labels"
-                className="h-full px-3 flex items-center transition-colors border-b-2 border-transparent text-slate-700 hover:text-[#012169] whitespace-nowrap"
-              >
-                Stickers & Packaging
-              </Link>
-
-              <Link
-                href="/category/Clothing"
-                className={cn(
-                  'h-full px-3 flex items-center transition-colors border-b-2 whitespace-nowrap',
-                  pathname.toLowerCase().includes('clothing')
-                    ? 'border-[#012169] text-[#012169] font-bold'
-                    : 'border-transparent text-slate-700 hover:text-[#012169]'
-                )}
-              >
-                Clothing & Apparel
-              </Link>
-
-              <Link
-                href="/category/Gift%20Items"
-                className={cn(
-                  'h-full px-3 flex items-center transition-colors border-b-2 whitespace-nowrap',
-                  pathname.toLowerCase().includes('gift')
-                    ? 'border-[#012169] text-[#012169] font-bold'
-                    : 'border-transparent text-slate-700 hover:text-[#012169]'
-                )}
-              >
-                Gift Items
-              </Link>
-
+              {/* Signage - Redirects to signtoday.co.uk */}
               <a
-                href="https://signtodayai.co.uk"
+                href="https://signtoday.co.uk"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="h-full px-3 flex items-center gap-1 transition-colors border-b-2 border-transparent text-slate-700 hover:text-[#012169] whitespace-nowrap ml-auto"
+                className="h-full px-3 flex items-center gap-1.5 transition-colors border-b-2 border-transparent text-slate-700 hover:text-[#012169] hover:border-[#012169] whitespace-nowrap"
               >
-                <span>Signs & Banners</span>
+                <span>Signage</span>
                 <ArrowSquareOut weight="bold" className="h-3 w-3 text-slate-400" />
               </a>
 
-              {/* Instant Quote / Call Me button */}
-              <button
-                onClick={() => openCallMe()}
-                className="ml-2 inline-flex items-center gap-1.5 bg-[#C8102E] hover:bg-[#A80C24] text-white px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all shadow-xs hover:scale-102 cursor-pointer"
+              {/* Build Website - Redirects to todayai.co.uk */}
+              <a
+                href="https://todayai.co.uk"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="h-full px-3 flex items-center gap-1.5 transition-colors border-b-2 border-transparent text-slate-700 hover:text-[#012169] hover:border-[#012169] whitespace-nowrap"
               >
-                <Phone weight="fill" className="h-3 w-3" />
-                <span>Instant Quote</span>
-              </button>
+                <span>Build Website</span>
+                <ArrowSquareOut weight="bold" className="h-3 w-3 text-slate-400" />
+              </a>
             </nav>
           </div>
         </div>
@@ -406,6 +338,8 @@ export function Navbar() {
         <AnimatePresence>
           {hoveredMenu === 'all-products' && (
             <AllProductsMegaMenu
+              categories={categories}
+              products={products}
               onClose={() => setHoveredMenu(null)}
               onMouseEnter={() => handleMouseEnter('all-products')}
               onMouseLeave={handleMouseLeave}
@@ -455,53 +389,65 @@ export function Navbar() {
                         <span className="text-[10px] text-slate-500 font-semibold">Alphabetical Index</span>
                       </div>
                       <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-                        {COLUMNS_DATA.flatMap((c) => c.groups).map((group) => (
-                          <div key={group.letter} className="space-y-1">
-                            <span className="text-xs font-black text-[#012169] block border-b border-slate-200 pb-0.5">
-                              {group.letter}
-                            </span>
-                            <div className="space-y-1">
-                              {group.items.map((item) => {
-                                const linkContent = (
-                                  <span className="block text-xs font-semibold text-slate-600 hover:text-[#012169] truncate">
-                                    {item.name}
-                                  </span>
-                                );
-                                if (item.isExternal) {
-                                  return (
-                                    <a
-                                      key={item.name}
-                                      href={item.href}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
+                        {[...categories]
+                          .sort((a, b) => a.name.localeCompare(b.name))
+                          .map((cat) => (
+                            <div key={cat.name} className="space-y-1">
+                              <Link
+                                href={`/category/${encodeURIComponent(cat.name)}`}
+                                onClick={() => {
+                                  setMobileAtoZOpen(false);
+                                  setMobileMenuOpen(false);
+                                }}
+                                className="text-xs font-black text-[#012169] block border-b border-slate-200 pb-0.5 hover:underline"
+                              >
+                                {cat.name}
+                              </Link>
+                              <div className="space-y-0.5">
+                                {(cat.subcategories || [])
+                                  .filter((s) => s.toLowerCase() !== 'all')
+                                  .slice(0, 5)
+                                  .map((subcat) => (
+                                    <Link
+                                      key={subcat}
+                                      href={`/category/${encodeURIComponent(cat.name)}?subcat=${encodeURIComponent(subcat)}`}
                                       onClick={() => {
                                         setMobileAtoZOpen(false);
                                         setMobileMenuOpen(false);
                                       }}
+                                      className="block text-[11px] text-slate-600 hover:text-[#012169] truncate"
                                     >
-                                      {linkContent}
-                                    </a>
-                                  );
-                                }
-                                return (
-                                  <Link
-                                    key={item.name}
-                                    href={item.href}
-                                    onClick={() => {
-                                      setMobileAtoZOpen(false);
-                                      setMobileMenuOpen(false);
-                                    }}
-                                  >
-                                    {linkContent}
-                                  </Link>
-                                );
-                              })}
+                                      {subcat}
+                                    </Link>
+                                  ))}
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          ))}
                       </div>
                     </motion.div>
                   )}
+                </div>
+
+                {/* Direct Partner Links in Mobile Drawer */}
+                <div className="grid grid-cols-2 gap-2 pb-2 mb-2 border-b border-slate-100">
+                  <a
+                    href="https://signtoday.co.uk"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between px-3 py-2 bg-slate-50 hover:bg-slate-100 rounded-xl text-xs font-bold text-slate-700"
+                  >
+                    <span>Signage</span>
+                    <ArrowSquareOut weight="bold" className="h-3 w-3 text-slate-400" />
+                  </a>
+                  <a
+                    href="https://todayai.co.uk"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between px-3 py-2 bg-slate-50 hover:bg-slate-100 rounded-xl text-xs font-bold text-slate-700"
+                  >
+                    <span>Build Website</span>
+                    <ArrowSquareOut weight="bold" className="h-3 w-3 text-slate-400" />
+                  </a>
                 </div>
 
                 <div className="px-2 py-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
