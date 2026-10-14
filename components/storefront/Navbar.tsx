@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -27,6 +27,7 @@ import { cn } from '@/lib/utils';
 import { useCallMe } from './CallMeContext';
 import { CategoryConfig, Product } from '@/lib/types';
 import { getCategories, getProducts } from '@/lib/db';
+import { INITIAL_CATEGORIES } from '@/lib/data';
 import { AllProductsMegaMenu } from './AllProductsMegaMenu';
 
 export function Navbar() {
@@ -38,7 +39,7 @@ export function Navbar() {
   const [noticeModal, setNoticeModal] = useState<string | null>(null);
   const [categories, setCategories] = useState<CategoryConfig[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [hoveredMenu, setHoveredMenu] = useState<'all-products' | 'printing' | 'clothing' | 'gift' | null>(null);
+  const [hoveredMenu, setHoveredMenu] = useState<'all-products' | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -65,39 +66,14 @@ export function Navbar() {
     loadData();
   }, []);
 
-  const printingCat = categories.find((c) => c.name.toLowerCase() === 'printing');
-  const printingSubcategories = printingCat?.subcategories || [
-    'Business Cards',
-    'Flyers & Leaflets',
-    'Posters',
-    'PVC Banners',
-    'Folded Brochures',
-    'Canopies & Gazebos',
-    'Stickers & Labels',
-    'ID Cards & Badges',
-  ];
+  const cleanCategories = useMemo(() => {
+    const list = categories.filter(
+      (c) => c.name.toLowerCase() !== 'printing' && c.name.toLowerCase() !== 'clothing'
+    );
+    return list.length > 0 ? list : INITIAL_CATEGORIES;
+  }, [categories]);
 
-  const clothingCat = categories.find((c) => c.name.toLowerCase() === 'clothing');
-  const clothingSubcategories = clothingCat?.subcategories || [
-    'T-Shirts (DTF Print)',
-    'Hoodies & Sweatshirts',
-    'Corporate Polos',
-    'Workwear & High-Vis',
-    'Tote Bags & Aprons',
-    'Caps & Beanies',
-  ];
-
-  const giftCat = categories.find((c) => c.name.toLowerCase() === 'gift items');
-  const giftSubcategories = giftCat?.subcategories || [
-    'Mugs',
-    'Pens',
-    'Water Bottles',
-    'Notebooks & Diaries',
-    'Keyrings & Lanyards',
-    'Tote Bags',
-  ];
-
-  const handleMouseEnter = (menu: 'all-products' | 'printing' | 'clothing' | 'gift') => {
+  const handleMouseEnter = (menu: 'all-products') => {
     if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
     setHoveredMenu(menu);
   };
@@ -105,7 +81,7 @@ export function Navbar() {
   const handleMouseLeave = () => {
     hoverTimeoutRef.current = setTimeout(() => {
       setHoveredMenu(null);
-    }, 150);
+    }, 250);
   };
 
   const otherServices = [
@@ -278,10 +254,10 @@ export function Navbar() {
           </form>
         </div>
 
-        {/* LINE 2: Bottom Row (Only: More Products, Signage, Build Website) */}
+        {/* LINE 2: Bottom Row (Only: More Products, Signage, Build Website in Open Sans 16px Medium) */}
         <div className="hidden lg:block border-t border-slate-200/90 bg-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <nav className="flex items-center gap-6 h-11 text-xs xl:text-sm font-semibold">
+            <nav className="flex items-center gap-7 h-11">
               {/* More Products Mega Menu Trigger */}
               <div
                 className="relative h-full flex items-center"
@@ -290,19 +266,20 @@ export function Navbar() {
               >
                 <button
                   type="button"
+                  onClick={() => setHoveredMenu(hoveredMenu === 'all-products' ? null : 'all-products')}
                   className={cn(
-                    'h-full px-3.5 flex items-center gap-1.5 font-bold transition-all border-b-2 cursor-pointer',
+                    'h-full px-3 flex items-center gap-2 font-["Open_Sans",sans-serif] text-[16px] font-medium transition-all border-b-2 cursor-pointer',
                     hoveredMenu === 'all-products'
                       ? 'border-[#012169] text-[#012169] bg-slate-50/80'
                       : 'border-transparent text-slate-800 hover:text-[#012169]'
                   )}
                 >
-                  <SquaresFour weight="bold" className="h-4 w-4" />
+                  <SquaresFour weight="bold" className="h-4.5 w-4.5" />
                   <span>More Products</span>
                   <CaretDown
                     weight="bold"
                     className={cn(
-                      'h-3 w-3 transition-transform duration-200',
+                      'h-3.5 w-3.5 transition-transform duration-200',
                       hoveredMenu === 'all-products' ? 'rotate-180 text-[#012169]' : 'text-slate-400'
                     )}
                   />
@@ -314,10 +291,10 @@ export function Navbar() {
                 href="https://signtoday.co.uk"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="h-full px-3 flex items-center gap-1.5 transition-colors border-b-2 border-transparent text-slate-700 hover:text-[#012169] hover:border-[#012169] whitespace-nowrap"
+                className="h-full px-3 flex items-center gap-1.5 transition-colors border-b-2 border-transparent font-['Open_Sans',sans-serif] text-[16px] font-medium text-slate-700 hover:text-[#012169] hover:border-[#012169] whitespace-nowrap"
               >
                 <span>Signage</span>
-                <ArrowSquareOut weight="bold" className="h-3 w-3 text-slate-400" />
+                <ArrowSquareOut weight="bold" className="h-3.5 w-3.5 text-slate-400" />
               </a>
 
               {/* Build Website - Redirects to todayai.co.uk */}
@@ -325,10 +302,10 @@ export function Navbar() {
                 href="https://todayai.co.uk"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="h-full px-3 flex items-center gap-1.5 transition-colors border-b-2 border-transparent text-slate-700 hover:text-[#012169] hover:border-[#012169] whitespace-nowrap"
+                className="h-full px-3 flex items-center gap-1.5 transition-colors border-b-2 border-transparent font-['Open_Sans',sans-serif] text-[16px] font-medium text-slate-700 hover:text-[#012169] hover:border-[#012169] whitespace-nowrap"
               >
                 <span>Build Website</span>
-                <ArrowSquareOut weight="bold" className="h-3 w-3 text-slate-400" />
+                <ArrowSquareOut weight="bold" className="h-3.5 w-3.5 text-slate-400" />
               </a>
             </nav>
           </div>
@@ -338,7 +315,7 @@ export function Navbar() {
         <AnimatePresence>
           {hoveredMenu === 'all-products' && (
             <AllProductsMegaMenu
-              categories={categories}
+              categories={cleanCategories}
               products={products}
               onClose={() => setHoveredMenu(null)}
               onMouseEnter={() => handleMouseEnter('all-products')}
@@ -450,94 +427,23 @@ export function Navbar() {
                   </a>
                 </div>
 
-                <div className="px-2 py-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                  Printing Catalog
+                <div className="px-2 py-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                  Product Categories (A–Z)
                 </div>
-                <Link
-                  href="/category/Printing"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-bold bg-[#012169]/10 text-[#012169]"
-                >
-                  <div className="flex items-center gap-3">
-                    <Printer weight="bold" className="h-5 w-5" />
-                    <span>All Printing Products</span>
-                  </div>
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-white/60 text-slate-700">
-                    Popular
-                  </span>
-                </Link>
-
-                <div className="pl-4 pr-1 py-1 space-y-0.5 border-l-2 border-slate-100 ml-3">
-                  {printingSubcategories.map((subcat) => (
-                    <Link
-                      key={subcat}
-                      href={`/category/Printing?subcat=${encodeURIComponent(subcat)}`}
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="block px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:text-[#012169]"
-                    >
-                      {subcat}
-                    </Link>
-                  ))}
-                </div>
-
-                <div className="pt-3 px-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                  Clothing Catalog
-                </div>
-                <Link
-                  href="/category/Clothing"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-bold bg-[#012169]/10 text-[#012169]"
-                >
-                  <div className="flex items-center gap-3">
-                    <TShirt weight="bold" className="h-5 w-5" />
-                    <span>All Clothing & Apparel</span>
-                  </div>
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-white/60 text-slate-700">
-                    Custom
-                  </span>
-                </Link>
-
-                <div className="pl-4 pr-1 py-1 space-y-0.5 border-l-2 border-slate-100 ml-3">
-                  {clothingSubcategories.map((subcat) => (
-                    <Link
-                      key={subcat}
-                      href={`/category/Clothing?subcat=${encodeURIComponent(subcat)}`}
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="block px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:text-[#012169]"
-                    >
-                      {subcat}
-                    </Link>
-                  ))}
-                </div>
-
-                <div className="pt-3 px-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                  Gift Items Catalog
-                </div>
-                <Link
-                  href="/category/Gift%20Items"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-bold bg-[#012169]/10 text-[#012169]"
-                >
-                  <div className="flex items-center gap-3">
-                    <Gift weight="bold" className="h-5 w-5" />
-                    <span>All Gift & Promo Items</span>
-                  </div>
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-white/60 text-slate-700">
-                    Custom
-                  </span>
-                </Link>
-
-                <div className="pl-4 pr-1 py-1 space-y-0.5 border-l-2 border-slate-100 ml-3">
-                  {giftSubcategories.map((subcat) => (
-                    <Link
-                      key={subcat}
-                      href={`/category/Gift%20Items?subcat=${encodeURIComponent(subcat)}`}
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="block px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:text-[#012169]"
-                    >
-                      {subcat}
-                    </Link>
-                  ))}
+                <div className="space-y-1">
+                  {[...cleanCategories]
+                    .sort((a, b) => a.name.localeCompare(b.name))
+                    .map((cat) => (
+                      <Link
+                        key={cat.name}
+                        href={`/category/${encodeURIComponent(cat.name)}`}
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="flex items-center justify-between px-3.5 py-2.5 rounded-xl font-['Open_Sans',sans-serif] text-[16px] font-medium text-slate-800 hover:text-[#012169] hover:bg-slate-50 transition-colors"
+                      >
+                        <span>{cat.name}</span>
+                        <ArrowSquareOut weight="bold" className="h-4 w-4 text-slate-400" />
+                      </Link>
+                    ))}
                 </div>
 
                 <div className="pt-3 pb-1 px-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider">

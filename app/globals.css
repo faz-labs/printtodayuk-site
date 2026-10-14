@@ -3,6 +3,7 @@
 @layer base {
   :root {
     --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    --font-open-sans: 'Open Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     --primary-blue: #012169;
     --primary-blue-light: #0A358C;
     --primary-blue-dark: #001548;
@@ -64,4 +65,12 @@ html.lenis, html.lenis body {
 
 .lenis.lenis-smooth iframe {
   pointer-events: none;
+}
+
+/* Open Sans 16px Medium Utility */
+.font-open-sans-medium {
+  font-family: var(--font-open-sans), 'Open Sans', sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 500 !important;
+  line-height: 1.5;
 }

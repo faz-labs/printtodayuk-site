@@ -68,10 +68,19 @@ export default function CategoryPage() {
         );
         setCategoryConfig(matchedCat || null);
 
-        // Filter products belonging to this category
-        const catProducts = prodsData.filter(
-          (p) => p.category.toLowerCase() === categoryName.toLowerCase()
-        );
+        // Filter products belonging to this category (matches category name, subcategory, or title)
+        const catTarget = categoryName.toLowerCase().trim();
+        const catProducts = prodsData.filter((p) => {
+          const pCat = p.category.toLowerCase().trim();
+          const pSub = p.subcategory.toLowerCase().trim();
+          return (
+            pCat === catTarget ||
+            pSub === catTarget ||
+            catTarget.includes(pSub) ||
+            pCat.includes(catTarget) ||
+            p.title.toLowerCase().includes(catTarget)
+          );
+        });
         setAllProducts(catProducts);
 
         // Build list of subcategories

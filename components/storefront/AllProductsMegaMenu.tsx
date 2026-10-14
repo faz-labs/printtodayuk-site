@@ -20,17 +20,17 @@ interface MegaMenuItem {
 }
 
 export const BEST_SELLERS: MegaMenuItem[] = [
-  { name: 'Flyers & Leaflets', href: '/category/Printing?subcat=Flyers%20%26%20Leaflets' },
-  { name: 'Business Cards', href: '/category/Printing?subcat=Business%20Cards' },
-  { name: 'Personalised Mugs', href: '/category/Gift%20Items?subcat=Mugs' },
-  { name: 'Custom T-Shirts', href: '/category/Clothing?subcat=T-Shirts' },
-  { name: 'Hoodies & Sweatshirts', href: '/category/Clothing?subcat=Hoodies%20%26%20Sweatshirts' },
-  { name: 'PVC Banners', href: '/category/Printing?subcat=PVC%20Banners' },
-  { name: 'Posters & Signs', href: '/category/Printing?subcat=Posters%20%26%20Signs' },
-  { name: 'Stickers & Labels', href: '/category/Printing?subcat=Stickers%20%26%20Labels' },
-  { name: 'Promotional Pens', href: '/category/Gift%20Items?subcat=Pens' },
-  { name: 'Same-Day London Print', href: '/category/Printing?sameDay=true' },
-  { name: 'Eco-Friendly Recycled', href: '/category/Printing', isNew: true },
+  { name: 'Flyers & Leaflets', href: '/category/Flyers%20%26%20Leaflets' },
+  { name: 'Business Cards', href: '/category/Business%20Cards' },
+  { name: 'Personalised Mugs', href: '/category/Personalised%20Mugs' },
+  { name: 'Custom T-Shirts', href: '/category/T-Shirts' },
+  { name: 'Hoodies & Sweatshirts', href: '/category/Hoodies%20%26%20Sweatshirts' },
+  { name: 'PVC Banners', href: '/category/PVC%20Banners' },
+  { name: 'Posters & Signs', href: '/category/Posters%20%26%20Signs' },
+  { name: 'Stickers & Labels', href: '/category/Stickers%20%26%20Labels' },
+  { name: 'Promotional Pens', href: '/category/Promotional%20Pens' },
+  { name: 'Same-Day London Print', href: '/category/Flyers%20%26%20Leaflets?sameDay=true' },
+  { name: 'Eco-Friendly Recycled', href: '/category/Business%20Cards', isNew: true },
 ];
 
 interface DynamicCategoryGroup {
@@ -57,8 +57,21 @@ export function AllProductsMegaMenu({
   onMouseEnter,
   onMouseLeave,
 }: AllProductsMegaMenuProps) {
-  // Use passed CMS categories or fallback to INITIAL_CATEGORIES
-  const rawCategories = categories && categories.length > 0 ? categories : INITIAL_CATEGORIES;
+  // Merge passed CMS categories with INITIAL_CATEGORIES (filtering out legacy container categories)
+  const rawCategories = useMemo(() => {
+    let list = categories && categories.length > 0 ? categories : INITIAL_CATEGORIES;
+    list = list.filter(
+      (c) => c.name.toLowerCase() !== 'printing' && c.name.toLowerCase() !== 'clothing'
+    );
+    const existing = new Set(list.map((c) => c.name.toLowerCase().trim()));
+    const merged = [...list];
+    for (const init of INITIAL_CATEGORIES) {
+      if (!existing.has(init.name.toLowerCase().trim())) {
+        merged.push(init);
+      }
+    }
+    return merged;
+  }, [categories]);
 
   // Build alphabetical letter groups from CMS Category names
   const letterGroups = useMemo<DynamicCategoryGroup[]>(() => {
@@ -71,9 +84,11 @@ export function AllProductsMegaMenu({
       const letter = cat.name.trim().charAt(0).toUpperCase();
       if (!letter) continue;
 
-      // Find products belonging to this category
+      // Find products belonging to this category or matching subcategory
       const catProducts = products.filter(
-        (p) => p.category.toLowerCase().trim() === cat.name.toLowerCase().trim()
+        (p) =>
+          p.category.toLowerCase().trim() === cat.name.toLowerCase().trim() ||
+          p.subcategory.toLowerCase().trim() === cat.name.toLowerCase().trim()
       );
 
       // Unique subcategories for this category (excluding 'All')
@@ -135,7 +150,7 @@ export function AllProductsMegaMenu({
                   key={item.name}
                   href={item.href}
                   onClick={onClose}
-                  className="flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-700 hover:text-[#012169] hover:bg-white hover:shadow-xs transition-all group"
+                  className="flex items-center justify-between px-2.5 py-1.5 rounded-lg font-['Open_Sans',sans-serif] text-[15px] font-medium text-slate-700 hover:text-[#012169] hover:bg-white hover:shadow-xs transition-all group"
                 >
                   <span className="truncate">{item.name}</span>
                   {item.isNew ? (
@@ -151,9 +166,9 @@ export function AllProductsMegaMenu({
               ))}
             </div>
 
-            <div className="mt-4 pt-3 border-t border-slate-200 text-[11px] text-slate-500 flex items-center gap-1.5">
+            <div className="mt-4 pt-3 border-t border-slate-200 text-[11px] text-slate-500 flex items-center gap-1.5 font-['Open_Sans',sans-serif]">
               <Lightning weight="fill" className="h-3.5 w-3.5 text-[#C8102E]" />
-              <span className="font-bold text-slate-700">Same-Day London Dispatch</span>
+              <span className="font-semibold text-slate-700">Same-Day London Dispatch</span>
             </div>
           </div>
 
@@ -162,55 +177,57 @@ export function AllProductsMegaMenu({
             {columns.map((colGroups, colIdx) => (
               <div key={colIdx} className="space-y-6">
                 {colGroups.map((group) => (
-                  <div key={group.letter} className="space-y-3">
+                  <div key={group.letter} className="space-y-2.5">
                     {/* Alphabet letter header (Solopress style: bold blue letter) */}
-                    <div className="text-xs font-black text-[#012169] border-b border-slate-200 pb-1 flex items-center gap-1.5">
-                      <span className="text-sm">{group.letter}</span>
-                      <div className="h-0.5 w-5 bg-[#012169]/30 rounded-full" />
+                    <div className="font-['Open_Sans',sans-serif] text-[18px] font-bold text-[#012169] border-b border-slate-200 pb-1 flex items-center gap-2">
+                      <span>{group.letter}</span>
+                      <div className="h-0.5 w-6 bg-[#012169]/30 rounded-full" />
                     </div>
 
                     {/* Categories under this letter */}
                     <div className="space-y-3 pl-1">
                       {group.categories.map(({ category, subcategories, products: catProds }) => (
                         <div key={category.name} className="space-y-1">
-                          {/* Category Name header link */}
+                          {/* Category Name header link in Open Sans 16px Medium */}
                           <Link
                             href={`/category/${encodeURIComponent(category.name)}`}
                             onClick={onClose}
-                            className="inline-flex items-center gap-1 text-xs font-extrabold text-slate-900 hover:text-[#012169] group transition-colors"
+                            className="inline-flex items-center gap-1 font-['Open_Sans',sans-serif] text-[16px] font-medium text-slate-900 hover:text-[#012169] group transition-colors leading-snug"
                           >
                             <span className="group-hover:underline">{category.name}</span>
-                            <span className="text-[10px] text-slate-400 group-hover:text-[#012169] transition-transform group-hover:translate-x-0.5">
+                            <span className="text-[12px] text-slate-400 group-hover:text-[#012169] transition-transform group-hover:translate-x-0.5">
                               →
                             </span>
                           </Link>
 
                           {/* Subcategories & Products under this Category */}
-                          <div className="space-y-0.5 pl-2 border-l border-slate-100">
-                            {/* Subcategories */}
-                            {subcategories.map((subcat) => (
-                              <Link
-                                key={subcat}
-                                href={`/category/${encodeURIComponent(category.name)}?subcat=${encodeURIComponent(subcat)}`}
-                                onClick={onClose}
-                                className="block text-[11px] text-slate-600 hover:text-[#012169] hover:underline transition-colors py-0.5 truncate"
-                              >
-                                {subcat}
-                              </Link>
-                            ))}
+                          {(subcategories.length > 0 || catProds.length > 0) && (
+                            <div className="space-y-0.5 pl-2.5 border-l-2 border-slate-100">
+                              {/* Subcategories */}
+                              {subcategories.map((subcat) => (
+                                <Link
+                                  key={subcat}
+                                  href={`/category/${encodeURIComponent(category.name)}?subcat=${encodeURIComponent(subcat)}`}
+                                  onClick={onClose}
+                                  className="block font-['Open_Sans',sans-serif] text-[13px] text-slate-600 hover:text-[#012169] hover:underline transition-colors py-0.5 truncate"
+                                >
+                                  {subcat}
+                                </Link>
+                              ))}
 
-                            {/* Any specific products under category that might not be in subcategories */}
-                            {catProds.slice(0, 4).map((p) => (
-                              <Link
-                                key={p.id || p.slug}
-                                href={`/product/${p.id || p.slug}`}
-                                onClick={onClose}
-                                className="block text-[11px] text-slate-500 hover:text-[#012169] hover:underline transition-colors py-0.5 truncate"
-                              >
-                                {p.title}
-                              </Link>
-                            ))}
-                          </div>
+                              {/* Any specific products under category that might not be in subcategories */}
+                              {catProds.slice(0, 3).map((p) => (
+                                <Link
+                                  key={p.id || p.slug}
+                                  href={`/product/${p.id || p.slug}`}
+                                  onClick={onClose}
+                                  className="block font-['Open_Sans',sans-serif] text-[13px] text-slate-500 hover:text-[#012169] hover:underline transition-colors py-0.5 truncate"
+                                >
+                                  {p.title}
+                                </Link>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>

@@ -47,7 +47,7 @@ export function CategoryManager({
   onUpdateCategory,
 }: CategoryManagerProps) {
   const [activeCategoryName, setActiveCategoryName] = useState<string>(
-    categories[0]?.name || 'Gift Items'
+    categories[0]?.name || 'Business Cards'
   );
   const [newSubcatInput, setNewSubcatInput] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -72,7 +72,7 @@ export function CategoryManager({
       (c) => c.name.toLowerCase() === activeCategoryName.toLowerCase()
     ) ||
     categories[0] || {
-      name: 'Gift Items',
+      name: 'Business Cards',
       subcategories: [],
       subcategoryImages: {},
     };

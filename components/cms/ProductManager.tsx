@@ -40,7 +40,7 @@ export function ProductManager({
   onRefreshData,
 }: ProductManagerProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterCategory, setFilterCategory] = useState<'All' | 'Printing' | 'Clothing'>('All');
+  const [filterCategory, setFilterCategory] = useState<string>('All');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -60,7 +60,10 @@ export function ProductManager({
         product.subcategory.toLowerCase().includes(searchQuery.toLowerCase());
 
       const matchCategory =
-        filterCategory === 'All' ? true : product.category.toLowerCase() === filterCategory.toLowerCase();
+        filterCategory === 'All'
+          ? true
+          : product.category.toLowerCase() === filterCategory.toLowerCase() ||
+            product.subcategory.toLowerCase() === filterCategory.toLowerCase();
 
       return matchSearch && matchCategory;
     });
@@ -170,21 +173,20 @@ export function ProductManager({
             />
           </div>
 
-          {/* Category Filter Pills */}
-          <div className="hidden md:flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
-            {(['All', 'Printing', 'Clothing'] as const).map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setFilterCategory(cat)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                  filterCategory === cat
-                    ? 'bg-white text-[#012169] shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
+          {/* Dynamic Category Filter Dropdown */}
+          <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
+            <select
+              value={filterCategory}
+              onChange={(e) => setFilterCategory(e.target.value)}
+              className="bg-transparent text-xs font-bold text-slate-800 px-3 py-1.5 focus:outline-hidden cursor-pointer rounded-lg hover:bg-white"
+            >
+              <option value="All">All Categories ({products.length})</option>
+              {categories.map((c) => (
+                <option key={c.name} value={c.name}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 

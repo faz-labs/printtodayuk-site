@@ -44,9 +44,12 @@ function getLocalCategories(): CategoryConfig[] {
   try {
     const data = localStorage.getItem('print_today_categories');
     if (data) {
-      const parsed: CategoryConfig[] = JSON.parse(data);
+      let parsed: CategoryConfig[] = JSON.parse(data);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        // Merge any new default categories (e.g. Gift Items) if missing
+        // Filter out legacy generic container categories 'Printing' & 'Clothing'
+        parsed = parsed.filter(
+          (c) => c.name.toLowerCase() !== 'printing' && c.name.toLowerCase() !== 'clothing'
+        );
         const existingNames = new Set(parsed.map((c) => c.name.toLowerCase()));
         let hasNew = false;
         for (const initCat of INITIAL_CATEGORIES) {
@@ -55,10 +58,10 @@ function getLocalCategories(): CategoryConfig[] {
             hasNew = true;
           }
         }
-        if (hasNew) {
+        if (hasNew || parsed.length > 0) {
           saveLocalCategories(parsed);
         }
-        return parsed;
+        return parsed.length > 0 ? parsed : INITIAL_CATEGORIES;
       }
     }
   } catch {}
@@ -251,7 +254,18 @@ export async function getCategories(): Promise<CategoryConfig[]> {
     try {
       const snap = await getDocs(collection(db, 'categories'));
       if (!snap.empty) {
-        return snap.docs.map((d) => ({ id: d.id, ...d.data() })) as CategoryConfig[];
+        let firestoreCats = snap.docs.map((d) => ({ id: d.id, ...d.data() })) as CategoryConfig[];
+        firestoreCats = firestoreCats.filter(
+          (c) => c.name.toLowerCase() !== 'printing' && c.name.toLowerCase() !== 'clothing'
+        );
+        const existingNames = new Set(firestoreCats.map((c) => c.name.toLowerCase()));
+        const merged = [...firestoreCats];
+        for (const initCat of INITIAL_CATEGORIES) {
+          if (!existingNames.has(initCat.name.toLowerCase())) {
+            merged.push(initCat);
+          }
+        }
+        return merged;
       }
     } catch (error) {
       console.warn('Firestore fetch categories error:', error);
