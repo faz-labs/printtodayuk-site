@@ -321,7 +321,7 @@ export function Navbar() {
                     )}
                   >
                     <SquaresFour weight="bold" className="h-4.5 w-4.5" />
-                    <span>More Products</span>
+                    <span>A to Z Products</span>
                     <CaretDown
                       weight="bold"
                       className={cn(

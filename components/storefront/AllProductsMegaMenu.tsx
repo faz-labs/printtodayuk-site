@@ -118,6 +118,28 @@ export function AllProductsMegaMenu({
     return cols;
   }, [letterGroups]);
 
+  // Derive featured Best Sellers list from CMS categories marked with isBestSeller
+  const enlistedBestSellers = useMemo(() => {
+    const fromCms = rawCategories.filter((c) => c.isBestSeller);
+    if (fromCms.length > 0) {
+      return fromCms;
+    }
+    // Fallback if none ticked yet: default popular categories from active catalog
+    const defaultNames = new Set([
+      'business cards',
+      'flyers & leaflets',
+      'personalised mugs',
+      'hoodies & sweatshirts',
+      'pvc banners',
+      'posters & signs',
+      'stickers & labels',
+      'promotional pens',
+      't-shirts',
+    ]);
+    const defaults = rawCategories.filter((c) => defaultNames.has(c.name.toLowerCase().trim()));
+    return defaults.length > 0 ? defaults : rawCategories.slice(0, 8);
+  }, [rawCategories]);
+
   return (
     <motion.div
       onMouseEnter={onMouseEnter}
@@ -132,34 +154,25 @@ export function AllProductsMegaMenu({
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-7">
         <div className="flex gap-8">
-          {/* 1. Left Best Sellers Sidebar */}
+          {/* 1. Left Best Sellers Sidebar (Managed via CMS isBestSeller toggle, Top 10 text removed) */}
           <div className="w-56 shrink-0 bg-slate-50/80 rounded-2xl p-4 border border-slate-200/80">
-            <div className="px-3.5 py-2.5 rounded-xl bg-[#012169] text-white text-xs font-black uppercase tracking-wider flex items-center justify-between shadow-xs mb-3">
-              <div className="flex items-center gap-1.5">
-                <Flame weight="fill" className="h-4 w-4 text-amber-300" />
-                <span>Best Sellers</span>
-              </div>
-              <span className="text-[10px] text-red-200">Top 10</span>
+            <div className="px-3.5 py-2.5 rounded-xl bg-[#012169] text-white text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-xs mb-3">
+              <Flame weight="fill" className="h-4 w-4 text-amber-300" />
+              <span>Best Sellers</span>
             </div>
 
             <div className="space-y-1">
-              {BEST_SELLERS.map((item) => (
+              {enlistedBestSellers.map((item) => (
                 <Link
                   key={item.name}
-                  href={item.href}
+                  href={`/category/${encodeURIComponent(item.name)}`}
                   onClick={onClose}
                   className="flex items-center justify-between px-2.5 py-1.5 rounded-lg font-['Open_Sans',sans-serif] text-[15px] font-medium text-slate-700 hover:text-[#012169] hover:bg-white hover:shadow-xs transition-all group"
                 >
                   <span className="truncate">{item.name}</span>
-                  {item.isNew ? (
-                    <span className="text-[9px] font-black text-emerald-600 bg-emerald-50 px-1 rounded-sm border border-emerald-200">
-                      NEW
-                    </span>
-                  ) : (
-                    <span className="text-slate-300 group-hover:text-[#012169] group-hover:translate-x-0.5 transition-all text-xs">
-                      →
-                    </span>
-                  )}
+                  <span className="text-slate-300 group-hover:text-[#012169] group-hover:translate-x-0.5 transition-all text-xs">
+                    →
+                  </span>
                 </Link>
               ))}
             </div>

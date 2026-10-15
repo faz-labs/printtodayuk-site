@@ -37,6 +37,7 @@ export interface CategoryConfig {
   description?: string;
   subcategories: string[];
   subcategoryImages?: Record<string, string>;
+  isBestSeller?: boolean;
 }
 
 export interface Inquiry {

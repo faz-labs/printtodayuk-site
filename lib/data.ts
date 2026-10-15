@@ -68,6 +68,7 @@ export const INITIAL_CATEGORIES: CategoryConfig[] = [
     description: 'Premium business cards in silk, matte, gloss, recycled, and luxury spot UV finishes.',
     imageUrl: 'https://images.unsplash.com/photo-1589829085413-56de8ae18c73?q=80&w=800&auto=format&fit=crop',
     subcategories: ['Standard 400gsm', 'Spot UV & Foil', 'Recycled Kraft', 'Folded Cards'],
+    isBestSeller: true,
   },
   {
     name: 'Brochures & Booklets',
@@ -86,12 +87,14 @@ export const INITIAL_CATEGORIES: CategoryConfig[] = [
     description: 'High quality promotional flyers and folded leaflets with same-day London dispatch.',
     imageUrl: 'https://images.unsplash.com/photo-1561070791-2526d30994b5?q=80&w=800&auto=format&fit=crop',
     subcategories: ['A5 Flyers', 'A6 Postcard Flyers', 'A4 Folded Leaflets', 'Square Flyers'],
+    isBestSeller: true,
   },
   {
     name: 'Hoodies & Sweatshirts',
     description: 'Personalised embroidered and DTF printed fleece hoodies and warm sweatshirts.',
     imageUrl: 'https://images.unsplash.com/photo-1556905055-8f358a7a47b2?q=80&w=800&auto=format&fit=crop',
     subcategories: ['Pullover Hoodies', 'Zip-Up Hoodies', 'Crewneck Sweatshirts', 'Oversized Streetwear'],
+    isBestSeller: true,
   },
   {
     name: 'ID Cards & Lanyards',
@@ -110,6 +113,7 @@ export const INITIAL_CATEGORIES: CategoryConfig[] = [
     description: 'Full-colour wrap sublimation ceramic photo mugs, travel mugs, and corporate coffee cups.',
     imageUrl: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?q=80&w=800&auto=format&fit=crop',
     subcategories: ['11oz White Ceramic', 'Magic Heat Reveal Mugs', 'Thermal Travel Mugs'],
+    isBestSeller: true,
   },
   {
     name: 'Polo Shirts',
@@ -122,30 +126,35 @@ export const INITIAL_CATEGORIES: CategoryConfig[] = [
     description: 'Large format indoor and outdoor posters, Foamex signs, and acrylic display boards.',
     imageUrl: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=800&auto=format&fit=crop',
     subcategories: ['A1 / A2 / A0 Posters', 'Foamex Display Boards', 'Correx Outdoor Signs'],
+    isBestSeller: true,
   },
   {
     name: 'Promotional Pens',
     description: 'Laser engraved executive metal pens, soft-touch printed pens, and branded stylus pens.',
     imageUrl: 'https://images.unsplash.com/photo-1585336261026-41862551e1e4?q=80&w=800&auto=format&fit=crop',
     subcategories: ['Metal Laser Engraved', 'Soft-Touch Ballpoint', 'Eco Bamboo Pens'],
+    isBestSeller: true,
   },
   {
     name: 'PVC Banners',
     description: 'Heavy duty weatherproof vinyl banners with eyelets, roller pull-up banners, and mesh banners.',
     imageUrl: 'https://images.unsplash.com/photo-1541701494587-cb58502866ab?q=80&w=800&auto=format&fit=crop',
     subcategories: ['510gsm Vinyl with Eyelets', 'Roller Pull-Up Banners', 'Mesh Windproof Banners'],
+    isBestSeller: true,
   },
   {
     name: 'Stickers & Labels',
     description: 'Die-cut vinyl stickers, waterproof bottle labels, packaging stickers, and window decals.',
     imageUrl: 'https://images.unsplash.com/photo-1572375992501-4b0892d50c69?q=80&w=800&auto=format&fit=crop',
     subcategories: ['Die-Cut Vinyl Stickers', 'Roll Labels', 'Metallic Foil Stickers'],
+    isBestSeller: true,
   },
   {
     name: 'T-Shirts',
     description: 'High quality 100% cotton custom printed T-shirts using vibrant DTF and screen printing.',
     imageUrl: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=800&auto=format&fit=crop',
     subcategories: ['Crewneck T-Shirts', 'Heavyweight Oversized', 'V-Neck T-Shirts', 'Organic Cotton'],
+    isBestSeller: true,
   },
   {
     name: 'Tote Bags',

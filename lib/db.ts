@@ -269,6 +269,8 @@ export async function seedDefaultCatalogToFirestore(): Promise<{ count: number }
 // ---------------- CATEGORIES CRUD ----------------
 
 export async function getCategories(): Promise<CategoryConfig[]> {
+  const local = getLocalCategories();
+
   if (isConfigured && db) {
     try {
       const snap = await getDocs(collection(db, 'categories'));
@@ -277,12 +279,20 @@ export async function getCategories(): Promise<CategoryConfig[]> {
         firestoreCats = firestoreCats.filter(
           (c) => c && c.name && c.name.toLowerCase() !== 'printing' && c.name.toLowerCase() !== 'clothing'
         );
-        // Only adopt Firestore categories if it actually contains valid independent categories.
+        // Only merge Firestore categories if it actually contains valid independent categories.
         // If Firestore only contains legacy umbrella categories ('Printing' / 'Clothing'),
         // firestoreCats will be empty, so DO NOT overwrite active local categories!
         if (firestoreCats.length > 0) {
-          saveLocalCategories(firestoreCats);
-          return firestoreCats;
+          const map = new Map<string, CategoryConfig>();
+          for (const c of firestoreCats) {
+            if (c && c.name) map.set(c.name.toLowerCase().trim(), c);
+          }
+          for (const c of local) {
+            if (c && c.name) map.set(c.name.toLowerCase().trim(), c);
+          }
+          const merged = Array.from(map.values());
+          saveLocalCategories(merged);
+          return merged;
         }
       }
     } catch (error) {
@@ -290,7 +300,7 @@ export async function getCategories(): Promise<CategoryConfig[]> {
     }
   }
 
-  return getLocalCategories();
+  return local;
 }
 
 export async function createCategory(cat: {
@@ -299,6 +309,7 @@ export async function createCategory(cat: {
   imageUrl?: string;
   subcategories?: string[];
   subcategoryImages?: Record<string, string>;
+  isBestSeller?: boolean;
 }): Promise<CategoryConfig> {
   const newCat: CategoryConfig = {
     name: cat.name.trim(),
@@ -306,6 +317,7 @@ export async function createCategory(cat: {
     imageUrl: cat.imageUrl,
     subcategories: cat.subcategories || [],
     subcategoryImages: cat.subcategoryImages || {},
+    isBestSeller: Boolean(cat.isBestSeller),
   };
 
   const docId = cat.name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-');

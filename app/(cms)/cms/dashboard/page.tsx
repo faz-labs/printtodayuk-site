@@ -103,6 +103,7 @@ export default function CMSDashboardPage() {
     imageUrl?: string;
     subcategories?: string[];
     subcategoryImages?: Record<string, string>;
+    isBestSeller?: boolean;
   }) => {
     const created = await createCategory(cat);
     setCategories((prev) => [...prev.filter((c) => c.name.toLowerCase() !== created.name.toLowerCase()), created]);

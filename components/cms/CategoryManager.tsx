@@ -31,6 +31,7 @@ interface CategoryManagerProps {
     imageUrl?: string;
     subcategories?: string[];
     subcategoryImages?: Record<string, string>;
+    isBestSeller?: boolean;
   }) => Promise<void>;
   onDeleteCategory?: (categoryName: string) => Promise<void>;
   onUpdateCategory?: (
@@ -64,6 +65,7 @@ export function CategoryManager({
   const [newCatDescription, setNewCatDescription] = useState('');
   const [newCatImageUrl, setNewCatImageUrl] = useState('');
   const [newCatSubcats, setNewCatSubcats] = useState('');
+  const [newCatIsBestSeller, setNewCatIsBestSeller] = useState(false);
   const [catModalError, setCatModalError] = useState('');
   const [isModalUploading, setIsModalUploading] = useState(false);
 
@@ -277,6 +279,7 @@ export function CategoryManager({
           description: newCatDescription.trim() || undefined,
           imageUrl: newCatImageUrl.trim() || undefined,
           subcategories: subcats,
+          isBestSeller: newCatIsBestSeller,
         });
         setActiveCategoryName(newCatName.trim());
         setIsAddCatModalOpen(false);
@@ -284,6 +287,7 @@ export function CategoryManager({
         setNewCatDescription('');
         setNewCatImageUrl('');
         setNewCatSubcats('');
+        setNewCatIsBestSeller(false);
         showSuccess(`Category "${newCatName.trim()}" created successfully!`);
       } else {
         alert('Category creation not configured on this host.');
@@ -402,13 +406,30 @@ export function CategoryManager({
         {/* Header with Category Name, Description & Category Cover Picture */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 border-b border-slate-100 pb-6">
           <div className="space-y-1">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3 flex-wrap">
               <h3 className="text-xl font-black text-slate-900">
                 {currentCategory.name}
               </h3>
               <Badge variant="uk-blue" className="text-[10px]">
                 {currentCategory.subcategories.length} Subcategories
               </Badge>
+
+              {/* Enlist in Left Sidebar (Best Sellers) Checkbox Toggle */}
+              <label className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 cursor-pointer text-xs select-none">
+                <input
+                  type="checkbox"
+                  checked={Boolean(currentCategory.isBestSeller)}
+                  onChange={async (e) => {
+                    const checked = e.target.checked;
+                    if (onUpdateCategory) {
+                      await onUpdateCategory(currentCategory.name, { isBestSeller: checked });
+                      showSuccess(checked ? `Enlisted "${currentCategory.name}" in Best Sellers sidebar.` : `Removed "${currentCategory.name}" from Best Sellers sidebar.`);
+                    }
+                  }}
+                  className="h-3.5 w-3.5 rounded text-[#012169] border-slate-300 focus:ring-[#012169]"
+                />
+                <span className="font-bold text-slate-700">Enlist in Best Sellers Sidebar</span>
+              </label>
             </div>
             {currentCategory.description && (
               <p className="text-xs text-slate-600 max-w-xl">
@@ -676,6 +697,23 @@ export function CategoryManager({
               className="w-full p-3 rounded-xl border border-slate-200 bg-white text-xs text-slate-900 focus:outline-hidden focus:border-[#012169] resize-none"
             />
           </div>
+
+          <label className="flex items-start gap-2.5 p-3 rounded-xl border border-slate-200 bg-slate-50/70 hover:bg-slate-50 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={newCatIsBestSeller}
+              onChange={(e) => setNewCatIsBestSeller(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded text-[#012169] border-slate-300 focus:ring-[#012169]"
+            />
+            <div className="flex flex-col">
+              <span className="text-xs font-bold text-slate-800">
+                Enlist in Left Sidebar (Best Sellers)
+              </span>
+              <span className="text-[11px] text-slate-500">
+                Tick this option to feature this category on the left side list of the A to Z Products mega menu.
+              </span>
+            </div>
+          </label>
 
           <div className="pt-3 flex items-center justify-end gap-2 border-t border-slate-100">
             <Button
