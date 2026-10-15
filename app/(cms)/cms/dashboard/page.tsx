@@ -10,6 +10,7 @@ import {
   updateProduct,
   deleteProduct,
   getCategories,
+  getLocalCategories,
   updateCategorySubcategories,
   createCategory,
   updateCategory,
@@ -39,7 +40,9 @@ export default function CMSDashboardPage() {
 
   const [activeTab, setActiveTab] = useState<'products' | 'categories' | 'inquiries' | 'banners'>('products');
   const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<CategoryConfig[]>([]);
+  const [categories, setCategories] = useState<CategoryConfig[]>(() =>
+    typeof window !== 'undefined' ? getLocalCategories() : []
+  );
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
   const [loadingData, setLoadingData] = useState(true);
 

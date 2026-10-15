@@ -39,39 +39,57 @@ function saveLocalProducts(products: Product[]) {
   }
 }
 
-function getLocalCategories(): CategoryConfig[] {
-  if (typeof window === 'undefined') return INITIAL_CATEGORIES;
+export function getLocalCategories(): CategoryConfig[] {
+  if (typeof window === 'undefined') {
+    return INITIAL_CATEGORIES.filter(
+      (c) => c && c.name && c.name.toLowerCase() !== 'printing' && c.name.toLowerCase() !== 'clothing'
+    );
+  }
+
   try {
     const data = localStorage.getItem('print_today_categories');
-    if (data) {
-      let parsed: CategoryConfig[] = JSON.parse(data);
+
+    if (data !== null) {
+      const parsed: CategoryConfig[] = JSON.parse(data);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        // Filter out legacy generic container categories 'Printing' & 'Clothing'
-        parsed = parsed.filter(
-          (c) => c.name.toLowerCase() !== 'printing' && c.name.toLowerCase() !== 'clothing'
+        const filtered = parsed.filter(
+          (c) => c && c.name && c.name.toLowerCase() !== 'printing' && c.name.toLowerCase() !== 'clothing'
         );
-        const existingNames = new Set(parsed.map((c) => c.name.toLowerCase()));
-        let hasNew = false;
-        for (const initCat of INITIAL_CATEGORIES) {
-          if (!existingNames.has(initCat.name.toLowerCase())) {
-            parsed.push(initCat);
-            hasNew = true;
-          }
+
+        // Check if data only contained legacy umbrella categories 'Printing' & 'Clothing'
+        const onlyLegacy =
+          filtered.length === 0 ||
+          filtered.every(
+            (c) =>
+              c &&
+              c.name &&
+              (c.name.toLowerCase() === 'printing' || c.name.toLowerCase() === 'clothing')
+          );
+
+        if (!onlyLegacy && filtered.length > 0) {
+          return filtered;
         }
-        if (hasNew || parsed.length > 0) {
-          saveLocalCategories(parsed);
-        }
-        return parsed.length > 0 ? parsed : INITIAL_CATEGORIES;
       }
     }
   } catch {}
-  return INITIAL_CATEGORIES;
+
+  // Seed default independent categories
+  const initialFiltered = INITIAL_CATEGORIES.filter(
+    (c) => c && c.name && c.name.toLowerCase() !== 'printing' && c.name.toLowerCase() !== 'clothing'
+  );
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('print_today_categories_initialized', 'true');
+    localStorage.setItem('print_today_categories', JSON.stringify(initialFiltered));
+  }
+  return initialFiltered;
 }
 
-function saveLocalCategories(cats: CategoryConfig[]) {
+export function saveLocalCategories(cats: CategoryConfig[]) {
   if (typeof window !== 'undefined') {
     try {
+      localStorage.setItem('print_today_categories_initialized', 'true');
       localStorage.setItem('print_today_categories', JSON.stringify(cats));
+      window.dispatchEvent(new CustomEvent('print_today_categories_updated', { detail: cats }));
     } catch {}
   }
 }
@@ -240,7 +258,8 @@ export async function seedDefaultCatalogToFirestore(): Promise<{ count: number }
 
   let count = 0;
   for (const cat of INITIAL_CATEGORIES) {
-    await setDoc(doc(db, 'categories', cat.name.toLowerCase()), cat);
+    const docId = cat.name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-');
+    await setDoc(doc(db, 'categories', docId), cat);
     count++;
   }
 
@@ -256,16 +275,15 @@ export async function getCategories(): Promise<CategoryConfig[]> {
       if (!snap.empty) {
         let firestoreCats = snap.docs.map((d) => ({ id: d.id, ...d.data() })) as CategoryConfig[];
         firestoreCats = firestoreCats.filter(
-          (c) => c.name.toLowerCase() !== 'printing' && c.name.toLowerCase() !== 'clothing'
+          (c) => c && c.name && c.name.toLowerCase() !== 'printing' && c.name.toLowerCase() !== 'clothing'
         );
-        const existingNames = new Set(firestoreCats.map((c) => c.name.toLowerCase()));
-        const merged = [...firestoreCats];
-        for (const initCat of INITIAL_CATEGORIES) {
-          if (!existingNames.has(initCat.name.toLowerCase())) {
-            merged.push(initCat);
-          }
+        // Only adopt Firestore categories if it actually contains valid independent categories.
+        // If Firestore only contains legacy umbrella categories ('Printing' / 'Clothing'),
+        // firestoreCats will be empty, so DO NOT overwrite active local categories!
+        if (firestoreCats.length > 0) {
+          saveLocalCategories(firestoreCats);
+          return firestoreCats;
         }
-        return merged;
       }
     } catch (error) {
       console.warn('Firestore fetch categories error:', error);
@@ -297,8 +315,7 @@ export async function createCategory(cat: {
       await setDoc(doc(db, 'categories', docId), newCat);
       newCat.id = docId;
     } catch (error) {
-      console.error('Firestore createCategory failed:', error);
-      throw error;
+      console.warn('Firestore createCategory warning (offline/auth):', error);
     }
   }
 
@@ -313,15 +330,22 @@ export async function createCategory(cat: {
   return newCat;
 }
 
-export async function deleteCategory(categoryName: string): Promise<boolean> {
+export async function deleteCategory(categoryName: string, categoryId?: string): Promise<boolean> {
   const docId = categoryName.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-');
+  const rawId = categoryName.toLowerCase().trim();
 
   if (isConfigured && db) {
     try {
-      await deleteDoc(doc(db, 'categories', docId));
+      const deletePromises: Promise<any>[] = [
+        deleteDoc(doc(db, 'categories', docId)),
+        deleteDoc(doc(db, 'categories', rawId)),
+      ];
+      if (categoryId) {
+        deletePromises.push(deleteDoc(doc(db, 'categories', categoryId)));
+      }
+      await Promise.allSettled(deletePromises);
     } catch (error) {
-      console.error('Firestore deleteCategory failed:', error);
-      throw error;
+      console.warn('Firestore deleteCategory warning (offline/auth):', error);
     }
   }
 
@@ -342,8 +366,7 @@ export async function updateCategorySubcategories(
       const docRef = doc(db, 'categories', docId);
       await setDoc(docRef, { name: categoryName, subcategories }, { merge: true });
     } catch (error) {
-      console.error('Firestore updateCategorySubcategories failed:', error);
-      throw error;
+      console.warn('Firestore updateCategorySubcategories warning (offline/auth):', error);
     }
   }
 
@@ -367,10 +390,9 @@ export async function updateCategory(
   if (isConfigured && db) {
     try {
       const docRef = doc(db, 'categories', docId);
-      await setDoc(docRef, updates, { merge: true });
+      await setDoc(docRef, { name: categoryName, ...updates }, { merge: true });
     } catch (error) {
-      console.error('Firestore updateCategory failed:', error);
-      throw error;
+      console.warn('Firestore updateCategory warning (offline/auth):', error);
     }
   }
 

@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { CategoryConfig } from '@/lib/types';
-import { getCategories } from '@/lib/db';
+import { getCategories, getLocalCategories } from '@/lib/db';
 import { DEFAULT_SUBCATEGORY_IMAGES } from '@/lib/data';
 import { ArrowRight, CircleNotch } from '@phosphor-icons/react';
 
@@ -17,8 +17,10 @@ const GENERAL_FALLBACK_IMAGES = [
 ];
 
 export function CategorySections() {
-  const [categories, setCategories] = useState<CategoryConfig[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [categories, setCategories] = useState<CategoryConfig[]>(() =>
+    typeof window !== 'undefined' ? getLocalCategories() : []
+  );
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -32,6 +34,32 @@ export function CategorySections() {
       }
     }
     load();
+
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'print_today_categories') {
+        try {
+          const updated = JSON.parse(e.newValue || '[]');
+          if (Array.isArray(updated)) {
+            setCategories(updated);
+          }
+        } catch {}
+      }
+    };
+
+    const handleLocalUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent<CategoryConfig[]>;
+      if (Array.isArray(customEvent.detail)) {
+        setCategories(customEvent.detail);
+      }
+    };
+
+    window.addEventListener('storage', handleStorage);
+    window.addEventListener('print_today_categories_updated', handleLocalUpdate);
+
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('print_today_categories_updated', handleLocalUpdate);
+    };
   }, []);
 
   if (loading) {

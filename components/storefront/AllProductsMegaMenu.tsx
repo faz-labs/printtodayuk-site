@@ -57,20 +57,12 @@ export function AllProductsMegaMenu({
   onMouseEnter,
   onMouseLeave,
 }: AllProductsMegaMenuProps) {
-  // Merge passed CMS categories with INITIAL_CATEGORIES (filtering out legacy container categories)
+  // Use passed CMS categories (filtering out legacy container categories)
   const rawCategories = useMemo(() => {
-    let list = categories && categories.length > 0 ? categories : INITIAL_CATEGORIES;
-    list = list.filter(
-      (c) => c.name.toLowerCase() !== 'printing' && c.name.toLowerCase() !== 'clothing'
+    const list = categories || [];
+    return list.filter(
+      (c) => c && c.name && c.name.toLowerCase() !== 'printing' && c.name.toLowerCase() !== 'clothing'
     );
-    const existing = new Set(list.map((c) => c.name.toLowerCase().trim()));
-    const merged = [...list];
-    for (const init of INITIAL_CATEGORIES) {
-      if (!existing.has(init.name.toLowerCase().trim())) {
-        merged.push(init);
-      }
-    }
-    return merged;
   }, [categories]);
 
   // Build alphabetical letter groups from CMS Category names
@@ -126,11 +118,13 @@ export function AllProductsMegaMenu({
     <motion.div
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
+      data-lenis-prevent
+      onWheel={(e) => e.stopPropagation()}
       initial={{ opacity: 0, y: 6, scale: 0.995 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: 6, scale: 0.995 }}
       transition={{ duration: 0.16, ease: 'easeOut' }}
-      className="absolute left-0 right-0 top-full w-full bg-white border-b-2 border-[#012169] shadow-2xl z-50 overflow-hidden"
+      className="absolute left-0 right-0 top-full w-full bg-white border-b-2 border-[#012169] shadow-2xl z-50 max-h-[calc(100vh-120px)] overflow-y-auto overscroll-contain"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-7">
         <div className="flex gap-8">

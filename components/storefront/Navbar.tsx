@@ -28,8 +28,9 @@ import {
 } from '@phosphor-icons/react';
 import { cn } from '@/lib/utils';
 import { useCallMe } from './CallMeContext';
+import { useSmoothScroll } from '@/components/providers/SmoothScrollProvider';
 import { CategoryConfig, Product } from '@/lib/types';
-import { getCategories, getProducts } from '@/lib/db';
+import { getCategories, getProducts, getLocalCategories } from '@/lib/db';
 import { INITIAL_CATEGORIES } from '@/lib/data';
 import { AllProductsMegaMenu } from './AllProductsMegaMenu';
 
@@ -42,7 +43,9 @@ export function Navbar() {
   const [promoModalOpen, setPromoModalOpen] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
   const [noticeModal, setNoticeModal] = useState<string | null>(null);
-  const [categories, setCategories] = useState<CategoryConfig[]>([]);
+  const [categories, setCategories] = useState<CategoryConfig[]>(() =>
+    typeof window !== 'undefined' ? getLocalCategories() : []
+  );
   const [products, setProducts] = useState<Product[]>([]);
   const [hoveredMenu, setHoveredMenu] = useState<'all-products' | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -69,13 +72,53 @@ export function Navbar() {
       }
     }
     loadData();
+
+    // Cross-tab synchronization
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'print_today_categories') {
+        try {
+          const updated = JSON.parse(e.newValue || '[]');
+          if (Array.isArray(updated)) {
+            setCategories(updated);
+          }
+        } catch {}
+      }
+    };
+
+    // Same-tab reactive synchronization
+    const handleLocalUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent<CategoryConfig[]>;
+      if (Array.isArray(customEvent.detail)) {
+        setCategories(customEvent.detail);
+      }
+    };
+
+    window.addEventListener('storage', handleStorage);
+    window.addEventListener('print_today_categories_updated', handleLocalUpdate);
+
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('print_today_categories_updated', handleLocalUpdate);
+    };
   }, []);
 
+  const { lenis } = useSmoothScroll();
+
+  useEffect(() => {
+    if (hoveredMenu === 'all-products') {
+      lenis?.stop();
+    } else {
+      lenis?.start();
+    }
+    return () => {
+      lenis?.start();
+    };
+  }, [hoveredMenu, lenis]);
+
   const cleanCategories = useMemo(() => {
-    const list = categories.filter(
-      (c) => c.name.toLowerCase() !== 'printing' && c.name.toLowerCase() !== 'clothing'
+    return categories.filter(
+      (c) => c && c.name && c.name.toLowerCase() !== 'printing' && c.name.toLowerCase() !== 'clothing'
     );
-    return list.length > 0 ? list : INITIAL_CATEGORIES;
   }, [categories]);
 
   const handleMouseEnter = (menu: 'all-products') => {
@@ -86,7 +129,7 @@ export function Navbar() {
   const handleMouseLeave = () => {
     hoverTimeoutRef.current = setTimeout(() => {
       setHoveredMenu(null);
-    }, 250);
+    }, 350);
   };
 
   const otherServices = [

@@ -187,7 +187,11 @@ export function CategoryManager({
     const updated = [...currentCategory.subcategories, trimmed];
     setIsSaving(true);
     try {
-      await onUpdateSubcategories(currentCategory.name, updated);
+      if (onUpdateCategory) {
+        await onUpdateCategory(currentCategory.name, { subcategories: updated });
+      } else {
+        await onUpdateSubcategories(currentCategory.name, updated);
+      }
       setNewSubcatInput('');
       showSuccess(`Added "${trimmed}" to ${currentCategory.name}.`);
     } catch (err: any) {
@@ -212,11 +216,13 @@ export function CategoryManager({
 
     setIsSaving(true);
     try {
-      await onUpdateSubcategories(currentCategory.name, updated);
       if (onUpdateCategory) {
         await onUpdateCategory(currentCategory.name, {
+          subcategories: updated,
           subcategoryImages: updatedImages,
         });
+      } else {
+        await onUpdateSubcategories(currentCategory.name, updated);
       }
       showSuccess(`Removed "${subcatToRemove}".`);
     } catch (err: any) {
@@ -302,7 +308,7 @@ export function CategoryManager({
     try {
       if (onDeleteCategory) {
         await onDeleteCategory(catName);
-        const remaining = categories.filter((c) => c.name !== catName);
+        const remaining = categories.filter((c) => c.name.toLowerCase() !== catName.toLowerCase());
         if (remaining.length > 0) {
           setActiveCategoryName(remaining[0].name);
         }
