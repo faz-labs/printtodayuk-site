@@ -1,0 +1,51 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check if the user is authenticated in CMS
+    function isAdmin() {
+      return request.auth != null;
+    }
+
+    // ----------------------------------------------------
+    // Products Collection
+    // ----------------------------------------------------
+    // Public: anyone can view products
+    // Admin: only logged-in CMS admins can create, update, or delete products
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ----------------------------------------------------
+    // Categories Collection
+    // ----------------------------------------------------
+    // Public: anyone can read category configurations & subcategories
+    // Admin: only logged-in CMS admins can modify subcategories
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ----------------------------------------------------
+    // Inquiries Collection (Call Me Leads & Quotes)
+    // ----------------------------------------------------
+    // Public: anyone can submit a new callback inquiry or quote request
+    // Admin: only logged-in CMS admins can view leads, change status, or delete
+    match /inquiries/{inquiryId} {
+      allow create: if true;
+      allow read, update, delete: if isAdmin();
+    }
+
+    // ----------------------------------------------------
+    // Hero Banner Slides Collection
+    // ----------------------------------------------------
+    // Public: anyone can view homepage carousel slides
+    // Admin: only logged-in CMS admins can create, update, or reorder slides
+    match /hero_slides/{slideId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+  }
+}
