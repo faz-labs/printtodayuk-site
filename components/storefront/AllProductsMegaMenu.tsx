@@ -10,6 +10,7 @@ import {
   FolderOpen,
 } from '@phosphor-icons/react';
 import { CategoryConfig, Product } from '@/lib/types';
+import { getLocalCategories } from '@/lib/db';
 import { INITIAL_CATEGORIES } from '@/lib/data';
 
 interface MegaMenuItem {
@@ -59,7 +60,10 @@ export function AllProductsMegaMenu({
 }: AllProductsMegaMenuProps) {
   // Use passed CMS categories (filtering out legacy container categories)
   const rawCategories = useMemo(() => {
-    const list = categories || [];
+    let list = categories && categories.length > 0 ? categories : [];
+    if (list.length === 0 && typeof window !== 'undefined') {
+      list = getLocalCategories();
+    }
     return list.filter(
       (c) => c && c.name && c.name.toLowerCase() !== 'printing' && c.name.toLowerCase() !== 'clothing'
     );

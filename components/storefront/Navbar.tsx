@@ -224,31 +224,27 @@ export function Navbar() {
               </button>
             </form>
 
-            {/* 3. Right: Opening Times, Same Day Delivery & Live Chat */}
+            {/* 3. Right: Opening Times & Live Chat */}
             <div className="hidden lg:flex flex-col items-end shrink-0">
-              {/* Opening Hours text - matching Solopress top right */}
+              {/* Opening Hours: Monday to Friday */}
               <div className="text-xs font-semibold text-slate-700 flex items-center gap-1.5 leading-snug">
                 <Clock weight="fill" className="h-3.5 w-3.5 text-slate-400" />
                 <span>Open <strong className="text-slate-900">8:00am to 8:00pm</strong>, Monday to Friday</span>
               </div>
 
-              {/* Second sub-line: Same Day Delivery badge & Live Chat button */}
-              <div className="flex items-center gap-3 mt-1">
-                <Link
-                  href="/category/Printing?sameDay=true"
-                  className="inline-flex items-center gap-1 text-[11px] font-bold text-[#012169] bg-blue-50/90 hover:bg-blue-100 border border-blue-200/80 px-2.5 py-0.5 rounded-full transition-colors"
-                >
-                  <Lightning weight="fill" className="h-3 w-3 text-[#C8102E]" />
-                  <span>Same Day Delivery</span>
-                </Link>
-
+              {/* Opening Hours: Saturday & Sunday + Live Chat */}
+              <div className="flex items-center gap-2.5 mt-1 text-xs">
+                <span className="text-slate-600 font-medium">
+                  <strong className="text-slate-900 font-semibold">10:00am to 4:00pm</strong>, Saturday &amp; Sunday
+                </span>
+                <span className="text-slate-300">•</span>
                 <a
                   href="https://wa.me/447969559746"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-xs font-bold text-[#012169] hover:text-[#0A358C] hover:underline transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-1 text-xs font-bold text-[#012169] hover:text-[#C8102E] transition-colors cursor-pointer"
                 >
-                  <Chats weight="fill" className="h-4 w-4 text-[#012169]" />
+                  <Chats weight="fill" className="h-3.5 w-3.5 text-[#012169]" />
                   <span>Live chat</span>
                 </a>
               </div>
@@ -302,49 +298,48 @@ export function Navbar() {
           </form>
         </div>
 
-        {/* LINE 2: Bottom Row: Left: More Products, Center: Signage & Build Website, Right: Get 10% off your next print order */}
+        {/* LINE 2: Bottom Row: Left: More Products, Signage & Build Website, Right: Get 10% off your next print order */}
         <div className="hidden lg:block border-t border-slate-200/90 bg-white shadow-2xs">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <nav className="flex items-center justify-between h-11 relative">
-              {/* Left: More Products Mega Menu Trigger */}
-              <div
-                className="relative h-full flex items-center shrink-0"
-                onMouseEnter={() => handleMouseEnter('all-products')}
-                onMouseLeave={handleMouseLeave}
-              >
-                <button
-                  type="button"
-                  onClick={() => setHoveredMenu(hoveredMenu === 'all-products' ? null : 'all-products')}
-                  className={cn(
-                    'h-full px-3 flex items-center gap-2 font-["Open_Sans",sans-serif] text-[16px] font-medium transition-all border-b-2 cursor-pointer',
-                    hoveredMenu === 'all-products'
-                      ? 'border-[#012169] text-[#012169] bg-slate-50/80'
-                      : 'border-transparent text-slate-800 hover:text-[#012169]'
-                  )}
+              {/* Left: More Products Mega Menu Trigger, Signage & Build Website */}
+              <div className="flex items-center gap-1 sm:gap-2 h-full">
+                {/* More Products Trigger */}
+                <div
+                  className="relative h-full flex items-center shrink-0"
+                  onMouseEnter={() => handleMouseEnter('all-products')}
+                  onMouseLeave={handleMouseLeave}
                 >
-                  <SquaresFour weight="bold" className="h-4.5 w-4.5" />
-                  <span>More Products</span>
-                  <CaretDown
-                    weight="bold"
+                  <button
+                    type="button"
+                    onClick={() => setHoveredMenu(hoveredMenu === 'all-products' ? null : 'all-products')}
                     className={cn(
-                      'h-3.5 w-3.5 transition-transform duration-200',
-                      hoveredMenu === 'all-products' ? 'rotate-180 text-[#012169]' : 'text-slate-400'
+                      'h-full px-3 flex items-center gap-2 font-["Open_Sans",sans-serif] text-[16px] font-medium transition-all border-b-2 cursor-pointer',
+                      hoveredMenu === 'all-products'
+                        ? 'border-[#012169] text-[#012169] bg-slate-50/80'
+                        : 'border-transparent text-slate-800 hover:text-[#012169]'
                     )}
-                  />
-                </button>
-              </div>
+                  >
+                    <SquaresFour weight="bold" className="h-4.5 w-4.5" />
+                    <span>More Products</span>
+                    <CaretDown
+                      weight="bold"
+                      className={cn(
+                        'h-3.5 w-3.5 transition-transform duration-200',
+                        hoveredMenu === 'all-products' ? 'rotate-180 text-[#012169]' : 'text-slate-400'
+                      )}
+                    />
+                  </button>
+                </div>
 
-              {/* Center: Signage & Build Website (Centered in line 2) */}
-              <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-6 h-full">
                 {/* Signage - Redirects to signtoday.co.uk */}
                 <a
                   href="https://signtoday.co.uk"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="h-full px-3 flex items-center gap-1.5 transition-colors border-b-2 border-transparent font-['Open_Sans',sans-serif] text-[16px] font-medium text-slate-700 hover:text-[#012169] hover:border-[#012169] whitespace-nowrap"
+                  className="h-full px-3 flex items-center transition-colors border-b-2 border-transparent font-['Open_Sans',sans-serif] text-[16px] font-medium text-slate-700 hover:text-[#012169] hover:border-[#012169] whitespace-nowrap"
                 >
                   <span>Signage</span>
-                  <ArrowSquareOut weight="bold" className="h-3.5 w-3.5 text-slate-400" />
                 </a>
 
                 {/* Build Website - Redirects to todayai.co.uk */}
@@ -352,10 +347,9 @@ export function Navbar() {
                   href="https://todayai.co.uk"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="h-full px-3 flex items-center gap-1.5 transition-colors border-b-2 border-transparent font-['Open_Sans',sans-serif] text-[16px] font-medium text-slate-700 hover:text-[#012169] hover:border-[#012169] whitespace-nowrap"
+                  className="h-full px-3 flex items-center transition-colors border-b-2 border-transparent font-['Open_Sans',sans-serif] text-[16px] font-medium text-slate-700 hover:text-[#012169] hover:border-[#012169] whitespace-nowrap"
                 >
                   <span>Build Website</span>
-                  <ArrowSquareOut weight="bold" className="h-3.5 w-3.5 text-slate-400" />
                 </a>
               </div>
 
@@ -500,19 +494,17 @@ export function Navbar() {
                     href="https://signtoday.co.uk"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center justify-between px-3 py-2 bg-slate-50 hover:bg-slate-100 rounded-xl text-xs font-bold text-slate-700"
+                    className="flex items-center justify-center px-3 py-2 bg-slate-50 hover:bg-slate-100 rounded-xl text-xs font-bold text-slate-700 transition-colors"
                   >
                     <span>Signage</span>
-                    <ArrowSquareOut weight="bold" className="h-3 w-3 text-slate-400" />
                   </a>
                   <a
                     href="https://todayai.co.uk"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center justify-between px-3 py-2 bg-slate-50 hover:bg-slate-100 rounded-xl text-xs font-bold text-slate-700"
+                    className="flex items-center justify-center px-3 py-2 bg-slate-50 hover:bg-slate-100 rounded-xl text-xs font-bold text-slate-700 transition-colors"
                   >
                     <span>Build Website</span>
-                    <ArrowSquareOut weight="bold" className="h-3 w-3 text-slate-400" />
                   </a>
                 </div>
 
