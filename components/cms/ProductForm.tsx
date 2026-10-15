@@ -30,7 +30,7 @@ export function ProductForm({
   const [imageUrl, setImageUrl] = useState('');
   const [price, setPrice] = useState<string>('25.00');
   const [discountedPrice, setDiscountedPrice] = useState<string>('');
-  const [category, setCategory] = useState<string>(categories[0]?.name || 'Business Cards');
+  const [category, setCategory] = useState<string>(categories[0]?.name || '');
   const [subcategory, setSubcategory] = useState('');
   const [isSameDayAvailable, setIsSameDayAvailable] = useState(true);
   const [minQuantity, setMinQuantity] = useState<string>('1');
@@ -77,7 +77,7 @@ export function ProductForm({
       setImageUrl('');
       setPrice('29.00');
       setDiscountedPrice('');
-      setCategory(categories[0]?.name || 'Business Cards');
+      setCategory(categories[0]?.name || '');
       setSubcategory(availableSubcategories[0] || 'Standard');
       setIsSameDayAvailable(true);
       setMinQuantity('100');

@@ -39,22 +39,62 @@ function saveLocalProducts(products: Product[]) {
   }
 }
 
+export function getDeletedCategories(): Set<string> {
+  if (typeof window === 'undefined') return new Set();
+  try {
+    const data = localStorage.getItem('print_today_deleted_categories');
+    if (data) {
+      const arr = JSON.parse(data);
+      if (Array.isArray(arr)) {
+        return new Set(arr.map((s) => String(s).toLowerCase().trim()));
+      }
+    }
+  } catch {}
+  return new Set();
+}
+
+export function saveDeletedCategories(deleted: Set<string>) {
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem('print_today_deleted_categories', JSON.stringify(Array.from(deleted)));
+    } catch {}
+  }
+}
+
 export function getLocalCategories(): CategoryConfig[] {
+  const deletedSet = getDeletedCategories();
+
   if (typeof window === 'undefined') {
     return INITIAL_CATEGORIES.filter(
-      (c) => c && c.name && c.name.toLowerCase() !== 'printing' && c.name.toLowerCase() !== 'clothing'
+      (c) =>
+        c &&
+        c.name &&
+        c.name.toLowerCase() !== 'printing' &&
+        c.name.toLowerCase() !== 'clothing' &&
+        !deletedSet.has(c.name.toLowerCase().trim())
     );
   }
 
   try {
     const data = localStorage.getItem('print_today_categories');
+    const isInitialized = localStorage.getItem('print_today_categories_initialized');
 
     if (data !== null) {
       const parsed: CategoryConfig[] = JSON.parse(data);
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      if (Array.isArray(parsed)) {
         const filtered = parsed.filter(
-          (c) => c && c.name && c.name.toLowerCase() !== 'printing' && c.name.toLowerCase() !== 'clothing'
+          (c) =>
+            c &&
+            c.name &&
+            c.name.toLowerCase() !== 'printing' &&
+            c.name.toLowerCase() !== 'clothing' &&
+            !deletedSet.has(c.name.toLowerCase().trim())
         );
+
+        // If user already initialized/modified categories, preserve their state
+        if (isInitialized === 'true') {
+          return filtered;
+        }
 
         // Check if data only contained legacy umbrella categories 'Printing' & 'Clothing'
         const onlyLegacy =
@@ -75,7 +115,12 @@ export function getLocalCategories(): CategoryConfig[] {
 
   // Seed default independent categories
   const initialFiltered = INITIAL_CATEGORIES.filter(
-    (c) => c && c.name && c.name.toLowerCase() !== 'printing' && c.name.toLowerCase() !== 'clothing'
+    (c) =>
+      c &&
+      c.name &&
+      c.name.toLowerCase() !== 'printing' &&
+      c.name.toLowerCase() !== 'clothing' &&
+      !deletedSet.has(c.name.toLowerCase().trim())
   );
   if (typeof window !== 'undefined') {
     localStorage.setItem('print_today_categories_initialized', 'true');
@@ -87,9 +132,11 @@ export function getLocalCategories(): CategoryConfig[] {
 export function saveLocalCategories(cats: CategoryConfig[]) {
   if (typeof window !== 'undefined') {
     try {
+      const deletedSet = getDeletedCategories();
+      const sanitized = cats.filter((c) => c && c.name && !deletedSet.has(c.name.toLowerCase().trim()));
       localStorage.setItem('print_today_categories_initialized', 'true');
-      localStorage.setItem('print_today_categories', JSON.stringify(cats));
-      window.dispatchEvent(new CustomEvent('print_today_categories_updated', { detail: cats }));
+      localStorage.setItem('print_today_categories', JSON.stringify(sanitized));
+      window.dispatchEvent(new CustomEvent('print_today_categories_updated', { detail: sanitized }));
     } catch {}
   }
 }
@@ -270,6 +317,7 @@ export async function seedDefaultCatalogToFirestore(): Promise<{ count: number }
 
 export async function getCategories(): Promise<CategoryConfig[]> {
   const local = getLocalCategories();
+  const deletedSet = getDeletedCategories();
 
   if (isConfigured && db) {
     try {
@@ -277,18 +325,25 @@ export async function getCategories(): Promise<CategoryConfig[]> {
       if (!snap.empty) {
         let firestoreCats = snap.docs.map((d) => ({ id: d.id, ...d.data() })) as CategoryConfig[];
         firestoreCats = firestoreCats.filter(
-          (c) => c && c.name && c.name.toLowerCase() !== 'printing' && c.name.toLowerCase() !== 'clothing'
+          (c) =>
+            c &&
+            c.name &&
+            c.name.toLowerCase() !== 'printing' &&
+            c.name.toLowerCase() !== 'clothing' &&
+            !deletedSet.has(c.name.toLowerCase().trim())
         );
-        // Only merge Firestore categories if it actually contains valid independent categories.
-        // If Firestore only contains legacy umbrella categories ('Printing' / 'Clothing'),
-        // firestoreCats will be empty, so DO NOT overwrite active local categories!
+
         if (firestoreCats.length > 0) {
           const map = new Map<string, CategoryConfig>();
           for (const c of firestoreCats) {
-            if (c && c.name) map.set(c.name.toLowerCase().trim(), c);
+            if (c && c.name && !deletedSet.has(c.name.toLowerCase().trim())) {
+              map.set(c.name.toLowerCase().trim(), c);
+            }
           }
           for (const c of local) {
-            if (c && c.name) map.set(c.name.toLowerCase().trim(), c);
+            if (c && c.name && !deletedSet.has(c.name.toLowerCase().trim())) {
+              map.set(c.name.toLowerCase().trim(), c);
+            }
           }
           const merged = Array.from(map.values());
           saveLocalCategories(merged);
@@ -300,7 +355,7 @@ export async function getCategories(): Promise<CategoryConfig[]> {
     }
   }
 
-  return local;
+  return local.filter((c) => c && c.name && !deletedSet.has(c.name.toLowerCase().trim()));
 }
 
 export async function createCategory(cat: {
@@ -311,6 +366,13 @@ export async function createCategory(cat: {
   subcategoryImages?: Record<string, string>;
   isBestSeller?: boolean;
 }): Promise<CategoryConfig> {
+  const normName = cat.name.toLowerCase().trim();
+  const deletedSet = getDeletedCategories();
+  if (deletedSet.has(normName)) {
+    deletedSet.delete(normName);
+    saveDeletedCategories(deletedSet);
+  }
+
   const newCat: CategoryConfig = {
     name: cat.name.trim(),
     description: cat.description?.trim(),
@@ -320,7 +382,7 @@ export async function createCategory(cat: {
     isBestSeller: Boolean(cat.isBestSeller),
   };
 
-  const docId = cat.name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-');
+  const docId = normName.replace(/[^a-z0-9]+/g, '-');
 
   if (isConfigured && db) {
     try {
@@ -332,7 +394,7 @@ export async function createCategory(cat: {
   }
 
   const local = getLocalCategories();
-  const existingIdx = local.findIndex((c) => c.name.toLowerCase() === cat.name.toLowerCase());
+  const existingIdx = local.findIndex((c) => c.name.toLowerCase().trim() === normName);
   if (existingIdx !== -1) {
     local[existingIdx] = newCat;
   } else {
@@ -343,8 +405,13 @@ export async function createCategory(cat: {
 }
 
 export async function deleteCategory(categoryName: string, categoryId?: string): Promise<boolean> {
-  const docId = categoryName.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-');
-  const rawId = categoryName.toLowerCase().trim();
+  const normName = categoryName.toLowerCase().trim();
+  const deletedSet = getDeletedCategories();
+  deletedSet.add(normName);
+  saveDeletedCategories(deletedSet);
+
+  const docId = normName.replace(/[^a-z0-9]+/g, '-');
+  const rawId = normName;
 
   if (isConfigured && db) {
     try {
@@ -362,7 +429,7 @@ export async function deleteCategory(categoryName: string, categoryId?: string):
   }
 
   const local = getLocalCategories();
-  const filtered = local.filter((c) => c.name.toLowerCase() !== categoryName.toLowerCase());
+  const filtered = local.filter((c) => c.name.toLowerCase().trim() !== normName);
   saveLocalCategories(filtered);
   return true;
 }

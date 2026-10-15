@@ -25,6 +25,11 @@ import Link from 'next/link';
 interface ProductManagerProps {
   products: Product[];
   categories: CategoryConfig[];
+  selectedCategory?: string;
+  onSelectCategory?: (cat: string) => void;
+  isAddModalOpen?: boolean;
+  onOpenAddModal?: () => void;
+  onCloseAddModal?: () => void;
   onCreateProduct: (input: ProductInput) => Promise<void>;
   onUpdateProduct: (id: string, input: ProductInput) => Promise<void>;
   onDeleteProduct: (id: string) => Promise<void>;
@@ -34,14 +39,33 @@ interface ProductManagerProps {
 export function ProductManager({
   products,
   categories,
+  selectedCategory,
+  onSelectCategory,
+  isAddModalOpen: controlledAddModalOpen,
+  onOpenAddModal,
+  onCloseAddModal,
   onCreateProduct,
   onUpdateProduct,
   onDeleteProduct,
   onRefreshData,
 }: ProductManagerProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterCategory, setFilterCategory] = useState<string>('All');
-  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [filterCategory, setFilterCategory] = useState<string>(selectedCategory || 'All');
+  const [internalFormOpen, setInternalFormOpen] = useState(false);
+
+  const isFormOpen = controlledAddModalOpen !== undefined ? controlledAddModalOpen : internalFormOpen;
+  const setIsFormOpen = (open: boolean) => {
+    setInternalFormOpen(open);
+    if (!open && onCloseAddModal) onCloseAddModal();
+    if (open && onOpenAddModal) onOpenAddModal();
+  };
+
+  React.useEffect(() => {
+    if (selectedCategory !== undefined) {
+      setFilterCategory(selectedCategory);
+    }
+  }, [selectedCategory]);
+
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isSeeding, setIsSeeding] = useState(false);

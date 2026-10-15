@@ -64,13 +64,6 @@ export const DEFAULT_SUBCATEGORY_IMAGES: Record<string, string> = {
 
 export const INITIAL_CATEGORIES: CategoryConfig[] = [
   {
-    name: 'Business Cards',
-    description: 'Premium business cards in silk, matte, gloss, recycled, and luxury spot UV finishes.',
-    imageUrl: 'https://images.unsplash.com/photo-1589829085413-56de8ae18c73?q=80&w=800&auto=format&fit=crop',
-    subcategories: ['Standard 400gsm', 'Spot UV & Foil', 'Recycled Kraft', 'Folded Cards'],
-    isBestSeller: true,
-  },
-  {
     name: 'Brochures & Booklets',
     description: 'High-definition folded brochures, stapled booklets, and corporate marketing collaterals.',
     imageUrl: 'https://images.unsplash.com/photo-1544717305-2782549b5136?q=80&w=800&auto=format&fit=crop',

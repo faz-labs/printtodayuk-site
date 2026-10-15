@@ -118,26 +118,9 @@ export function AllProductsMegaMenu({
     return cols;
   }, [letterGroups]);
 
-  // Derive featured Best Sellers list from CMS categories marked with isBestSeller
+  // Derive featured Best Sellers list strictly from CMS categories marked with isBestSeller
   const enlistedBestSellers = useMemo(() => {
-    const fromCms = rawCategories.filter((c) => c.isBestSeller);
-    if (fromCms.length > 0) {
-      return fromCms;
-    }
-    // Fallback if none ticked yet: default popular categories from active catalog
-    const defaultNames = new Set([
-      'business cards',
-      'flyers & leaflets',
-      'personalised mugs',
-      'hoodies & sweatshirts',
-      'pvc banners',
-      'posters & signs',
-      'stickers & labels',
-      'promotional pens',
-      't-shirts',
-    ]);
-    const defaults = rawCategories.filter((c) => defaultNames.has(c.name.toLowerCase().trim()));
-    return defaults.length > 0 ? defaults : rawCategories.slice(0, 8);
+    return rawCategories.filter((c) => Boolean(c.isBestSeller));
   }, [rawCategories]);
 
   return (
@@ -162,19 +145,25 @@ export function AllProductsMegaMenu({
             </div>
 
             <div className="space-y-1">
-              {enlistedBestSellers.map((item) => (
-                <Link
-                  key={item.name}
-                  href={`/category/${encodeURIComponent(item.name)}`}
-                  onClick={onClose}
-                  className="flex items-center justify-between px-2.5 py-1.5 rounded-lg font-['Open_Sans',sans-serif] text-[15px] font-medium text-slate-700 hover:text-[#012169] hover:bg-white hover:shadow-xs transition-all group"
-                >
-                  <span className="truncate">{item.name}</span>
-                  <span className="text-slate-300 group-hover:text-[#012169] group-hover:translate-x-0.5 transition-all text-xs">
-                    →
-                  </span>
-                </Link>
-              ))}
+              {enlistedBestSellers.length > 0 ? (
+                enlistedBestSellers.map((item) => (
+                  <Link
+                    key={item.name}
+                    href={`/category/${encodeURIComponent(item.name)}`}
+                    onClick={onClose}
+                    className="flex items-center justify-between px-2.5 py-1.5 rounded-lg font-['Open_Sans',sans-serif] text-[15px] font-medium text-slate-700 hover:text-[#012169] hover:bg-white hover:shadow-xs transition-all group"
+                  >
+                    <span className="truncate">{item.name}</span>
+                    <span className="text-slate-300 group-hover:text-[#012169] group-hover:translate-x-0.5 transition-all text-xs">
+                      →
+                    </span>
+                  </Link>
+                ))
+              ) : (
+                <div className="px-2.5 py-3 text-xs text-slate-400 italic font-['Open_Sans',sans-serif]">
+                  Tick category in CMS to enlist in Best Sellers
+                </div>
+              )}
             </div>
 
             <div className="mt-4 pt-3 border-t border-slate-200 text-[11px] text-slate-500 flex items-center gap-1.5 font-['Open_Sans',sans-serif]">

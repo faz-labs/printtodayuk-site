@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import { CategoryConfig } from '@/lib/types';
 import { Button } from '@/components/ui/Button';
@@ -38,6 +38,11 @@ interface CategoryManagerProps {
     categoryName: string,
     updates: Partial<CategoryConfig>
   ) => Promise<void>;
+  selectedCategoryName?: string;
+  onSelectCategory?: (categoryName: string) => void;
+  isAddModalOpen?: boolean;
+  onOpenAddModal?: () => void;
+  onCloseAddModal?: () => void;
 }
 
 export function CategoryManager({
@@ -46,10 +51,24 @@ export function CategoryManager({
   onCreateCategory,
   onDeleteCategory,
   onUpdateCategory,
+  selectedCategoryName,
+  onSelectCategory,
+  isAddModalOpen: controlledAddModalOpen,
+  onOpenAddModal,
+  onCloseAddModal,
 }: CategoryManagerProps) {
   const [activeCategoryName, setActiveCategoryName] = useState<string>(
-    categories[0]?.name || 'Business Cards'
+    selectedCategoryName || categories[0]?.name || ''
   );
+
+  useEffect(() => {
+    if (selectedCategoryName) {
+      setActiveCategoryName(selectedCategoryName);
+    } else if (categories.length > 0 && !activeCategoryName) {
+      setActiveCategoryName(categories[0].name);
+    }
+  }, [selectedCategoryName, categories, activeCategoryName]);
+
   const [newSubcatInput, setNewSubcatInput] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
@@ -59,8 +78,15 @@ export function CategoryManager({
   const categoryImageInputRef = useRef<HTMLInputElement>(null);
   const subcatImageInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
-  // Add category modal state
-  const [isAddCatModalOpen, setIsAddCatModalOpen] = useState(false);
+  // Add category modal state (internal or controlled from sidebar)
+  const [internalAddModalOpen, setInternalAddModalOpen] = useState(false);
+  const isAddCatModalOpen = controlledAddModalOpen !== undefined ? controlledAddModalOpen : internalAddModalOpen;
+  const setIsAddCatModalOpen = (open: boolean) => {
+    setInternalAddModalOpen(open);
+    if (!open && onCloseAddModal) onCloseAddModal();
+    if (open && onOpenAddModal) onOpenAddModal();
+  };
+
   const [newCatName, setNewCatName] = useState('');
   const [newCatDescription, setNewCatDescription] = useState('');
   const [newCatImageUrl, setNewCatImageUrl] = useState('');
@@ -74,7 +100,7 @@ export function CategoryManager({
       (c) => c.name.toLowerCase() === activeCategoryName.toLowerCase()
     ) ||
     categories[0] || {
-      name: 'Business Cards',
+      name: '',
       subcategories: [],
       subcategoryImages: {},
     };
@@ -369,7 +395,10 @@ export function CategoryManager({
               }`}
             >
               <button
-                onClick={() => setActiveCategoryName(cat.name)}
+                onClick={() => {
+                  setActiveCategoryName(cat.name);
+                  if (onSelectCategory) onSelectCategory(cat.name);
+                }}
                 className="flex items-center gap-2 cursor-pointer"
               >
                 <Stack weight="bold" className="h-3.5 w-3.5" />
