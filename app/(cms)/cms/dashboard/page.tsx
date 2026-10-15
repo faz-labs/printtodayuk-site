@@ -46,7 +46,7 @@ import {
 
 export default function CMSDashboardPage() {
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
+  const { user, logout, loading: authLoading } = useAuth();
 
   const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'categories' | 'inquiries' | 'banners'>('categories');
   const [products, setProducts] = useState<Product[]>([]);
@@ -80,11 +80,11 @@ export default function CMSDashboardPage() {
         getCategories(),
         getInquiries(),
       ]);
-      setProducts(prods);
-      setCategories(cats);
-      setInquiries(inqs);
-      if (cats.length > 0 && !selectedCategoryName) {
-        setSelectedCategoryName(cats[0].name);
+      setProducts(prods || []);
+      setCategories(cats || []);
+      setInquiries(inqs || []);
+      if (cats && cats.length > 0 && !selectedCategoryName) {
+        setSelectedCategoryName(cats[0]?.name || '');
       }
     } catch (err) {
       console.error('Failed to load CMS data:', err);
@@ -193,21 +193,35 @@ export default function CMSDashboardPage() {
 
   if (authLoading || (!user && typeof window !== 'undefined')) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-900 text-white font-['Open_Sans',sans-serif]">
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-8 w-8 border-3 border-rose-500/30 border-t-rose-500 rounded-full animate-spin" />
-          <span className="text-xs font-bold text-slate-400">Loading CMS Dashboard...</span>
+      <div className="min-h-screen flex items-center justify-center bg-slate-900 text-white font-['Open_Sans',sans-serif] p-4">
+        <div className="flex flex-col items-center gap-4 max-w-sm text-center bg-slate-800/80 p-8 rounded-3xl border border-slate-700/60 shadow-2xl">
+          <div className="h-9 w-9 border-3 border-rose-500/30 border-t-rose-500 rounded-full animate-spin" />
+          <div>
+            <h2 className="text-sm font-bold text-white">Connecting to CMS Dashboard...</h2>
+            <p className="text-xs text-slate-400 mt-1">Verifying your administrative session credentials.</p>
+          </div>
+          <div className="flex gap-2 pt-2">
+            <button
+              onClick={() => {
+                logout();
+                router.push('/cms/login');
+              }}
+              className="px-4 py-2 rounded-xl bg-white/10 hover:bg-rose-600 text-white text-xs font-bold transition-colors cursor-pointer"
+            >
+              Sign Out / Go to Login
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
   // Quick stats
-  const printingCount = products.filter((p) => p.category === 'Printing').length;
-  const clothingCount = products.filter((p) => p.category === 'Clothing').length;
-  const sameDayCount = products.filter((p) => p.isSameDayAvailable).length;
-  const pendingInquiriesCount = inquiries.filter(
-    (i) => (i.status || 'pending') === 'pending'
+  const printingCount = (products || []).filter((p) => p && p.category === 'Printing').length;
+  const clothingCount = (products || []).filter((p) => p && p.category === 'Clothing').length;
+  const sameDayCount = (products || []).filter((p) => p && p.isSameDayAvailable).length;
+  const pendingInquiriesCount = (inquiries || []).filter(
+    (i) => i && (i.status || 'pending') === 'pending'
   ).length;
 
   return (

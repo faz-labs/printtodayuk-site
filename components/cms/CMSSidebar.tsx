@@ -59,8 +59,8 @@ export function CMSSidebar({
   const [productsExpanded, setProductsExpanded] = useState(true);
   const [categorySearch, setCategorySearch] = useState('');
 
-  const filteredCategories = categories.filter((c) =>
-    c.name.toLowerCase().includes(categorySearch.toLowerCase().trim())
+  const filteredCategories = (categories || []).filter((c) =>
+    Boolean(c && c.name && c.name.toLowerCase().includes(categorySearch.toLowerCase().trim()))
   );
 
   const sameDayProductsCount = products.filter((p) => p.isSameDayAvailable).length;
@@ -211,11 +211,11 @@ export function CMSSidebar({
                   {filteredCategories.map((cat) => {
                     const isSelected =
                       activeTab === 'categories' &&
-                      selectedCategoryName?.toLowerCase() === cat.name.toLowerCase();
+                      selectedCategoryName?.toLowerCase() === (cat.name || '').toLowerCase();
 
                     return (
                       <button
-                        key={cat.name}
+                        key={cat.name || `cat-${Math.random()}`}
                         onClick={() => {
                           onTabChange('categories');
                           onSelectCategory(cat.name);

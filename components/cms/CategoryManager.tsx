@@ -95,15 +95,22 @@ export function CategoryManager({
   const [catModalError, setCatModalError] = useState('');
   const [isModalUploading, setIsModalUploading] = useState(false);
 
-  const currentCategory =
+  const matchedCategory =
     categories.find(
-      (c) => c.name.toLowerCase() === activeCategoryName.toLowerCase()
+      (c) => c && c.name && c.name.toLowerCase() === activeCategoryName.toLowerCase()
     ) ||
     categories[0] || {
       name: '',
       subcategories: [],
       subcategoryImages: {},
     };
+
+  const currentCategory: CategoryConfig = {
+    ...matchedCategory,
+    name: matchedCategory.name || '',
+    subcategories: Array.isArray(matchedCategory.subcategories) ? matchedCategory.subcategories : [],
+    subcategoryImages: matchedCategory.subcategoryImages || {},
+  };
 
   const uploadFileToS3 = async (file: File): Promise<string> => {
     const formData = new FormData();
@@ -207,12 +214,13 @@ export function CategoryManager({
     if (!newSubcatInput.trim()) return;
 
     const trimmed = newSubcatInput.trim();
-    if (currentCategory.subcategories.includes(trimmed)) {
+    const existing = currentCategory.subcategories || [];
+    if (existing.includes(trimmed)) {
       alert('This subcategory already exists in this category.');
       return;
     }
 
-    const updated = [...currentCategory.subcategories, trimmed];
+    const updated = [...existing, trimmed];
     setIsSaving(true);
     try {
       if (onUpdateCategory) {
@@ -238,7 +246,7 @@ export function CategoryManager({
       return;
     }
 
-    const updated = currentCategory.subcategories.filter((s) => s !== subcatToRemove);
+    const updated = (currentCategory.subcategories || []).filter((s) => s !== subcatToRemove);
     const updatedImages = { ...(currentCategory.subcategoryImages || {}) };
     delete updatedImages[subcatToRemove];
 
@@ -440,7 +448,7 @@ export function CategoryManager({
                 {currentCategory.name}
               </h3>
               <Badge variant="uk-blue" className="text-[10px]">
-                {currentCategory.subcategories.length} Subcategories
+                {currentCategory.subcategories?.length || 0} Subcategories
               </Badge>
 
               {/* Enlist in Left Sidebar (Best Sellers) Checkbox Toggle */}
@@ -546,16 +554,16 @@ export function CategoryManager({
         {/* Subcategories list with Image Upload for each */}
         <div>
           <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-3">
-            Subcategories & Landing Page Images ({currentCategory.subcategories.length})
+            Subcategories & Landing Page Images ({currentCategory.subcategories?.length || 0})
           </div>
 
-          {currentCategory.subcategories.length === 0 ? (
+          {(currentCategory.subcategories?.length || 0) === 0 ? (
             <div className="p-8 text-center bg-slate-50 rounded-2xl border border-slate-200 text-xs text-slate-400">
               No subcategories added yet. Type a name above (e.g. Mugs or Pens) and click Add.
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {currentCategory.subcategories.map((subcat) => {
+              {(currentCategory.subcategories || []).map((subcat) => {
                 const imgUrl = currentCategory.subcategoryImages?.[subcat];
                 const isUploadingThis = uploadingTarget === `subcat_${subcat}`;
 

@@ -71,16 +71,27 @@ export function getLocalCategories(): CategoryConfig[] {
   try {
     const data = localStorage.getItem('print_today_categories');
     if (data !== null) {
-      const parsed: CategoryConfig[] = JSON.parse(data);
+      const parsed = JSON.parse(data);
       if (Array.isArray(parsed)) {
-        return parsed.filter(
-          (c) =>
-            c &&
-            c.name &&
-            c.name.toLowerCase() !== 'printing' &&
-            c.name.toLowerCase() !== 'clothing' &&
-            !deletedSet.has(c.name.toLowerCase().trim())
-        );
+        return parsed
+          .filter(
+            (c: any) =>
+              c &&
+              c.name &&
+              typeof c.name === 'string' &&
+              c.name.toLowerCase() !== 'printing' &&
+              c.name.toLowerCase() !== 'clothing' &&
+              !deletedSet.has(c.name.toLowerCase().trim())
+          )
+          .map((c: any) => ({
+            id: c.id,
+            name: c.name || '',
+            description: c.description || '',
+            imageUrl: c.imageUrl || '',
+            subcategories: Array.isArray(c.subcategories) ? c.subcategories : [],
+            subcategoryImages: c.subcategoryImages && typeof c.subcategoryImages === 'object' ? c.subcategoryImages : {},
+            isBestSeller: Boolean(c.isBestSeller),
+          }));
       }
     }
   } catch {}
@@ -132,10 +143,17 @@ export async function getProducts(category?: string): Promise<Product[]> {
         snap = await getDocs(q);
       }
 
-      const products = snap.docs.map((d) => ({
-        id: d.id,
-        ...d.data(),
-      })) as Product[];
+      const products = snap.docs.map((d) => {
+        const data = d.data() as any;
+        return {
+          id: d.id,
+          ...data,
+          title: data.title || '',
+          category: data.category || '',
+          subcategory: data.subcategory || '',
+          price: typeof data.price === 'number' ? data.price : Number(data.price) || 0,
+        };
+      }) as Product[];
       return products;
     } catch (error) {
       console.warn('Firestore fetch products failed, using local fallback:', error);
@@ -282,7 +300,18 @@ export async function getCategories(): Promise<CategoryConfig[]> {
     try {
       const snap = await getDocs(collection(db, 'categories'));
       if (!snap.empty) {
-        let firestoreCats = snap.docs.map((d) => ({ id: d.id, ...d.data() })) as CategoryConfig[];
+        let firestoreCats = snap.docs.map((d) => {
+          const data = d.data() as any;
+          return {
+            id: d.id,
+            name: data.name || '',
+            description: data.description || '',
+            imageUrl: data.imageUrl || '',
+            subcategories: Array.isArray(data.subcategories) ? data.subcategories : [],
+            subcategoryImages: data.subcategoryImages && typeof data.subcategoryImages === 'object' ? data.subcategoryImages : {},
+            isBestSeller: Boolean(data.isBestSeller),
+          } as CategoryConfig;
+        });
         firestoreCats = firestoreCats.filter(
           (c) =>
             c &&

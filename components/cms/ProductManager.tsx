@@ -78,16 +78,23 @@ export function ProductManager({
 
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
+      if (!product) return false;
+      const title = product.title || '';
+      const cat = product.category || '';
+      const subcat = product.subcategory || '';
+      const q = searchQuery.toLowerCase().trim();
+
       const matchSearch =
-        product.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        product.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        product.subcategory.toLowerCase().includes(searchQuery.toLowerCase());
+        !q ||
+        title.toLowerCase().includes(q) ||
+        cat.toLowerCase().includes(q) ||
+        subcat.toLowerCase().includes(q);
 
       const matchCategory =
         filterCategory === 'All'
           ? true
-          : product.category.toLowerCase() === filterCategory.toLowerCase() ||
-            product.subcategory.toLowerCase() === filterCategory.toLowerCase();
+          : cat.toLowerCase() === filterCategory.toLowerCase() ||
+            subcat.toLowerCase() === filterCategory.toLowerCase();
 
       return matchSearch && matchCategory;
     });
@@ -205,7 +212,7 @@ export function ProductManager({
               className="bg-transparent text-xs font-bold text-slate-800 px-3 py-1.5 focus:outline-hidden cursor-pointer rounded-lg hover:bg-white"
             >
               <option value="All">All Categories ({products.length})</option>
-              {categories.map((c) => (
+              {(categories || []).filter((c) => c && c.name).map((c) => (
                 <option key={c.name} value={c.name}>
                   {c.name}
                 </option>
