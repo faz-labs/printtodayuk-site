@@ -65,24 +65,15 @@ export function getLocalCategories(): CategoryConfig[] {
   const deletedSet = getDeletedCategories();
 
   if (typeof window === 'undefined') {
-    return INITIAL_CATEGORIES.filter(
-      (c) =>
-        c &&
-        c.name &&
-        c.name.toLowerCase() !== 'printing' &&
-        c.name.toLowerCase() !== 'clothing' &&
-        !deletedSet.has(c.name.toLowerCase().trim())
-    );
+    return [];
   }
 
   try {
     const data = localStorage.getItem('print_today_categories');
-    const isInitialized = localStorage.getItem('print_today_categories_initialized');
-
     if (data !== null) {
       const parsed: CategoryConfig[] = JSON.parse(data);
       if (Array.isArray(parsed)) {
-        const filtered = parsed.filter(
+        return parsed.filter(
           (c) =>
             c &&
             c.name &&
@@ -90,43 +81,11 @@ export function getLocalCategories(): CategoryConfig[] {
             c.name.toLowerCase() !== 'clothing' &&
             !deletedSet.has(c.name.toLowerCase().trim())
         );
-
-        // If user already initialized/modified categories, preserve their state
-        if (isInitialized === 'true') {
-          return filtered;
-        }
-
-        // Check if data only contained legacy umbrella categories 'Printing' & 'Clothing'
-        const onlyLegacy =
-          filtered.length === 0 ||
-          filtered.every(
-            (c) =>
-              c &&
-              c.name &&
-              (c.name.toLowerCase() === 'printing' || c.name.toLowerCase() === 'clothing')
-          );
-
-        if (!onlyLegacy && filtered.length > 0) {
-          return filtered;
-        }
       }
     }
   } catch {}
 
-  // Seed default independent categories
-  const initialFiltered = INITIAL_CATEGORIES.filter(
-    (c) =>
-      c &&
-      c.name &&
-      c.name.toLowerCase() !== 'printing' &&
-      c.name.toLowerCase() !== 'clothing' &&
-      !deletedSet.has(c.name.toLowerCase().trim())
-  );
-  if (typeof window !== 'undefined') {
-    localStorage.setItem('print_today_categories_initialized', 'true');
-    localStorage.setItem('print_today_categories', JSON.stringify(initialFiltered));
-  }
-  return initialFiltered;
+  return [];
 }
 
 export function saveLocalCategories(cats: CategoryConfig[]) {
@@ -334,20 +293,8 @@ export async function getCategories(): Promise<CategoryConfig[]> {
         );
 
         if (firestoreCats.length > 0) {
-          const map = new Map<string, CategoryConfig>();
-          for (const c of firestoreCats) {
-            if (c && c.name && !deletedSet.has(c.name.toLowerCase().trim())) {
-              map.set(c.name.toLowerCase().trim(), c);
-            }
-          }
-          for (const c of local) {
-            if (c && c.name && !deletedSet.has(c.name.toLowerCase().trim())) {
-              map.set(c.name.toLowerCase().trim(), c);
-            }
-          }
-          const merged = Array.from(map.values());
-          saveLocalCategories(merged);
-          return merged;
+          saveLocalCategories(firestoreCats);
+          return firestoreCats;
         }
       }
     } catch (error) {
