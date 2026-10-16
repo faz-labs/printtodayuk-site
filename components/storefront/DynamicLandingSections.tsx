@@ -16,36 +16,42 @@ export function DynamicLandingSections({
   initialSections,
   initialProducts,
 }: DynamicLandingSectionsProps = {}) {
-  // 1. Initialize synchronously: use server SSR props first, then local browser cache
+  // 1. Initialize synchronously: prioritize fresh browser cache if available, else server props
   const [sections, setSections] = useState<DynamicSection[]>(() => {
+    if (typeof window !== 'undefined') {
+      const local = getLocalLandingSections().filter((s) => s.isActive);
+      if (local && local.length > 0) return local;
+    }
     if (initialSections && initialSections.length > 0) {
       return initialSections.filter((s) => s.isActive);
-    }
-    if (typeof window !== 'undefined') {
-      return getLocalLandingSections().filter((s) => s.isActive);
     }
     return [];
   });
 
   const [products, setProducts] = useState<Product[]>(() => {
+    if (typeof window !== 'undefined') {
+      const localProds = getLocalProducts();
+      if (localProds && localProds.length > 0) return localProds;
+    }
     if (initialProducts && initialProducts.length > 0) {
       return initialProducts;
-    }
-    if (typeof window !== 'undefined') {
-      return getLocalProducts();
     }
     return [];
   });
 
   useEffect(() => {
-    // 2. Fetch fresh data through high-speed server API route (cached in memory, returns in ~15ms)
+    // 2. Fetch fresh data through server API with cache-busting
     async function loadData() {
       try {
-        const res = await fetch('/api/landing-data');
+        const res = await fetch(`/api/landing-data?t=${Date.now()}`, {
+          cache: 'no-store',
+          headers: { 'Cache-Control': 'no-cache' },
+        });
         if (res.ok) {
           const data = await res.json();
-          if (Array.isArray(data.sections) && data.sections.length > 0) {
-            setSections(data.sections.filter((s: DynamicSection) => s.isActive));
+          if (Array.isArray(data.sections)) {
+            const active = data.sections.filter((s: DynamicSection) => s.isActive);
+            setSections(active);
             saveLocalLandingSections(data.sections);
           }
           if (Array.isArray(data.products) && data.products.length > 0) {
@@ -139,19 +145,33 @@ export function DynamicLandingSections({
 
         // TYPE 1 & 2: Product Grid / Auto-Scroll Sections
         let sectionProducts: Product[] = [];
-        if (section.sourceType === 'category' && section.categoryName) {
-          sectionProducts = products.filter(
-            (p) => p && p.category && p.category.toLowerCase().trim() === section.categoryName!.toLowerCase().trim()
-          );
-        } else if (section.sourceType === 'products' && section.productIds) {
-          sectionProducts = products.filter(
-            (p) => section.productIds!.includes(p.id || '') || section.productIds!.includes(p.slug || '')
-          );
+        if (section.sourceType === 'category') {
+          // Support multiple selected categories (pooled) or single category
+          const targetCategories = (section.categoryNames && section.categoryNames.length > 0)
+            ? section.categoryNames.map((c) => c.toLowerCase().trim())
+            : section.categoryName
+            ? [section.categoryName.toLowerCase().trim()]
+            : [];
+
+          if (targetCategories.length > 0) {
+            sectionProducts = products.filter(
+              (p) => p && p.category && targetCategories.includes(p.category.toLowerCase().trim())
+            );
+          } else {
+            sectionProducts = products;
+          }
+        } else if (section.sourceType === 'products' && section.productIds && section.productIds.length > 0) {
+          // Preserve user-selected order from all products
+          sectionProducts = section.productIds
+            .map((id) => products.find((p) => p.id === id || p.slug === id))
+            .filter((p): p is Product => Boolean(p));
         }
 
+        // Fallback: If section has no matched products yet but product catalog is available,
+        // use available products so newly created sections never render as invisible blank gaps
         if (sectionProducts.length === 0) {
-          // If products are loading on cold start, show skeleton instead of blank gap
           if (products.length === 0) {
+            // Cold start skeleton
             return (
               <section key={section.id || section.title} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 animate-pulse">
                 <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-8 gap-3 border-b border-slate-100 pb-4">
@@ -172,8 +192,15 @@ export function DynamicLandingSections({
               </section>
             );
           }
-          return null;
+          // Products exist in database, pool first 8 so section is immediately interactive
+          sectionProducts = products.slice(0, 8);
         }
+
+        // Determine view link
+        const firstCategory = (section.categoryNames && section.categoryNames[0]) || section.categoryName;
+        const viewLink = firstCategory
+          ? `/category/${encodeURIComponent(firstCategory)}`
+          : '/category/Printing';
 
         return (
           <section key={section.id || section.title} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -188,12 +215,16 @@ export function DynamicLandingSections({
                 )}
               </div>
 
-              {section.categoryName && (
+              {firstCategory && (
                 <Link
-                  href={`/category/${encodeURIComponent(section.categoryName)}`}
+                  href={viewLink}
                   className="inline-flex items-center gap-1.5 text-xs font-bold text-[#012169] hover:text-[#C8102E] transition-colors"
                 >
-                  <span>View All in {section.categoryName}</span>
+                  <span>
+                    {section.categoryNames && section.categoryNames.length > 1
+                      ? `View Collection (${section.categoryNames.length} Categories)`
+                      : `View All in ${firstCategory}`}
+                  </span>
                   <ArrowRight weight="bold" className="h-3.5 w-3.5" />
                 </Link>
               )}

@@ -24,6 +24,9 @@ import {
   ArrowRight,
   Tag,
   Palette,
+  MagnifyingGlass,
+  X,
+  Check,
 } from '@phosphor-icons/react';
 
 interface SectionManagerProps {
@@ -66,9 +69,15 @@ export function SectionManager({
   const [formType, setFormType] = useState<'horizontal_scroll' | 'grid_8_tiles' | 'split_banner'>('horizontal_scroll');
   const [formSourceType, setFormSourceType] = useState<'category' | 'products'>('category');
   const [formCategoryName, setFormCategoryName] = useState(categories[0]?.name || '');
+  const [formCategoryNames, setFormCategoryNames] = useState<string[]>([]);
   const [formProductIds, setFormProductIds] = useState<string[]>([]);
   const [formOrder, setFormOrder] = useState<number>(sections.length + 1);
   const [formIsActive, setFormIsActive] = useState(true);
+
+  // Search & filter states within modal
+  const [categorySearch, setCategorySearch] = useState('');
+  const [productSearch, setProductSearch] = useState('');
+  const [productCategoryFilter, setProductCategoryFilter] = useState('All');
 
   // Split banner form states
   const [formBackgroundColor, setFormBackgroundColor] = useState('#012169');
@@ -96,9 +105,13 @@ export function SectionManager({
     setFormType('horizontal_scroll');
     setFormSourceType('category');
     setFormCategoryName(categories[0]?.name || '');
+    setFormCategoryNames(categories.length > 0 ? [categories[0].name] : []);
     setFormProductIds([]);
     setFormOrder(sections.length + 1);
     setFormIsActive(true);
+    setCategorySearch('');
+    setProductSearch('');
+    setProductCategoryFilter('All');
     setFormBackgroundColor('#012169');
     setFormImageUrl('');
     setFormLayoutDirection('image_left');
@@ -120,9 +133,20 @@ export function SectionManager({
     setFormType(sec.type);
     setFormSourceType(sec.sourceType || 'category');
     setFormCategoryName(sec.categoryName || categories[0]?.name || '');
+    const initialCats = (sec.categoryNames && sec.categoryNames.length > 0)
+      ? sec.categoryNames
+      : sec.categoryName
+      ? [sec.categoryName]
+      : categories.length > 0
+      ? [categories[0].name]
+      : [];
+    setFormCategoryNames(initialCats);
     setFormProductIds(sec.productIds || []);
     setFormOrder(sec.order || 1);
     setFormIsActive(sec.isActive);
+    setCategorySearch('');
+    setProductSearch('');
+    setProductCategoryFilter('All');
     setFormBackgroundColor(sec.backgroundColor || '#012169');
     setFormImageUrl(sec.imageUrl || '');
     setFormLayoutDirection(sec.layoutDirection || 'image_left');
@@ -133,10 +157,32 @@ export function SectionManager({
     setIsEditModalOpen(true);
   };
 
+  const handleToggleCategory = (catName: string) => {
+    setFormCategoryNames((prev) =>
+      prev.includes(catName) ? prev.filter((c) => c !== catName) : [...prev, catName]
+    );
+  };
+
+  const handleSelectAllCategories = () => {
+    setFormCategoryNames(categories.map((c) => c.name));
+  };
+
+  const handleClearCategories = () => {
+    setFormCategoryNames([]);
+  };
+
   const handleToggleProduct = (prodId: string) => {
     setFormProductIds((prev) =>
       prev.includes(prodId) ? prev.filter((id) => id !== prodId) : [...prev, prodId]
     );
+  };
+
+  const handleSelectAllFilteredProducts = (filteredIds: string[]) => {
+    setFormProductIds((prev) => Array.from(new Set([...prev, ...filteredIds])));
+  };
+
+  const handleClearProductSelection = () => {
+    setFormProductIds([]);
   };
 
   // Upload S3 helper with automatic WebP conversion
@@ -181,9 +227,15 @@ export function SectionManager({
       return;
     }
 
-    if (formType !== 'split_banner' && formSourceType === 'products' && formProductIds.length === 0) {
-      setModalError('Please select at least one product for this section.');
-      return;
+    if (formType !== 'split_banner') {
+      if (formSourceType === 'category' && formCategoryNames.length === 0) {
+        setModalError('Please select at least one category for this section.');
+        return;
+      }
+      if (formSourceType === 'products' && formProductIds.length === 0) {
+        setModalError('Please select at least one product for this section.');
+        return;
+      }
     }
 
     setIsSubmitting(true);
@@ -194,17 +246,22 @@ export function SectionManager({
         subtitle: formSubtitle.trim() || undefined,
         type: formType,
         sourceType: formType !== 'split_banner' ? formSourceType : undefined,
-        categoryName: formType !== 'split_banner' && formSourceType === 'category' ? formCategoryName : undefined,
+        categoryName: formType !== 'split_banner' && formSourceType === 'category' ? (formCategoryNames[0] || formCategoryName) : undefined,
+        categoryNames: formType !== 'split_banner' && formSourceType === 'category' ? formCategoryNames : undefined,
         productIds: formType !== 'split_banner' && formSourceType === 'products' ? formProductIds : undefined,
         backgroundColor: formType === 'split_banner' ? formBackgroundColor : undefined,
-        imageUrl: formType === 'split_banner' ? formImageUrl.trim() : undefined,
+        imageUrl: formType === 'split_banner' ? (formImageUrl.trim() || undefined) : undefined,
         layoutDirection: formType === 'split_banner' ? formLayoutDirection : undefined,
-        buttonText: formType === 'split_banner' ? formButtonText.trim() : undefined,
-        buttonUrl: formType === 'split_banner' ? formButtonUrl.trim() : undefined,
-        badgeText: formType === 'split_banner' ? formBadgeText.trim() : undefined,
+        buttonText: formType === 'split_banner' ? (formButtonText.trim() || undefined) : undefined,
+        buttonUrl: formType === 'split_banner' ? (formButtonUrl.trim() || undefined) : undefined,
+        badgeText: formType === 'split_banner' ? (formBadgeText.trim() || undefined) : undefined,
         order: Number(formOrder) || 1,
         isActive: formIsActive,
       });
+
+      // Invalidate server cache so storefront updates instantly
+      fetch('/api/landing-data', { method: 'POST' }).catch(() => {});
+
       showSuccess(`Created landing section "${formTitle.trim()}".`);
       setIsAddModalOpen(false);
     } catch (err: any) {
@@ -222,6 +279,17 @@ export function SectionManager({
       return;
     }
 
+    if (formType !== 'split_banner') {
+      if (formSourceType === 'category' && formCategoryNames.length === 0) {
+        setModalError('Please select at least one category for this section.');
+        return;
+      }
+      if (formSourceType === 'products' && formProductIds.length === 0) {
+        setModalError('Please select at least one product for this section.');
+        return;
+      }
+    }
+
     setIsSubmitting(true);
     setModalError('');
     try {
@@ -230,17 +298,22 @@ export function SectionManager({
         subtitle: formSubtitle.trim() || undefined,
         type: formType,
         sourceType: formType !== 'split_banner' ? formSourceType : undefined,
-        categoryName: formType !== 'split_banner' && formSourceType === 'category' ? formCategoryName : undefined,
+        categoryName: formType !== 'split_banner' && formSourceType === 'category' ? (formCategoryNames[0] || formCategoryName) : undefined,
+        categoryNames: formType !== 'split_banner' && formSourceType === 'category' ? formCategoryNames : undefined,
         productIds: formType !== 'split_banner' && formSourceType === 'products' ? formProductIds : undefined,
         backgroundColor: formType === 'split_banner' ? formBackgroundColor : undefined,
-        imageUrl: formType === 'split_banner' ? formImageUrl.trim() : undefined,
+        imageUrl: formType === 'split_banner' ? (formImageUrl.trim() || undefined) : undefined,
         layoutDirection: formType === 'split_banner' ? formLayoutDirection : undefined,
-        buttonText: formType === 'split_banner' ? formButtonText.trim() : undefined,
-        buttonUrl: formType === 'split_banner' ? formButtonUrl.trim() : undefined,
-        badgeText: formType === 'split_banner' ? formBadgeText.trim() : undefined,
+        buttonText: formType === 'split_banner' ? (formButtonText.trim() || undefined) : undefined,
+        buttonUrl: formType === 'split_banner' ? (formButtonUrl.trim() || undefined) : undefined,
+        badgeText: formType === 'split_banner' ? (formBadgeText.trim() || undefined) : undefined,
         order: Number(formOrder) || 1,
         isActive: formIsActive,
       });
+
+      // Invalidate server cache so storefront updates instantly
+      fetch('/api/landing-data', { method: 'POST' }).catch(() => {});
+
       showSuccess(`Updated section "${formTitle.trim()}".`);
       setIsEditModalOpen(false);
       setEditingSection(null);
@@ -257,6 +330,7 @@ export function SectionManager({
 
     try {
       await onDeleteSection(sec.id);
+      fetch('/api/landing-data', { method: 'POST' }).catch(() => {});
       showSuccess(`Deleted section "${sec.title}".`);
     } catch (err: any) {
       alert(err.message || 'Failed to delete section.');
@@ -267,6 +341,7 @@ export function SectionManager({
     if (!sec.id) return;
     try {
       await onUpdateSection(sec.id, { isActive: !sec.isActive });
+      fetch('/api/landing-data', { method: 'POST' }).catch(() => {});
       showSuccess(`Section is now ${!sec.isActive ? 'Active on Storefront' : 'Hidden'}.`);
     } catch (err: any) {
       alert(err.message || 'Failed to update status.');
@@ -396,9 +471,20 @@ export function SectionManager({
                             </span>
                           </div>
                         ) : sec.sourceType === 'category' ? (
-                          <div className="flex items-center gap-1.5 text-slate-700 font-semibold">
-                            <Stack weight="bold" className="h-3.5 w-3.5 text-blue-600" />
-                            <span>Category: {sec.categoryName || 'All'}</span>
+                          <div className="flex flex-col gap-0.5 text-slate-700">
+                            <div className="flex items-center gap-1.5 font-bold">
+                              <Stack weight="bold" className="h-3.5 w-3.5 text-blue-600" />
+                              <span>
+                                {sec.categoryNames && sec.categoryNames.length > 1
+                                  ? `${sec.categoryNames.length} Categories Selected`
+                                  : `Category: ${sec.categoryName || sec.categoryNames?.[0] || 'All'}`}
+                              </span>
+                            </div>
+                            {sec.categoryNames && sec.categoryNames.length > 1 && (
+                              <span className="text-[10px] text-slate-400 truncate max-w-[220px]">
+                                {sec.categoryNames.join(', ')}
+                              </span>
+                            )}
                           </div>
                         ) : (
                           <div className="flex items-center gap-1.5 text-slate-700 font-semibold">
@@ -817,54 +903,214 @@ export function SectionManager({
               </div>
 
               {formSourceType === 'category' ? (
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                    Select Category
-                  </label>
-                  <select
-                    value={formCategoryName}
-                    onChange={(e) => setFormCategoryName(e.target.value)}
-                    className="w-full h-11 px-3 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-900 focus:outline-hidden focus:border-[#012169]"
-                  >
-                    {categories.map((c) => (
-                      <option key={c.name} value={c.name}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
+                <div className="space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-[11px] font-bold text-slate-700">
+                      Select Categories ({formCategoryNames.length} selected)
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleSelectAllCategories}
+                        className="text-[11px] font-bold text-[#012169] hover:underline cursor-pointer"
+                      >
+                        Select All ({categories.length})
+                      </button>
+                      <span className="text-slate-300">•</span>
+                      <button
+                        type="button"
+                        onClick={handleClearCategories}
+                        className="text-[11px] font-bold text-slate-500 hover:text-slate-800 cursor-pointer"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Selected Categories Badge Chips */}
+                  {formCategoryNames.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 p-2 bg-slate-100/70 rounded-xl border border-slate-200">
+                      {formCategoryNames.map((catName) => (
+                        <span
+                          key={catName}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs font-bold text-slate-800 shadow-2xs"
+                        >
+                          <span>{catName}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleToggleCategory(catName)}
+                            className="p-0.5 hover:bg-slate-100 rounded text-slate-400 hover:text-rose-600 cursor-pointer"
+                          >
+                            <X weight="bold" className="h-3 w-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Category Search Filter */}
+                  {categories.length > 5 && (
+                    <div className="relative">
+                      <MagnifyingGlass weight="bold" className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                      <input
+                        type="text"
+                        value={categorySearch}
+                        onChange={(e) => setCategorySearch(e.target.value)}
+                        placeholder="Search categories..."
+                        className="w-full h-8 pl-8 pr-3 text-xs bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:border-[#012169]"
+                      />
+                    </div>
+                  )}
+
+                  {/* Category Selection Checklist */}
+                  <div className="max-h-48 overflow-y-auto p-2 rounded-xl border border-slate-200 bg-slate-50 space-y-1">
+                    {categories
+                      .filter((c) => !categorySearch.trim() || c.name.toLowerCase().includes(categorySearch.toLowerCase().trim()))
+                      .map((c) => {
+                        const isChecked = formCategoryNames.includes(c.name);
+                        const prodCount = products.filter(
+                          (p) => p.category && p.category.toLowerCase().trim() === c.name.toLowerCase().trim()
+                        ).length;
+
+                        return (
+                          <label
+                            key={c.name}
+                            className={`flex items-center justify-between p-2 rounded-lg text-xs cursor-pointer transition-colors ${
+                              isChecked
+                                ? 'bg-blue-50 text-blue-900 font-bold border border-blue-200'
+                                : 'bg-white hover:bg-slate-100 text-slate-700'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 truncate">
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => handleToggleCategory(c.name)}
+                                className="rounded border-slate-300 text-blue-600 h-4 w-4"
+                              />
+                              <span className="truncate">{c.name}</span>
+                            </div>
+                            <span className="text-[10px] text-slate-400 shrink-0 ml-2 font-medium">
+                              {prodCount} products
+                            </span>
+                          </label>
+                        );
+                      })}
+                  </div>
+                  <span className="text-[11px] text-slate-500 block">
+                    Products from all selected categories will be pooled into this section on the storefront.
+                  </span>
                 </div>
               ) : (
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-600 mb-1.5">
-                    Select Products ({formProductIds.length} selected{formType === 'grid_8_tiles' ? ' — recommended 8 for 2x4' : ''})
-                  </label>
-                  <div className="max-h-48 overflow-y-auto p-2 rounded-xl border border-slate-200 bg-slate-50 space-y-1">
-                    {products.map((p) => {
-                      const isChecked = formProductIds.includes(p.id || p.slug);
-                      const prodKey = p.id || p.slug;
+                <div className="space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-[11px] font-bold text-slate-700">
+                      Select Products ({formProductIds.length} selected{formType === 'grid_8_tiles' ? ' — recommended 8 for 2x4' : ''})
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const filtered = products
+                            .filter((p) => {
+                              const matchesSearch = !productSearch.trim() ||
+                                p.title.toLowerCase().includes(productSearch.toLowerCase().trim()) ||
+                                (p.slug && p.slug.toLowerCase().includes(productSearch.toLowerCase().trim()));
+                              const matchesCat = productCategoryFilter === 'All' ||
+                                (p.category && p.category.toLowerCase().trim() === productCategoryFilter.toLowerCase().trim());
+                              return matchesSearch && matchesCat;
+                            })
+                            .map((p) => p.id || p.slug);
+                          handleSelectAllFilteredProducts(filtered);
+                        }}
+                        className="text-[11px] font-bold text-[#012169] hover:underline cursor-pointer"
+                      >
+                        Select All Filtered
+                      </button>
+                      <span className="text-slate-300">•</span>
+                      <button
+                        type="button"
+                        onClick={handleClearProductSelection}
+                        className="text-[11px] font-bold text-slate-500 hover:text-slate-800 cursor-pointer"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
 
-                      return (
-                        <label
-                          key={prodKey}
-                          className={`flex items-center justify-between p-2 rounded-lg text-xs cursor-pointer transition-colors ${
-                            isChecked ? 'bg-blue-50 text-blue-900 font-bold border border-blue-200' : 'bg-white hover:bg-slate-100 text-slate-700'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2.5 truncate">
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              onChange={() => handleToggleProduct(prodKey)}
-                              className="rounded border-slate-300 text-blue-600"
-                            />
-                            <span className="truncate">{p.title}</span>
-                          </div>
-                          <span className="text-[10px] text-slate-400 shrink-0 ml-2 font-mono">
-                            £{p.price} • {p.category}
-                          </span>
-                        </label>
-                      );
-                    })}
+                  {/* Search and Category Filter Bar */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div className="relative">
+                      <MagnifyingGlass weight="bold" className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                      <input
+                        type="text"
+                        value={productSearch}
+                        onChange={(e) => setProductSearch(e.target.value)}
+                        placeholder="Search products by title..."
+                        className="w-full h-8 pl-8 pr-3 text-xs bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:border-[#012169]"
+                      />
+                    </div>
+
+                    <select
+                      value={productCategoryFilter}
+                      onChange={(e) => setProductCategoryFilter(e.target.value)}
+                      className="w-full h-8 px-2 text-xs bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:border-[#012169]"
+                    >
+                      <option value="All">All Categories ({products.length} products)</option>
+                      {categories.map((c) => (
+                        <option key={c.name} value={c.name}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Product Checklist */}
+                  <div className="max-h-56 overflow-y-auto p-2 rounded-xl border border-slate-200 bg-slate-50 space-y-1">
+                    {products
+                      .filter((p) => {
+                        const matchesSearch = !productSearch.trim() ||
+                          p.title.toLowerCase().includes(productSearch.toLowerCase().trim()) ||
+                          (p.slug && p.slug.toLowerCase().includes(productSearch.toLowerCase().trim()));
+                        const matchesCat = productCategoryFilter === 'All' ||
+                          (p.category && p.category.toLowerCase().trim() === productCategoryFilter.toLowerCase().trim());
+                        return matchesSearch && matchesCat;
+                      })
+                      .map((p) => {
+                        const prodKey = p.id || p.slug;
+                        const isChecked = formProductIds.includes(prodKey);
+
+                        return (
+                          <label
+                            key={prodKey}
+                            className={`flex items-center justify-between p-2 rounded-lg text-xs cursor-pointer transition-colors ${
+                              isChecked
+                                ? 'bg-blue-50 text-blue-900 font-bold border border-blue-200'
+                                : 'bg-white hover:bg-slate-100 text-slate-700'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 truncate">
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => handleToggleProduct(prodKey)}
+                                className="rounded border-slate-300 text-blue-600 h-4 w-4"
+                              />
+                              {p.images && p.images[0] && (
+                                <img
+                                  src={p.images[0]}
+                                  alt=""
+                                  className="h-6 w-6 rounded object-cover border border-slate-200 shrink-0"
+                                />
+                              )}
+                              <span className="truncate">{p.title}</span>
+                            </div>
+                            <span className="text-[10px] text-slate-400 shrink-0 ml-2 font-mono">
+                              £{p.price} • {p.category}
+                            </span>
+                          </label>
+                        );
+                      })}
                   </div>
                 </div>
               )}

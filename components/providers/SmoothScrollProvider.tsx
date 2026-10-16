@@ -77,9 +77,14 @@ export function SmoothScrollProvider({
     };
   }, []);
 
-  // Reset scroll and recalculate trigger points on page route changes
+  // Reset scroll and recalculate trigger points on page route changes; stop Lenis entirely on CMS routes
   useEffect(() => {
-    if (lenisRef.current) {
+    if (!lenisRef.current) return;
+
+    if (pathname && (pathname.startsWith('/cms') || pathname.includes('/cms/'))) {
+      lenisRef.current.stop();
+    } else {
+      lenisRef.current.start();
       lenisRef.current.scrollTo(0, { immediate: true });
       ScrollTrigger.refresh();
     }

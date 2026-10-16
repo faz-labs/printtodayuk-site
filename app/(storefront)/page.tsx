@@ -9,8 +9,8 @@ import { WhyChooseUsSection } from '@/components/storefront/WhyChooseUsSection';
 import { NewsletterSection } from '@/components/storefront/NewsletterSection';
 import { getLandingSections, getProducts } from '@/lib/db';
 
-// ISR (Incremental Static Regeneration): Caches rendered page for 60s, delivers 0ms instant HTML
-export const revalidate = 60;
+// Always render the latest CMS-managed sections and hero banners in real-time
+export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
   const [initialSections, initialProducts] = await Promise.all([

@@ -262,7 +262,7 @@ export default function CMSDashboardPage() {
   ).length;
 
   return (
-    <div className="flex h-screen bg-slate-100 overflow-hidden font-sans">
+    <div className="flex h-screen bg-slate-100 overflow-hidden font-sans" data-lenis-prevent>
       {/* 1. Left Drawer Navigation (Clean page list) */}
       <CMSSidebar
         activeTab={activeTab}
@@ -364,7 +364,7 @@ export default function CMSDashboardPage() {
         </header>
 
         {/* Scrollable Main Body Content (Smooth, unclipped scrolling) */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6 scroll-smooth">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6 scroll-smooth" data-lenis-prevent>
           {loadingData ? (
             <div className="bg-white rounded-2xl border border-slate-200 p-16 text-center shadow-xs">
               <div className="h-8 w-8 border-3 border-[#012169]/30 border-t-[#012169] rounded-full animate-spin mx-auto mb-3" />

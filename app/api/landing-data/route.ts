@@ -1,8 +1,9 @@
-import { NextResponse } from 'next/server';
-import { getLandingSections, getProducts } from '@/lib/db';
+import { NextRequest, NextResponse } from 'next/server';
+import { getLandingSections, getProducts, invalidateLandingSectionsCache } from '@/lib/db';
 import { DynamicSection, Product } from '@/lib/types';
 
-// In-memory cache for ultra-fast (1-5ms) responses without waiting for Firestore
+export const dynamic = 'force-dynamic';
+
 interface CachedPayload {
   sections: DynamicSection[];
   products: Product[];
@@ -10,13 +11,21 @@ interface CachedPayload {
 }
 
 let memoryCache: CachedPayload | null = null;
-const CACHE_TTL_MS = 60 * 1000; // 60 seconds
+const CACHE_TTL_MS = 5 * 1000; // 5 seconds max for snappy real-time updates
 
-export async function GET() {
+export async function POST() {
+  memoryCache = null;
+  invalidateLandingSectionsCache();
+  return NextResponse.json({ success: true, message: 'Landing data cache invalidated' });
+}
+
+export async function GET(req: NextRequest) {
   const now = Date.now();
+  const url = new URL(req.url);
+  const isFreshRequested = url.searchParams.has('t') || url.searchParams.has('fresh');
 
-  // 1. Serve immediately from memory cache if fresh
-  if (memoryCache && now - memoryCache.timestamp < CACHE_TTL_MS) {
+  // 1. Serve from short-lived memory cache if fresh and not explicitly bypassed
+  if (!isFreshRequested && memoryCache && now - memoryCache.timestamp < CACHE_TTL_MS) {
     return NextResponse.json(
       {
         sections: memoryCache.sections,
@@ -25,7 +34,7 @@ export async function GET() {
       },
       {
         headers: {
-          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+          'Cache-Control': 'no-store, no-cache, must-revalidate',
         },
       }
     );
@@ -52,13 +61,12 @@ export async function GET() {
       },
       {
         headers: {
-          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+          'Cache-Control': 'no-store, no-cache, must-revalidate',
         },
       }
     );
   } catch (error) {
     console.error('Error fetching landing data:', error);
-    // Return stale cache if available, else empty fallback
     if (memoryCache) {
       return NextResponse.json(
         {

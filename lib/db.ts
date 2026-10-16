@@ -716,10 +716,11 @@ function getLocalHeroSlides(): HeroSlide[] {
   return DEFAULT_HERO_SLIDES;
 }
 
-function saveLocalHeroSlides(slides: HeroSlide[]) {
+export function saveLocalHeroSlides(slides: HeroSlide[]) {
   if (typeof window !== 'undefined') {
     try {
       localStorage.setItem('print_today_hero_slides', JSON.stringify(slides));
+      window.dispatchEvent(new CustomEvent('print_today_hero_slides_updated', { detail: slides }));
     } catch {}
   }
 }
@@ -731,6 +732,7 @@ export async function getHeroSlides(): Promise<HeroSlide[]> {
       if (!snap.empty) {
         const slides = snap.docs.map((d) => ({ id: d.id, ...d.data() })) as HeroSlide[];
         slides.sort((a, b) => (a.order || 0) - (b.order || 0));
+        saveLocalHeroSlides(slides);
         return slides;
       }
     } catch (error) {
@@ -743,9 +745,20 @@ export async function getHeroSlides(): Promise<HeroSlide[]> {
 export async function saveHeroSlides(slides: HeroSlide[]): Promise<HeroSlide[]> {
   if (isConfigured && db) {
     try {
+      // 1. Delete removed slides from Firestore so they don't persist after deletion
+      const snap = await getDocs(collection(db, 'hero_slides'));
+      const activeIds = new Set(slides.map((s) => s.id));
+      for (const d of snap.docs) {
+        if (!activeIds.has(d.id)) {
+          await deleteDoc(doc(db, 'hero_slides', d.id));
+        }
+      }
+
+      // 2. Save active slides
       for (const slide of slides) {
         const docRef = doc(db, 'hero_slides', slide.id);
-        await setDoc(docRef, slide, { merge: true });
+        const cleanData = cleanFirestoreData(slide);
+        await setDoc(docRef, cleanData);
       }
     } catch (error) {
       console.error('Firestore saveHeroSlides failed:', error);

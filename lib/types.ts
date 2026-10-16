@@ -75,6 +75,7 @@ export interface DynamicSection {
   type: DynamicSectionType; // 'horizontal_scroll' | 'grid_8_tiles' | 'split_banner'
   sourceType?: 'category' | 'products';
   categoryName?: string;
+  categoryNames?: string[];
   productIds?: string[];
   // Split Banner properties
   backgroundColor?: string;

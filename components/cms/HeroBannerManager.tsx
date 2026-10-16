@@ -42,9 +42,10 @@ export function HeroBannerManager() {
       imageUrl: 'https://images.unsplash.com/photo-1561070791-2526d30994b5?q=80&w=1800&auto=format&fit=crop',
       title: 'New Promotional Banner',
       linkUrl: '/category/Printing',
-      order: slides.length + 1,
+      order: 1,
     };
-    setSlides((prev) => [...prev, newSlide]);
+    // Add new slide to the TOP as requested
+    setSlides((prev) => [newSlide, ...prev.map((s, idx) => ({ ...s, order: idx + 2 }))]);
   };
 
   const handleUpdateSlide = (index: number, updates: Partial<HeroSlide>) => {
@@ -77,7 +78,10 @@ export function HeroBannerManager() {
       }
 
       const data = await res.json();
-      const uploadedUrl = data.url;
+      const uploadedUrl = data.urls?.[0] || data.files?.[0]?.url || data.url;
+      if (!uploadedUrl) {
+        throw new Error('Upload succeeded but no image URL was returned.');
+      }
 
       handleUpdateSlide(index, { imageUrl: uploadedUrl });
     } catch (err: any) {
@@ -113,7 +117,7 @@ export function HeroBannerManager() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-lenis-prevent>
       {/* Header & Guidelines */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs">
         <div>

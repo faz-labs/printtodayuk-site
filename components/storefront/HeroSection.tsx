@@ -18,7 +18,7 @@ export function HeroSection({ categoryType }: HeroSectionProps) {
   const [isPaused, setIsPaused] = useState(false);
   const [direction, setDirection] = useState<1 | -1>(1);
 
-  // Load hero slides from CMS/database
+  // Load hero slides from CMS/database and listen for live updates
   useEffect(() => {
     async function load() {
       try {
@@ -31,6 +31,32 @@ export function HeroSection({ categoryType }: HeroSectionProps) {
       }
     }
     load();
+
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'print_today_hero_slides') {
+        try {
+          const updated = JSON.parse(e.newValue || '[]');
+          if (Array.isArray(updated) && updated.length > 0) {
+            setSlides(updated);
+          }
+        } catch {}
+      }
+    };
+
+    const handleCustomUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent<HeroSlide[]>;
+      if (Array.isArray(customEvent.detail) && customEvent.detail.length > 0) {
+        setSlides(customEvent.detail);
+      }
+    };
+
+    window.addEventListener('storage', handleStorage);
+    window.addEventListener('print_today_hero_slides_updated', handleCustomUpdate);
+
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('print_today_hero_slides_updated', handleCustomUpdate);
+    };
   }, []);
 
   // Auto sliding interval (every 4.5 seconds)
