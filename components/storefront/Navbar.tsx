@@ -316,7 +316,7 @@ export function Navbar() {
                     type="button"
                     onClick={() => setHoveredMenu(hoveredMenu === 'all-products' ? null : 'all-products')}
                     className={cn(
-                      'h-full px-3 flex items-center gap-2 font-["Open_Sans",sans-serif] text-[16px] font-medium transition-all border-b-2 cursor-pointer',
+                      'h-full px-3 flex items-center gap-2 font-sans text-[16px] font-medium transition-all border-b-2 cursor-pointer',
                       hoveredMenu === 'all-products'
                         ? 'border-[#012169] text-[#012169] bg-slate-50/80'
                         : 'border-transparent text-slate-800 hover:text-[#012169]'
@@ -339,7 +339,7 @@ export function Navbar() {
                   href="https://signtoday.co.uk"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="h-full px-3 flex items-center transition-colors border-b-2 border-transparent font-['Open_Sans',sans-serif] text-[16px] font-medium text-slate-700 hover:text-[#012169] hover:border-[#012169] whitespace-nowrap"
+                  className="h-full px-3 flex items-center transition-colors border-b-2 border-transparent font-sans text-[16px] font-medium text-slate-700 hover:text-[#012169] hover:border-[#012169] whitespace-nowrap"
                 >
                   <span>Signage</span>
                 </a>
@@ -349,7 +349,7 @@ export function Navbar() {
                   href="https://todayai.co.uk"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="h-full px-3 flex items-center transition-colors border-b-2 border-transparent font-['Open_Sans',sans-serif] text-[16px] font-medium text-slate-700 hover:text-[#012169] hover:border-[#012169] whitespace-nowrap"
+                  className="h-full px-3 flex items-center transition-colors border-b-2 border-transparent font-sans text-[16px] font-medium text-slate-700 hover:text-[#012169] hover:border-[#012169] whitespace-nowrap"
                 >
                   <span>Build Website</span>
                 </a>
@@ -364,7 +364,7 @@ export function Navbar() {
                   title="Claim 10% off your next print order"
                 >
                   <Tag weight="fill" className="h-3.5 w-3.5 text-[#C8102E] group-hover:scale-110 transition-transform" />
-                  <span className="font-['Open_Sans',sans-serif] font-medium text-[13px] text-slate-900 group-hover:text-[#C8102E] transition-colors">
+                  <span className="font-sans font-medium text-[13px] text-slate-900 group-hover:text-[#C8102E] transition-colors">
                     Get <strong className="text-[#C8102E] font-bold">10% off</strong> your next print order
                   </span>
                   <span className="text-[10px] font-mono font-bold bg-[#C8102E] text-white px-2 py-0.5 rounded shadow-2xs">
@@ -410,7 +410,7 @@ export function Navbar() {
                 >
                   <div className="flex items-center gap-2">
                     <Tag weight="fill" className="h-4 w-4 text-[#C8102E]" />
-                    <span className="text-xs font-semibold text-slate-900 font-['Open_Sans',sans-serif]">
+                    <span className="text-xs font-semibold text-slate-900 font-sans">
                       Get <strong className="text-[#C8102E]">10% off</strong> your next print order
                     </span>
                   </div>
@@ -502,7 +502,7 @@ export function Navbar() {
                         key={cat.name}
                         href={`/category/${encodeURIComponent(cat.name)}`}
                         onClick={() => setMobileMenuOpen(false)}
-                        className="flex items-center justify-between px-3.5 py-2.5 rounded-xl font-['Open_Sans',sans-serif] text-[16px] font-medium text-slate-800 hover:text-[#012169] hover:bg-slate-50 transition-colors"
+                        className="flex items-center justify-between px-3.5 py-2.5 rounded-xl font-sans text-[16px] font-medium text-slate-800 hover:text-[#012169] hover:bg-slate-50 transition-colors"
                       >
                         <span>{cat.name}</span>
                         <ArrowSquareOut weight="bold" className="h-4 w-4 text-slate-400" />
@@ -620,21 +620,21 @@ export function Navbar() {
                 <Tag weight="fill" className="h-7 w-7" />
               </div>
 
-              <span className="text-xs font-bold text-[#C8102E] uppercase tracking-wider bg-red-50 px-3 py-1 rounded-full border border-red-200/60 inline-block mb-2 font-['Open_Sans',sans-serif]">
+              <span className="text-xs font-bold text-[#C8102E] uppercase tracking-wider bg-red-50 px-3 py-1 rounded-full border border-red-200/60 inline-block mb-2 font-sans">
                 Special Introductory Offer
               </span>
 
-              <h3 className="text-2xl font-black text-slate-900 tracking-tight font-['Open_Sans',sans-serif]">
+              <h3 className="text-2xl font-black text-slate-900 tracking-tight font-sans">
                 Get 10% Off Your Next Print Order
               </h3>
 
-              <p className="mt-2 text-sm text-slate-600 leading-relaxed font-['Open_Sans',sans-serif]">
+              <p className="mt-2 text-sm text-slate-600 leading-relaxed font-sans">
                 Quote or apply the promo code below at checkout, in store at 75 Green St, or when placing your order over the phone / live chat.
               </p>
 
               <div className="mt-6 p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3">
                 <div className="text-left">
-                  <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-['Open_Sans',sans-serif]">Promo Code</div>
+                  <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-sans">Promo Code</div>
                   <div className="text-xl font-mono font-extrabold text-[#012169]">FIRSTPRINT10</div>
                 </div>
                 <button
@@ -667,7 +667,7 @@ export function Navbar() {
                     setPromoModalOpen(false);
                     router.push('/category/Printing');
                   }}
-                  className="w-full py-3 rounded-xl bg-[#C8102E] hover:bg-[#A80C24] text-white font-bold text-sm shadow-md transition-colors cursor-pointer font-['Open_Sans',sans-serif]"
+                  className="w-full py-3 rounded-xl bg-[#C8102E] hover:bg-[#A80C24] text-white font-bold text-sm shadow-md transition-colors cursor-pointer font-sans"
                 >
                   Browse Products & Redeem
                 </button>
@@ -675,7 +675,7 @@ export function Navbar() {
                   href="https://wa.me/447969559746?text=Hi%2C%20I%20would%20like%20to%20use%20code%20FIRSTPRINT10%20for%2010%25%20off"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-full py-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs border border-emerald-200/80 transition-colors flex items-center justify-center gap-1.5 font-['Open_Sans',sans-serif]"
+                  className="w-full py-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs border border-emerald-200/80 transition-colors flex items-center justify-center gap-1.5 font-sans"
                 >
                   <span>Order via WhatsApp Live Chat</span>
                 </a>

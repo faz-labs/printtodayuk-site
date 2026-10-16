@@ -230,7 +230,7 @@ export default function CMSDashboardPage() {
 
   if (authLoading || (!user && typeof window !== 'undefined')) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-900 text-white font-['Open_Sans',sans-serif] p-4">
+      <div className="min-h-screen flex items-center justify-center bg-slate-900 text-white font-sans p-4">
         <div className="flex flex-col items-center gap-4 max-w-sm text-center bg-slate-800/80 p-8 rounded-3xl border border-slate-700/60 shadow-2xl">
           <div className="h-9 w-9 border-3 border-rose-500/30 border-t-rose-500 rounded-full animate-spin" />
           <div>
@@ -262,7 +262,7 @@ export default function CMSDashboardPage() {
   ).length;
 
   return (
-    <div className="flex h-screen bg-slate-100 overflow-hidden font-['Open_Sans',sans-serif]">
+    <div className="flex h-screen bg-slate-100 overflow-hidden font-sans">
       {/* 1. Left Drawer Navigation (Clean page list) */}
       <CMSSidebar
         activeTab={activeTab}

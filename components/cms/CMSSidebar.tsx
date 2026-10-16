@@ -99,7 +99,7 @@ export function CMSSidebar({
 
       {/* Sidebar Container */}
       <aside
-        className={`fixed top-0 bottom-0 left-0 z-50 w-64 bg-[#00143d] text-slate-100 border-r border-[#002266] flex flex-col transition-transform duration-200 ease-in-out lg:translate-x-0 font-['Open_Sans',sans-serif] ${
+        className={`fixed top-0 bottom-0 left-0 z-50 w-64 bg-[#00143d] text-slate-100 border-r border-[#002266] flex flex-col transition-transform duration-200 ease-in-out lg:translate-x-0 font-sans ${
           isOpenMobile ? 'translate-x-0 shadow-2xl' : '-translate-x-full lg:static lg:translate-x-0'
         }`}
       >

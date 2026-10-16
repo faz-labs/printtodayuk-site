@@ -6,7 +6,7 @@ import { Lightning, ArrowRight, Clock } from '@phosphor-icons/react';
 
 export function FeatureHighlights() {
   return (
-    <div className="w-full bg-white border-y border-slate-200/90 shadow-2xs relative z-20 font-['Open_Sans',sans-serif]">
+    <div className="w-full bg-white border-y border-slate-200/90 shadow-2xs relative z-20 font-sans">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6">
         <div className="flex flex-col md:flex-row items-center justify-between gap-5 sm:gap-6">
           {/* Left Side: Big Bold Text with London Badge */}

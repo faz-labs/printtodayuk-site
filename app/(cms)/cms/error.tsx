@@ -46,7 +46,7 @@ export default function CMSErrorBoundary({
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-slate-950 via-[#011640] to-[#000d2b] text-white p-4 font-['Open_Sans',sans-serif]">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-slate-950 via-[#011640] to-[#000d2b] text-white p-4 font-sans">
       <div className="w-full max-w-lg bg-slate-900/90 border border-slate-800 rounded-3xl p-8 sm:p-10 shadow-2xl text-center space-y-6">
         <div className="h-14 w-14 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-400 flex items-center justify-center mx-auto shadow-lg shadow-rose-500/10">
           <WarningCircle weight="bold" className="h-8 w-8" />

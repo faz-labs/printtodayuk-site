@@ -125,7 +125,7 @@ export function DynamicLandingSections({
   }
 
   return (
-    <div className="space-y-16 py-8 font-['Open_Sans',sans-serif]">
+    <div className="space-y-16 py-8 font-sans">
       {sections.map((section) => {
         // TYPE 3: Split Feature Banner (Transparent Picture + Text + Custom Background)
         if (section.type === 'split_banner') {

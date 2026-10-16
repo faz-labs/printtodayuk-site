@@ -147,7 +147,7 @@ export function AllProductsMegaMenu({
                     key={item.name}
                     href={`/category/${encodeURIComponent(item.name)}`}
                     onClick={onClose}
-                    className="flex items-center justify-between px-2.5 py-1.5 rounded-lg font-['Open_Sans',sans-serif] text-[15px] font-medium text-slate-700 hover:text-[#012169] hover:bg-white hover:shadow-xs transition-all group"
+                    className="flex items-center justify-between px-2.5 py-1.5 rounded-lg font-sans text-[15px] font-medium text-slate-700 hover:text-[#012169] hover:bg-white hover:shadow-xs transition-all group"
                   >
                     <span className="truncate">{item.name}</span>
                     <span className="text-slate-300 group-hover:text-[#012169] group-hover:translate-x-0.5 transition-all text-xs">
@@ -156,13 +156,13 @@ export function AllProductsMegaMenu({
                   </Link>
                 ))
               ) : (
-                <div className="px-2.5 py-3 text-xs text-slate-400 italic font-['Open_Sans',sans-serif]">
+                <div className="px-2.5 py-3 text-xs text-slate-400 italic font-sans">
                   Tick category in CMS to enlist in Best Sellers
                 </div>
               )}
             </div>
 
-            <div className="mt-4 pt-3 border-t border-slate-200 text-[11px] text-slate-500 flex items-center gap-1.5 font-['Open_Sans',sans-serif]">
+            <div className="mt-4 pt-3 border-t border-slate-200 text-[11px] text-slate-500 flex items-center gap-1.5 font-sans">
               <Lightning weight="fill" className="h-3.5 w-3.5 text-[#C8102E]" />
               <span className="font-semibold text-slate-700">Same-Day London Dispatch</span>
             </div>
@@ -175,7 +175,7 @@ export function AllProductsMegaMenu({
                 {colGroups.map((group) => (
                   <div key={group.letter} className="space-y-2.5">
                     {/* Alphabet letter header (Solopress style: bold blue letter) */}
-                    <div className="font-['Open_Sans',sans-serif] text-[18px] font-bold text-[#012169] border-b border-slate-200 pb-1 flex items-center gap-2">
+                    <div className="font-sans text-[18px] font-bold text-[#012169] border-b border-slate-200 pb-1 flex items-center gap-2">
                       <span>{group.letter}</span>
                       <div className="h-0.5 w-6 bg-[#012169]/30 rounded-full" />
                     </div>
@@ -188,7 +188,7 @@ export function AllProductsMegaMenu({
                           <Link
                             href={`/category/${encodeURIComponent(category.name)}`}
                             onClick={onClose}
-                            className="flex items-center justify-between font-['Open_Sans',sans-serif] text-[15px] font-medium text-slate-800 hover:text-[#012169] group transition-colors py-0.5 hover:translate-x-0.5"
+                            className="flex items-center justify-between font-sans text-[15px] font-medium text-slate-800 hover:text-[#012169] group transition-colors py-0.5 hover:translate-x-0.5"
                           >
                             <span className="group-hover:underline truncate">{category.name}</span>
                             <span className="text-[12px] text-slate-300 group-hover:text-[#012169] transition-transform group-hover:translate-x-0.5 shrink-0 ml-1">

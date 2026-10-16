@@ -18,7 +18,7 @@ export default function SameDayPrintingComingSoonPage() {
   const { openCallMe } = useCallMe();
 
   return (
-    <div className="bg-slate-50 min-h-screen py-10 sm:py-16 font-['Open_Sans',sans-serif]">
+    <div className="bg-slate-50 min-h-screen py-10 sm:py-16 font-sans">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Breadcrumb */}
         <div className="mb-6">

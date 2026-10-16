@@ -272,7 +272,7 @@ export function CategoryManager({
   };
 
   return (
-    <div className="space-y-6 font-['Open_Sans',sans-serif]">
+    <div className="space-y-6 font-sans">
       {/* Top Banner Notice */}
       {successNotice && (
         <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-800 flex items-center gap-2 shadow-xs animate-fade-in">

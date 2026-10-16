@@ -30,7 +30,7 @@ export function CategoryTilesSection() {
   }
 
   return (
-    <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14 font-['Open_Sans',sans-serif]">
+    <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14 font-sans">
       {/* Header: Title and Shop now link */}
       <div className="flex items-baseline justify-between gap-4 mb-6">
         <div className="flex items-baseline gap-4">

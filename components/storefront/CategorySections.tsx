@@ -42,7 +42,7 @@ export function CategorySections() {
   }
 
   return (
-    <div className="space-y-12 sm:space-y-16 py-10 sm:py-14 bg-white font-['Open_Sans',sans-serif]">
+    <div className="space-y-12 sm:space-y-16 py-10 sm:py-14 bg-white font-sans">
       {categories.map((cat) => {
         // Find products under this category
         const catProducts = products.filter(
