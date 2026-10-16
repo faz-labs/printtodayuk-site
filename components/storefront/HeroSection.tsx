@@ -63,9 +63,46 @@ export function HeroSection({ categoryType }: HeroSectionProps) {
 
   const currentSlide = slides[currentIndex];
 
-  const slideContent = (
+  const renderSlideImage = () => {
+    const imageElement = (
+      <img
+        src={currentSlide.imageUrl}
+        alt={currentSlide.title || `Hero banner ${currentIndex + 1}`}
+        className="w-full h-full object-cover object-center block"
+        loading="eager"
+        onError={(e) => {
+          e.currentTarget.src =
+            'https://images.unsplash.com/photo-1561070791-2526d30994b5?q=80&w=1800&auto=format&fit=crop';
+        }}
+      />
+    );
+
+    if (currentSlide.linkUrl) {
+      if (currentSlide.linkUrl.startsWith('http')) {
+        return (
+          <a
+            href={currentSlide.linkUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block w-full h-full cursor-pointer"
+          >
+            {imageElement}
+          </a>
+        );
+      }
+      return (
+        <Link href={currentSlide.linkUrl} className="block w-full h-full cursor-pointer">
+          {imageElement}
+        </Link>
+      );
+    }
+
+    return imageElement;
+  };
+
+  return (
     <div
-      className="relative w-full h-[450px] overflow-hidden bg-slate-900 select-none group"
+      className="relative w-full h-[340px] sm:h-[420px] md:h-[480px] overflow-hidden bg-slate-900 select-none group"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >
@@ -80,44 +117,36 @@ export function HeroSection({ categoryType }: HeroSectionProps) {
           transition={{ duration: 0.6, ease: [0.25, 1, 0.5, 1] }}
           className="absolute inset-0 w-full h-full"
         >
-          <img
-            src={currentSlide.imageUrl}
-            alt={currentSlide.title || `Hero banner ${currentIndex + 1}`}
-            className="w-full h-[450px] object-cover object-center block"
-            loading="eager"
-            onError={(e) => {
-              e.currentTarget.src = 'https://images.unsplash.com/photo-1561070791-2526d30994b5?q=80&w=1800&auto=format&fit=crop';
-            }}
-          />
+          {renderSlideImage()}
         </motion.div>
       </AnimatePresence>
 
-      {/* Navigation Arrows (visible on hover) */}
+      {/* Navigation Arrows: Hidden until mouse hover over hero section */}
       {slides.length > 1 && (
         <>
           <button
             onClick={handlePrev}
             aria-label="Previous slide"
             type="button"
-            className="absolute left-4 top-1/2 -translate-y-1/2 h-11 w-11 rounded-full bg-black/40 hover:bg-black/75 backdrop-blur-xs text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 z-20 cursor-pointer hover:scale-105"
+            className="absolute left-4 top-1/2 -translate-y-1/2 h-10 w-10 sm:h-11 sm:w-11 rounded-full bg-black/40 hover:bg-black/80 backdrop-blur-xs text-white flex items-center justify-center opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity duration-300 z-20 cursor-pointer hover:scale-105 shadow-md"
           >
-            <CaretLeft weight="bold" className="h-6 w-6" />
+            <CaretLeft weight="bold" className="h-5 w-5 sm:h-6 sm:w-6" />
           </button>
 
           <button
             onClick={handleNext}
             aria-label="Next slide"
             type="button"
-            className="absolute right-4 top-1/2 -translate-y-1/2 h-11 w-11 rounded-full bg-black/40 hover:bg-black/75 backdrop-blur-xs text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 z-20 cursor-pointer hover:scale-105"
+            className="absolute right-4 top-1/2 -translate-y-1/2 h-10 w-10 sm:h-11 sm:w-11 rounded-full bg-black/40 hover:bg-black/80 backdrop-blur-xs text-white flex items-center justify-center opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity duration-300 z-20 cursor-pointer hover:scale-105 shadow-md"
           >
-            <CaretRight weight="bold" className="h-6 w-6" />
+            <CaretRight weight="bold" className="h-5 w-5 sm:h-6 sm:w-6" />
           </button>
         </>
       )}
 
-      {/* Bottom Pagination Dots */}
+      {/* Bottom Pagination Dots (Smaller & Sleeker) */}
       {slides.length > 1 && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 z-20 bg-black/30 backdrop-blur-xs px-3 py-1.5 rounded-full">
+        <div className="absolute bottom-3.5 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-20 bg-black/35 backdrop-blur-xs px-2.5 py-1 rounded-full">
           {slides.map((_, idx) => (
             <button
               key={idx}
@@ -129,10 +158,10 @@ export function HeroSection({ categoryType }: HeroSectionProps) {
               }}
               aria-label={`Go to slide ${idx + 1}`}
               type="button"
-              className={`h-2.5 rounded-full transition-all duration-300 cursor-pointer ${
+              className={`h-1.5 rounded-full transition-all duration-300 cursor-pointer ${
                 idx === currentIndex
-                  ? 'w-7 bg-white shadow-sm'
-                  : 'w-2.5 bg-white/50 hover:bg-white/80'
+                  ? 'w-5 bg-white shadow-xs'
+                  : 'w-1.5 bg-white/50 hover:bg-white/80'
               }`}
             />
           ))}
@@ -140,28 +169,4 @@ export function HeroSection({ categoryType }: HeroSectionProps) {
       )}
     </div>
   );
-
-  // If slide has a linkUrl, wrap with Link
-  if (currentSlide.linkUrl) {
-    if (currentSlide.linkUrl.startsWith('http')) {
-      return (
-        <a
-          href={currentSlide.linkUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="block w-full cursor-pointer"
-        >
-          {slideContent}
-        </a>
-      );
-    }
-
-    return (
-      <Link href={currentSlide.linkUrl} className="block w-full cursor-pointer">
-        {slideContent}
-      </Link>
-    );
-  }
-
-  return slideContent;
 }

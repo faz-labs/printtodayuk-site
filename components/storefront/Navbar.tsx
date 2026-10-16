@@ -450,40 +450,21 @@ export function Navbar() {
                         <span>A–Z Directory</span>
                         <span className="text-[10px] text-slate-500 font-semibold">Alphabetical Index</span>
                       </div>
-                      <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-2">
                         {[...categories]
                           .sort((a, b) => a.name.localeCompare(b.name))
                           .map((cat) => (
-                            <div key={cat.name} className="space-y-1">
-                              <Link
-                                href={`/category/${encodeURIComponent(cat.name)}`}
-                                onClick={() => {
-                                  setMobileAtoZOpen(false);
-                                  setMobileMenuOpen(false);
-                                }}
-                                className="text-xs font-black text-[#012169] block border-b border-slate-200 pb-0.5 hover:underline"
-                              >
-                                {cat.name}
-                              </Link>
-                              <div className="space-y-0.5">
-                                {(cat.subcategories || [])
-                                  .filter((s) => s.toLowerCase() !== 'all')
-                                  .slice(0, 5)
-                                  .map((subcat) => (
-                                    <Link
-                                      key={subcat}
-                                      href={`/category/${encodeURIComponent(cat.name)}?subcat=${encodeURIComponent(subcat)}`}
-                                      onClick={() => {
-                                        setMobileAtoZOpen(false);
-                                        setMobileMenuOpen(false);
-                                      }}
-                                      className="block text-[11px] text-slate-600 hover:text-[#012169] truncate"
-                                    >
-                                      {subcat}
-                                    </Link>
-                                  ))}
-                              </div>
-                            </div>
+                            <Link
+                              key={cat.name}
+                              href={`/category/${encodeURIComponent(cat.name)}`}
+                              onClick={() => {
+                                setMobileAtoZOpen(false);
+                                setMobileMenuOpen(false);
+                              }}
+                              className="text-xs font-bold text-[#012169] block py-1 border-b border-slate-200/80 hover:underline truncate"
+                            >
+                              {cat.name}
+                            </Link>
                           ))}
                       </div>
                     </motion.div>

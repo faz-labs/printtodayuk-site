@@ -180,37 +180,21 @@ export function AllProductsMegaMenu({
                       <div className="h-0.5 w-6 bg-[#012169]/30 rounded-full" />
                     </div>
 
-                    {/* Categories under this letter */}
-                    <div className="space-y-3 pl-1">
-                      {group.categories.map(({ category, products: catProds }) => (
-                        <div key={category.name} className="space-y-1">
-                          {/* Category Name header link in Open Sans 16px Medium */}
+                    {/* Categories under this letter (Only category names) */}
+                    <div className="space-y-1.5 pl-1">
+                      {group.categories.map(({ category }) => (
+                        <div key={category.name}>
+                          {/* Category Name link in Open Sans 15px */}
                           <Link
                             href={`/category/${encodeURIComponent(category.name)}`}
                             onClick={onClose}
-                            className="inline-flex items-center gap-1 font-['Open_Sans',sans-serif] text-[16px] font-medium text-slate-900 hover:text-[#012169] group transition-colors leading-snug"
+                            className="flex items-center justify-between font-['Open_Sans',sans-serif] text-[15px] font-medium text-slate-800 hover:text-[#012169] group transition-colors py-0.5 hover:translate-x-0.5"
                           >
-                            <span className="group-hover:underline">{category.name}</span>
-                            <span className="text-[12px] text-slate-400 group-hover:text-[#012169] transition-transform group-hover:translate-x-0.5">
+                            <span className="group-hover:underline truncate">{category.name}</span>
+                            <span className="text-[12px] text-slate-300 group-hover:text-[#012169] transition-transform group-hover:translate-x-0.5 shrink-0 ml-1">
                               →
                             </span>
                           </Link>
-
-                          {/* Products under this Category */}
-                          {catProds.length > 0 && (
-                            <div className="space-y-0.5 pl-2.5 border-l-2 border-slate-100">
-                              {catProds.slice(0, 5).map((p) => (
-                                <Link
-                                  key={p.id || p.slug}
-                                  href={`/product/${p.slug || p.id}`}
-                                  onClick={onClose}
-                                  className="block font-['Open_Sans',sans-serif] text-[13px] text-slate-600 hover:text-[#012169] hover:underline transition-colors py-0.5 truncate"
-                                >
-                                  {p.title}
-                                </Link>
-                              ))}
-                            </div>
-                          )}
                         </div>
                       ))}
                     </div>

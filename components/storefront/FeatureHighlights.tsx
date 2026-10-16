@@ -1,66 +1,40 @@
 'use client';
 
 import React from 'react';
-import { motion } from 'framer-motion';
-import { Clock, MapPin, ShieldCheck, Sparkle } from '@phosphor-icons/react';
+import Link from 'next/link';
+import { Lightning, ArrowRight, Clock } from '@phosphor-icons/react';
 
 export function FeatureHighlights() {
-  const features = [
-    {
-      icon: Clock,
-      title: 'Same Day Dispatch',
-      description: 'Order by 12pm for today',
-      iconColor: 'text-[#C8102E]',
-      bgLight: 'bg-red-50',
-    },
-    {
-      icon: MapPin,
-      title: 'London Studio Hub',
-      description: '75 Green St, E7 8JF',
-      iconColor: 'text-[#012169]',
-      bgLight: 'bg-blue-50',
-    },
-    {
-      icon: ShieldCheck,
-      title: 'Quality Guarantee',
-      description: 'HD Pigment & DTF Print',
-      iconColor: 'text-[#012169]',
-      bgLight: 'bg-blue-50',
-    },
-    {
-      icon: Sparkle,
-      title: 'Free Artwork Proof',
-      description: '100% proof check',
-      iconColor: 'text-[#C8102E]',
-      bgLight: 'bg-red-50',
-    },
-  ];
-
   return (
-    <div className="w-full bg-white border-y border-slate-200/90 shadow-2xs relative z-20">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-200/80">
-          {features.map((item, idx) => {
-            const Icon = item.icon;
-            return (
-              <div
-                key={item.title}
-                className="flex items-center gap-3.5 px-3 sm:px-6 py-4 bg-white hover:bg-slate-50/80 transition-colors"
-              >
-                <div className={`p-2.5 rounded-xl ${item.bgLight} ${item.iconColor} shrink-0`}>
-                  <Icon weight="bold" className="h-5 w-5" />
-                </div>
-                <div className="min-w-0">
-                  <div className="text-xs sm:text-sm font-extrabold text-slate-900 tracking-tight truncate font-['Open_Sans',sans-serif]">
-                    {item.title}
-                  </div>
-                  <div className="text-[11px] sm:text-xs text-slate-500 truncate mt-0.5 font-medium font-['Open_Sans',sans-serif]">
-                    {item.description}
-                  </div>
-                </div>
+    <div className="w-full bg-white border-y border-slate-200/90 shadow-2xs relative z-20 font-['Open_Sans',sans-serif]">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-5 sm:gap-6">
+          {/* Left Side: Big Bold Text with London Badge */}
+          <div className="flex items-center gap-3 sm:gap-4 text-center md:text-left">
+            <div className="hidden sm:flex h-12 w-12 rounded-2xl bg-[#C8102E]/10 text-[#C8102E] items-center justify-center shrink-0">
+              <Clock weight="fill" className="h-6 w-6" />
+            </div>
+            <div>
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#012169]/10 text-[#012169] text-[11px] font-black uppercase tracking-wider mb-1">
+                <Lightning weight="fill" className="h-3 w-3 text-[#C8102E]" />
+                <span>Express Service</span>
               </div>
-            );
-          })}
+              <h2 className="text-xl sm:text-2xl lg:text-3xl font-black text-slate-900 tracking-tight leading-snug">
+                Same Day &amp; 24 Hours Printing &amp; Signs London
+              </h2>
+            </div>
+          </div>
+
+          {/* Right Side: CTA Button redirecting to Same-Day page */}
+          <div className="shrink-0 w-full sm:w-auto flex justify-center">
+            <Link
+              href="/same-day-printing"
+              className="inline-flex items-center justify-center gap-2.5 w-full sm:w-auto px-7 py-3.5 rounded-xl bg-[#012169] hover:bg-[#C8102E] text-white text-sm sm:text-base font-bold shadow-md hover:shadow-xl transition-all duration-200 cursor-pointer group"
+            >
+              <span>Get Sameday Prints</span>
+              <ArrowRight weight="bold" className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+            </Link>
+          </div>
         </div>
       </div>
     </div>
