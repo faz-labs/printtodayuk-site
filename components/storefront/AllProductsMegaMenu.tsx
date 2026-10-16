@@ -129,7 +129,7 @@ export function AllProductsMegaMenu({
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: 6, scale: 0.995 }}
       transition={{ duration: 0.16, ease: 'easeOut' }}
-      className="absolute left-0 right-0 top-full w-full bg-white border-b-2 border-[#012169] shadow-2xl z-50 max-h-[calc(100vh-120px)] overflow-y-auto overscroll-contain"
+      className="absolute left-0 right-0 top-[calc(100%+8px)] max-w-7xl mx-auto rounded-3xl bg-white/95 backdrop-blur-2xl border border-white/80 shadow-[0_25px_60px_-15px_rgba(1,33,105,0.2),0_8px_20px_-6px_rgba(0,0,0,0.06)] z-50 max-h-[calc(100vh-120px)] overflow-y-auto overscroll-contain"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-7">
         <div className="flex gap-8">
