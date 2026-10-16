@@ -57,8 +57,10 @@ export function Navbar({ initialCategories = [], initialProducts = [] }: NavbarP
     return typeof window !== 'undefined' ? getLocalProducts() : [];
   });
   const [hoveredMenu, setHoveredMenu] = useState<'all-products' | null>(null);
+  const [isMenuPinned, setIsMenuPinned] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const headerRef = useRef<HTMLElement | null>(null);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -111,6 +113,20 @@ export function Navbar({ initialCategories = [], initialProducts = [] }: NavbarP
     };
   }, []);
 
+  // Close pinned menu when clicking outside
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (headerRef.current && !headerRef.current.contains(e.target as Node)) {
+        setHoveredMenu(null);
+        setIsMenuPinned(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+    };
+  }, []);
+
   const { lenis } = useSmoothScroll();
 
   useEffect(() => {
@@ -131,14 +147,29 @@ export function Navbar({ initialCategories = [], initialProducts = [] }: NavbarP
   }, [categories]);
 
   const handleMouseEnter = (menu: 'all-products') => {
-    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+      hoverTimeoutRef.current = null;
+    }
     setHoveredMenu(menu);
   };
 
   const handleMouseLeave = () => {
+    if (isMenuPinned) return;
+    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
     hoverTimeoutRef.current = setTimeout(() => {
       setHoveredMenu(null);
-    }, 350);
+    }, 450);
+  };
+
+  const toggleMenu = () => {
+    if (hoveredMenu === 'all-products') {
+      setHoveredMenu(null);
+      setIsMenuPinned(false);
+    } else {
+      setHoveredMenu('all-products');
+      setIsMenuPinned(true);
+    }
   };
 
   const otherServices = [
@@ -171,6 +202,7 @@ export function Navbar({ initialCategories = [], initialProducts = [] }: NavbarP
   return (
     <>
       <header
+        ref={headerRef}
         className="sticky top-2 sm:top-3 z-40 w-full px-2.5 sm:px-4 lg:px-6 transition-all duration-300"
         onMouseLeave={handleMouseLeave}
       >
@@ -230,15 +262,16 @@ export function Navbar({ initialCategories = [], initialProducts = [] }: NavbarP
               <div
                 className="relative h-full flex items-center shrink-0 z-10"
                 onMouseEnter={() => handleMouseEnter('all-products')}
-                onMouseLeave={handleMouseLeave}
               >
                 <button
                   type="button"
-                  onClick={() => setHoveredMenu(hoveredMenu === 'all-products' ? null : 'all-products')}
+                  id="navbar-atoz-trigger"
+                  onClick={toggleMenu}
+                  onMouseEnter={() => handleMouseEnter('all-products')}
                   className={cn(
                     'h-10 px-4 rounded-full flex items-center gap-2 font-sans text-[15px] xl:text-[16px] font-semibold transition-all cursor-pointer',
                     hoveredMenu === 'all-products'
-                      ? 'bg-white/80 text-[#012169] shadow-xs backdrop-blur-md'
+                      ? 'bg-white/90 text-[#012169] shadow-xs backdrop-blur-md'
                       : 'text-slate-800 hover:text-[#012169] hover:bg-white/50'
                   )}
                 >
@@ -320,9 +353,12 @@ export function Navbar({ initialCategories = [], initialProducts = [] }: NavbarP
         <AnimatePresence>
           {hoveredMenu === 'all-products' && (
             <AllProductsMegaMenu
-              categories={cleanCategories}
+              categories={categories}
               products={products}
-              onClose={() => setHoveredMenu(null)}
+              onClose={() => {
+                setHoveredMenu(null);
+                setIsMenuPinned(false);
+              }}
               onMouseEnter={() => handleMouseEnter('all-products')}
               onMouseLeave={handleMouseLeave}
             />
