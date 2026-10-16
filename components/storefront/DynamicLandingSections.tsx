@@ -272,7 +272,7 @@ export function DynamicLandingSections({
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                   {[1, 2, 3, 4].map((i) => (
-                    <div key={i} className="aspect-[4/3] bg-slate-100 rounded-2xl" />
+                    <div key={i} className="aspect-square bg-slate-100 rounded-2xl" />
                   ))}
                 </div>
               </section>
@@ -460,8 +460,8 @@ function CategoryAutoScrollRow({
             href={`/category/${encodeURIComponent(cat.name)}`}
             className="group flex-shrink-0 w-64 sm:w-72 bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs hover:shadow-xl hover:border-[#012169]/30 transition-all duration-300 flex flex-col"
           >
-            {/* Category Cover Image: Full picture display, object-cover, NO white border */}
-            <div className="relative w-full aspect-[4/3] bg-slate-100 flex items-center justify-center overflow-hidden">
+            {/* Category Cover Image: Full picture display, object-cover, square card, NO white border */}
+            <div className="relative w-full aspect-square bg-slate-100 flex items-center justify-center overflow-hidden">
               <img
                 src={cat.imageUrl || '/images/category-placeholder.png'}
                 alt={cat.name}
@@ -522,8 +522,8 @@ function CategoryGrid8Tiles({
             href={`/category/${encodeURIComponent(cat.name)}`}
             className="group bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs hover:shadow-xl hover:border-[#012169]/30 transition-all duration-300 flex flex-col"
           >
-            {/* Category Cover Image: Full picture display, object-cover, NO white border */}
-            <div className="relative w-full aspect-[4/3] bg-slate-100 flex items-center justify-center overflow-hidden">
+            {/* Category Cover Image: Full picture display, object-cover, square card, NO white border */}
+            <div className="relative w-full aspect-square bg-slate-100 flex items-center justify-center overflow-hidden">
               <img
                 src={cat.imageUrl || '/images/category-placeholder.png'}
                 alt={cat.name}
@@ -607,8 +607,8 @@ function AutoScrollRow({ products }: { products: Product[] }) {
             href={`/product/${product.slug}`}
             className="group flex-shrink-0 w-64 sm:w-72 bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs hover:shadow-xl hover:border-[#012169]/30 transition-all duration-300 flex flex-col"
           >
-            {/* Image Box: Full picture display, object-cover, NO white padding border */}
-            <div className="relative w-full aspect-[4/3] bg-slate-100 flex items-center justify-center overflow-hidden">
+            {/* Image Box: Full picture display, object-cover, square card, NO white padding border */}
+            <div className="relative w-full aspect-square bg-slate-100 flex items-center justify-center overflow-hidden">
               <img
                 src={product.imageUrl}
                 alt={product.title}
@@ -680,8 +680,8 @@ function Grid8Tiles({ products }: { products: Product[] }) {
             href={`/product/${product.slug}`}
             className="group bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs hover:shadow-xl hover:border-[#012169]/30 transition-all duration-300 flex flex-col"
           >
-            {/* Image Box: Full picture display, object-cover, NO white padding border */}
-            <div className="relative w-full aspect-[4/3] bg-slate-100 flex items-center justify-center overflow-hidden">
+            {/* Image Box: Full picture display, object-cover, square card, NO white padding border */}
+            <div className="relative w-full aspect-square bg-slate-100 flex items-center justify-center overflow-hidden">
               <img
                 src={product.imageUrl}
                 alt={product.title}

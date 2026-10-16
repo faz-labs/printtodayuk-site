@@ -276,33 +276,17 @@ export function Navbar({ initialCategories = [], initialProducts = [] }: NavbarP
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search products..."
-                    className="w-28 sm:w-36 md:w-44 focus:w-56 sm:focus:w-64 md:focus:w-72 hover:w-56 sm:hover:w-64 md:hover:w-72 h-10 pl-9 pr-3 bg-slate-100 hover:bg-white focus:bg-white border border-slate-200 focus:border-[#012169] rounded-full text-xs sm:text-sm text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[#012169]/15 transition-all duration-300 shadow-2xs"
+                    className="w-32 sm:w-44 md:w-56 focus:w-64 sm:focus:w-72 md:focus:w-80 hover:w-48 sm:hover:w-56 md:hover:w-64 h-10.5 pl-9.5 pr-3.5 bg-slate-100 hover:bg-white focus:bg-white border border-slate-200 focus:border-[#012169] rounded-full text-xs sm:text-sm text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[#012169]/15 transition-all duration-300 shadow-2xs"
                   />
                   <button
                     type="submit"
                     aria-label="Search"
-                    className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 group-hover:text-[#012169] focus:text-[#012169] transition-colors cursor-pointer"
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-hover:text-[#012169] focus:text-[#012169] transition-colors cursor-pointer"
                   >
-                    <MagnifyingGlass weight="bold" className="h-4 w-4" />
+                    <MagnifyingGlass weight="bold" className="h-4.5 w-4.5" />
                   </button>
                 </div>
               </form>
-
-              {/* Promo Offer Button */}
-              <button
-                type="button"
-                onClick={() => setPromoModalOpen(true)}
-                className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-red-50/90 hover:bg-red-100/90 border border-red-200/90 transition-all shadow-2xs hover:shadow-xs cursor-pointer"
-                title="Claim 10% off your next print order"
-              >
-                <Tag weight="fill" className="h-3.5 w-3.5 text-[#C8102E]" />
-                <span className="hidden xl:inline font-sans font-medium text-xs text-slate-800">
-                  Get <strong className="text-[#C8102E] font-bold">10% off</strong>
-                </span>
-                <span className="text-[10px] font-mono font-bold bg-[#C8102E] text-white px-2 py-0.5 rounded shadow-2xs">
-                  FIRSTPRINT10
-                </span>
-              </button>
 
               {/* Mobile Menu Toggle Button */}
               <button
