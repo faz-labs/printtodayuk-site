@@ -41,7 +41,7 @@ export function HeroBannerManager() {
       id: `hero-slide-${Date.now()}`,
       imageUrl: 'https://images.unsplash.com/photo-1561070791-2526d30994b5?q=80&w=1800&auto=format&fit=crop',
       title: 'New Promotional Banner',
-      linkUrl: '/category/Printing',
+      linkUrl: '',
       order: 1,
     };
     // Add new slide to the TOP as requested

@@ -98,11 +98,11 @@ export function HeroSection({ categoryType, initialSlides }: HeroSectionProps) {
   const currentSlide = slides[currentIndex];
 
   const renderSlideImage = () => {
-    const imageElement = (
+    return (
       <img
         src={currentSlide.imageUrl}
         alt={currentSlide.title || `Hero banner ${currentIndex + 1}`}
-        className="w-full h-full object-cover object-center block"
+        className="w-full h-full object-cover object-center block select-none pointer-events-none"
         loading="eager"
         onError={(e) => {
           e.currentTarget.src =
@@ -110,33 +110,11 @@ export function HeroSection({ categoryType, initialSlides }: HeroSectionProps) {
         }}
       />
     );
-
-    if (currentSlide.linkUrl) {
-      if (currentSlide.linkUrl.startsWith('http')) {
-        return (
-          <a
-            href={currentSlide.linkUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block w-full h-full cursor-pointer"
-          >
-            {imageElement}
-          </a>
-        );
-      }
-      return (
-        <Link href={currentSlide.linkUrl} className="block w-full h-full cursor-pointer">
-          {imageElement}
-        </Link>
-      );
-    }
-
-    return imageElement;
   };
 
   return (
     <div
-      className="relative w-full h-[420px] sm:h-[520px] md:h-[620px] lg:h-[680px] xl:h-[720px] overflow-hidden bg-slate-900 select-none group"
+      className="relative w-full -mt-16 sm:-mt-18 lg:-mt-20 h-[480px] sm:h-[580px] md:h-[680px] lg:h-[740px] xl:h-[780px] overflow-hidden bg-slate-900 select-none group"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >
@@ -162,7 +140,7 @@ export function HeroSection({ categoryType, initialSlides }: HeroSectionProps) {
             onClick={handlePrev}
             aria-label="Previous slide"
             type="button"
-            className="absolute left-4 top-1/2 -translate-y-1/2 h-10 w-10 sm:h-11 sm:w-11 rounded-full bg-black/40 hover:bg-black/80 backdrop-blur-xs text-white flex items-center justify-center opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity duration-300 z-20 cursor-pointer hover:scale-105 shadow-md"
+            className="absolute left-4 top-[calc(50%+24px)] -translate-y-1/2 h-10 w-10 sm:h-11 sm:w-11 rounded-full bg-black/40 hover:bg-black/80 backdrop-blur-xs text-white flex items-center justify-center opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity duration-300 z-20 cursor-pointer hover:scale-105 shadow-md"
           >
             <CaretLeft weight="bold" className="h-5 w-5 sm:h-6 sm:w-6" />
           </button>
@@ -171,7 +149,7 @@ export function HeroSection({ categoryType, initialSlides }: HeroSectionProps) {
             onClick={handleNext}
             aria-label="Next slide"
             type="button"
-            className="absolute right-4 top-1/2 -translate-y-1/2 h-10 w-10 sm:h-11 sm:w-11 rounded-full bg-black/40 hover:bg-black/80 backdrop-blur-xs text-white flex items-center justify-center opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity duration-300 z-20 cursor-pointer hover:scale-105 shadow-md"
+            className="absolute right-4 top-[calc(50%+24px)] -translate-y-1/2 h-10 w-10 sm:h-11 sm:w-11 rounded-full bg-black/40 hover:bg-black/80 backdrop-blur-xs text-white flex items-center justify-center opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity duration-300 z-20 cursor-pointer hover:scale-105 shadow-md"
           >
             <CaretRight weight="bold" className="h-5 w-5 sm:h-6 sm:w-6" />
           </button>

@@ -203,18 +203,18 @@ export function Navbar({ initialCategories = [], initialProducts = [] }: NavbarP
     <>
       <header
         ref={headerRef}
-        className="sticky top-2 sm:top-3 z-40 w-full px-2.5 sm:px-4 lg:px-6 transition-all duration-300"
+        className="sticky top-0 z-40 w-full bg-white/40 supports-[backdrop-filter]:bg-white/30 backdrop-blur-2xl sm:backdrop-blur-3xl backdrop-saturate-180 border-b border-white/40 shadow-xs transition-all duration-300 relative"
         onMouseLeave={handleMouseLeave}
       >
-        {/* Soft Multi-Color Aurora Glow Behind Center Nav (Matching User's Reference Screenshot) */}
+        {/* Soft Multi-Color Aurora Glow Behind Center Nav */}
         <div
           aria-hidden="true"
-          className="absolute -top-6 left-1/2 -translate-x-1/2 w-80 sm:w-[580px] h-28 bg-gradient-to-r from-indigo-500/25 via-pink-500/35 to-amber-300/25 blur-3xl rounded-full pointer-events-none opacity-85 transition-opacity"
+          className="absolute -top-6 left-1/2 -translate-x-1/2 w-80 sm:w-[580px] h-28 bg-gradient-to-r from-indigo-500/20 via-pink-500/25 to-amber-300/20 blur-3xl rounded-full pointer-events-none opacity-75 transition-opacity"
         />
 
-        {/* 3D FLOATING ROUNDED CAPSULE NAVBAR */}
-        <div className="max-w-7xl mx-auto rounded-full bg-gradient-to-b from-white/50 via-white/30 to-white/20 backdrop-blur-2xl sm:backdrop-blur-3xl backdrop-saturate-180 backdrop-brightness-105 border border-white/80 shadow-[0_20px_45px_-12px_rgba(1,33,105,0.18),0_8px_20px_-6px_rgba(0,0,0,0.08),inset_0_1.5px_1px_0_rgba(255,255,255,0.95),inset_0_-1.5px_2px_0_rgba(0,0,0,0.04)] ring-1 ring-slate-900/5 relative z-10 px-4 sm:px-6 lg:px-8 transition-all duration-300">
-          <div className="flex items-center justify-between gap-3 lg:gap-6 h-16 sm:h-18 lg:h-19">
+        {/* FULL-WIDTH NAVBAR INNER CONTAINER */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+          <div className="flex items-center justify-between gap-3 lg:gap-6 h-16 sm:h-18 lg:h-20">
             {/* 1. Logo (Left) */}
             <Link
               href="/"
@@ -369,10 +369,10 @@ export function Navbar({ initialCategories = [], initialProducts = [] }: NavbarP
         <AnimatePresence>
           {mobileMenuOpen && (
             <motion.div
-              initial={{ opacity: 0, y: -8, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -8, scale: 0.98 }}
-              className="lg:hidden mt-2 mx-auto max-w-7xl rounded-3xl border border-white/80 bg-white/85 backdrop-blur-2xl px-5 pt-4 pb-6 shadow-2xl max-h-[82vh] overflow-y-auto"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="lg:hidden border-t border-slate-200/50 bg-white/95 backdrop-blur-2xl px-5 pt-4 pb-6 shadow-xl max-h-[82vh] overflow-y-auto"
             >
               <div className="flex flex-col space-y-1">
                 {/* Mobile 10% Off Promo Offer */}
