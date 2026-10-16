@@ -45,6 +45,16 @@ export function middleware(request: NextRequest) {
 
     response.headers.set('x-cms-subdomain', 'true');
   } else {
+    // Friendly redirect for /all products or /all%20products
+    try {
+      const decoded = decodeURIComponent(pathname);
+      if (decoded === '/all products' || pathname === '/all%20products') {
+        const url = request.nextUrl.clone();
+        url.pathname = '/all-products';
+        return NextResponse.redirect(url);
+      }
+    } catch {}
+
     // Standard storefront domain (e.g. printtodayuk.com, www.printtodayuk.com, localhost:3001)
     response = NextResponse.next();
     if (pathname.startsWith('/cms')) {
