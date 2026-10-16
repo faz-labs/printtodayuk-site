@@ -58,13 +58,14 @@ export function CategoryMegaMenu({
     if (!filterSearch.trim()) return cat;
     const q = filterSearch.toLowerCase();
     const matchCat = cat.name.toLowerCase().includes(q);
-    const matchedSubcats = cat.subcategories.filter((s) => s.toLowerCase().includes(q));
+    const subcats = cat.subcategories || [];
+    const matchedSubcats = subcats.filter((s) => s.toLowerCase().includes(q));
     if (matchCat) return cat;
     return {
       ...cat,
       subcategories: matchedSubcats,
     };
-  }).filter((cat) => cat.subcategories.length > 0 || cat.name.toLowerCase().includes(filterSearch.toLowerCase()));
+  }).filter((cat) => (cat.subcategories || []).length > 0 || cat.name.toLowerCase().includes(filterSearch.toLowerCase()));
 
   const getCategoryIcon = (name: string) => {
     const n = name.toLowerCase();
@@ -200,7 +201,7 @@ export function CategoryMegaMenu({
                                 {category.name}
                               </div>
                               <div className="text-[10px] text-slate-400">
-                                {category.subcategories.length} items
+                                {(category.subcategories || []).length} items
                               </div>
                             </div>
                           </div>
@@ -208,19 +209,21 @@ export function CategoryMegaMenu({
                         </button>
 
                         {/* Subcategories List */}
-                        <ul className="space-y-1.5 border-t border-slate-200/60 pt-2.5">
-                          {category.subcategories.map((subcat) => (
-                            <li key={subcat}>
-                              <button
-                                onClick={() => handleSelect(category.name, subcat)}
-                                className="w-full text-left flex items-center justify-between text-[11px] font-semibold text-slate-600 hover:text-[#012169] hover:bg-white p-1 rounded-md transition-colors cursor-pointer"
-                              >
-                                <span className="truncate">{subcat}</span>
-                                <span className="text-[10px] text-slate-300">→</span>
-                              </button>
-                            </li>
-                          ))}
-                        </ul>
+                        {(category.subcategories || []).length > 0 && (
+                          <ul className="space-y-1.5 border-t border-slate-200/60 pt-2.5">
+                            {(category.subcategories || []).map((subcat) => (
+                              <li key={subcat}>
+                                <button
+                                  onClick={() => handleSelect(category.name, subcat)}
+                                  className="w-full text-left flex items-center justify-between text-[11px] font-semibold text-slate-600 hover:text-[#012169] hover:bg-white p-1 rounded-md transition-colors cursor-pointer"
+                                >
+                                  <span className="truncate">{subcat}</span>
+                                  <span className="text-[10px] text-slate-300">→</span>
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
                       </div>
 
                       {/* View All in Category Footer */}

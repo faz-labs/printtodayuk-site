@@ -38,7 +38,6 @@ interface DynamicCategoryGroup {
   letter: string;
   categories: {
     category: CategoryConfig;
-    subcategories: string[];
     products: Product[];
   }[];
 }
@@ -80,22 +79,19 @@ export function AllProductsMegaMenu({
       const letter = cat.name.trim().charAt(0).toUpperCase();
       if (!letter) continue;
 
-      // Find products belonging to this category or matching subcategory
+      // Find products belonging to this category
       const catProducts = products.filter(
         (p) =>
-          p.category.toLowerCase().trim() === cat.name.toLowerCase().trim() ||
-          p.subcategory.toLowerCase().trim() === cat.name.toLowerCase().trim()
+          p &&
+          p.category &&
+          p.category.toLowerCase().trim() === cat.name.toLowerCase().trim()
       );
-
-      // Unique subcategories for this category (excluding 'All')
-      const subcats = (cat.subcategories || []).filter((s) => s.toLowerCase() !== 'all');
 
       if (!map.has(letter)) {
         map.set(letter, []);
       }
       map.get(letter)!.push({
         category: cat,
-        subcategories: subcats,
         products: catProducts,
       });
     }
@@ -186,7 +182,7 @@ export function AllProductsMegaMenu({
 
                     {/* Categories under this letter */}
                     <div className="space-y-3 pl-1">
-                      {group.categories.map(({ category, subcategories, products: catProds }) => (
+                      {group.categories.map(({ category, products: catProds }) => (
                         <div key={category.name} className="space-y-1">
                           {/* Category Name header link in Open Sans 16px Medium */}
                           <Link
@@ -200,28 +196,15 @@ export function AllProductsMegaMenu({
                             </span>
                           </Link>
 
-                          {/* Subcategories & Products under this Category */}
-                          {(subcategories.length > 0 || catProds.length > 0) && (
+                          {/* Products under this Category */}
+                          {catProds.length > 0 && (
                             <div className="space-y-0.5 pl-2.5 border-l-2 border-slate-100">
-                              {/* Subcategories */}
-                              {subcategories.map((subcat) => (
-                                <Link
-                                  key={subcat}
-                                  href={`/category/${encodeURIComponent(category.name)}?subcat=${encodeURIComponent(subcat)}`}
-                                  onClick={onClose}
-                                  className="block font-['Open_Sans',sans-serif] text-[13px] text-slate-600 hover:text-[#012169] hover:underline transition-colors py-0.5 truncate"
-                                >
-                                  {subcat}
-                                </Link>
-                              ))}
-
-                              {/* Any specific products under category that might not be in subcategories */}
-                              {catProds.slice(0, 3).map((p) => (
+                              {catProds.slice(0, 5).map((p) => (
                                 <Link
                                   key={p.id || p.slug}
-                                  href={`/product/${p.id || p.slug}`}
+                                  href={`/product/${p.slug || p.id}`}
                                   onClick={onClose}
-                                  className="block font-['Open_Sans',sans-serif] text-[13px] text-slate-500 hover:text-[#012169] hover:underline transition-colors py-0.5 truncate"
+                                  className="block font-['Open_Sans',sans-serif] text-[13px] text-slate-600 hover:text-[#012169] hover:underline transition-colors py-0.5 truncate"
                                 >
                                   {p.title}
                                 </Link>

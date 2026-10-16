@@ -1,45 +1,40 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
-import Image from 'next/image';
-import { CategoryConfig } from '@/lib/types';
+import React, { useState, useRef } from 'react';
+import { CategoryConfig, Product } from '@/lib/types';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
+import { slugify } from '@/lib/utils';
 import {
-  Plus,
-  Trash,
   FolderPlus,
-  Check,
-  Stack,
-  UploadSimple,
-  ImageSquare,
-  CircleNotch,
-  ArrowSquareOut,
+  MagnifyingGlass,
   PencilSimple,
+  Trash,
+  UploadSimple,
+  Flame,
+  CheckCircle,
+  WarningCircle,
+  Images,
+  Globe,
+  Tag,
+  Package,
 } from '@phosphor-icons/react';
 
 interface CategoryManagerProps {
   categories: CategoryConfig[];
-  onUpdateSubcategories: (
-    categoryName: string,
-    subcategories: string[]
-  ) => Promise<void>;
-  onCreateCategory?: (category: {
+  products?: Product[];
+  onCreateCategory: (cat: {
     name: string;
+    slug?: string;
     description?: string;
     imageUrl?: string;
-    subcategories?: string[];
-    subcategoryImages?: Record<string, string>;
+    metaTitle?: string;
+    metaDescription?: string;
     isBestSeller?: boolean;
   }) => Promise<void>;
-  onDeleteCategory?: (categoryName: string) => Promise<void>;
-  onUpdateCategory?: (
-    categoryName: string,
-    updates: Partial<CategoryConfig>
-  ) => Promise<void>;
-  selectedCategoryName?: string;
-  onSelectCategory?: (categoryName: string) => void;
+  onDeleteCategory: (categoryName: string) => Promise<void>;
+  onUpdateCategory: (categoryName: string, updates: Partial<CategoryConfig>) => Promise<void>;
   isAddModalOpen?: boolean;
   onOpenAddModal?: () => void;
   onCloseAddModal?: () => void;
@@ -47,71 +42,59 @@ interface CategoryManagerProps {
 
 export function CategoryManager({
   categories,
-  onUpdateSubcategories,
+  products = [],
   onCreateCategory,
   onDeleteCategory,
   onUpdateCategory,
-  selectedCategoryName,
-  onSelectCategory,
   isAddModalOpen: controlledAddModalOpen,
   onOpenAddModal,
   onCloseAddModal,
 }: CategoryManagerProps) {
-  const [activeCategoryName, setActiveCategoryName] = useState<string>(
-    selectedCategoryName || categories[0]?.name || ''
-  );
-
-  useEffect(() => {
-    if (selectedCategoryName) {
-      setActiveCategoryName(selectedCategoryName);
-    } else if (categories.length > 0 && !activeCategoryName) {
-      setActiveCategoryName(categories[0].name);
-    }
-  }, [selectedCategoryName, categories, activeCategoryName]);
-
-  const [newSubcatInput, setNewSubcatInput] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
-  const [uploadingTarget, setUploadingTarget] = useState<string | null>(null);
-
-  // Hidden file inputs
-  const categoryImageInputRef = useRef<HTMLInputElement>(null);
-  const subcatImageInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
-
-  // Add category modal state (internal or controlled from sidebar)
+  const [searchQuery, setSearchQuery] = useState('');
   const [internalAddModalOpen, setInternalAddModalOpen] = useState(false);
-  const isAddCatModalOpen = controlledAddModalOpen !== undefined ? controlledAddModalOpen : internalAddModalOpen;
-  const setIsAddCatModalOpen = (open: boolean) => {
+  const [editingCategory, setEditingCategory] = useState<CategoryConfig | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+  // Form states for Add/Edit
+  const [formName, setFormName] = useState('');
+  const [formSlug, setFormSlug] = useState('');
+  const [formDescription, setFormDescription] = useState('');
+  const [formImageUrl, setFormImageUrl] = useState('');
+  const [formMetaTitle, setFormMetaTitle] = useState('');
+  const [formMetaDescription, setFormMetaDescription] = useState('');
+  const [formIsBestSeller, setFormIsBestSeller] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [modalError, setModalError] = useState('');
+  const [successNotice, setSuccessNotice] = useState<string | null>(null);
+
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const isAddOpen = controlledAddModalOpen !== undefined ? controlledAddModalOpen : internalAddModalOpen;
+  const setAddOpen = (open: boolean) => {
     setInternalAddModalOpen(open);
     if (!open && onCloseAddModal) onCloseAddModal();
     if (open && onOpenAddModal) onOpenAddModal();
   };
 
-  const [newCatName, setNewCatName] = useState('');
-  const [newCatDescription, setNewCatDescription] = useState('');
-  const [newCatImageUrl, setNewCatImageUrl] = useState('');
-  const [newCatSubcats, setNewCatSubcats] = useState('');
-  const [newCatIsBestSeller, setNewCatIsBestSeller] = useState(false);
-  const [catModalError, setCatModalError] = useState('');
-  const [isModalUploading, setIsModalUploading] = useState(false);
-
-  const matchedCategory =
-    categories.find(
-      (c) => c && c.name && c.name.toLowerCase() === activeCategoryName.toLowerCase()
-    ) ||
-    categories[0] || {
-      name: '',
-      subcategories: [],
-      subcategoryImages: {},
-    };
-
-  const currentCategory: CategoryConfig = {
-    ...matchedCategory,
-    name: matchedCategory.name || '',
-    subcategories: Array.isArray(matchedCategory.subcategories) ? matchedCategory.subcategories : [],
-    subcategoryImages: matchedCategory.subcategoryImages || {},
+  const showSuccess = (msg: string) => {
+    setSuccessNotice(msg);
+    setTimeout(() => setSuccessNotice(null), 3500);
   };
 
+  // Filter categories
+  const filteredCategories = categories.filter((c) => {
+    if (!c || !c.name) return false;
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return true;
+    return (
+      c.name.toLowerCase().includes(q) ||
+      (c.description || '').toLowerCase().includes(q) ||
+      (c.slug || '').toLowerCase().includes(q)
+    );
+  });
+
+  // Upload S3 helper
   const uploadFileToS3 = async (file: File): Promise<string> => {
     const formData = new FormData();
     formData.append('files', file);
@@ -129,544 +112,330 @@ export function CategoryManager({
     if (data.urls && Array.isArray(data.urls) && data.urls.length > 0) {
       return data.urls[0];
     }
-
     throw new Error('No upload URL returned from S3.');
   };
 
-  const handleCategoryImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setUploadingTarget('category_cover');
+    setIsUploading(true);
+    setModalError('');
     try {
       const url = await uploadFileToS3(file);
-      if (onUpdateCategory) {
-        await onUpdateCategory(currentCategory.name, { imageUrl: url });
-      }
-      showSuccess(`Updated cover image for ${currentCategory.name}.`);
+      setFormImageUrl(url);
     } catch (err: any) {
-      alert(err.message || 'Failed to upload category image.');
+      setModalError(err.message || 'Image upload failed.');
     } finally {
-      setUploadingTarget(null);
-      if (categoryImageInputRef.current) categoryImageInputRef.current.value = '';
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
-  const handleRemoveCategoryImage = async () => {
-    if (!window.confirm(`Remove cover image for ${currentCategory.name}?`)) return;
-    setIsSaving(true);
-    try {
-      if (onUpdateCategory) {
-        await onUpdateCategory(currentCategory.name, { imageUrl: '' });
-      }
-      showSuccess(`Removed cover image for ${currentCategory.name}.`);
-    } catch (err: any) {
-      alert(err.message || 'Failed to remove image');
-    } finally {
-      setIsSaving(false);
-    }
+  // Open Add Modal
+  const handleOpenAdd = () => {
+    setFormName('');
+    setFormSlug('');
+    setFormDescription('');
+    setFormImageUrl('');
+    setFormMetaTitle('');
+    setFormMetaDescription('');
+    setFormIsBestSeller(false);
+    setModalError('');
+    setAddOpen(true);
   };
 
-  const handleSubcategoryImageUpload = async (subcat: string, file: File) => {
-    setUploadingTarget(`subcat_${subcat}`);
-    try {
-      const url = await uploadFileToS3(file);
-      const updatedImages = {
-        ...(currentCategory.subcategoryImages || {}),
-        [subcat]: url,
-      };
-
-      if (onUpdateCategory) {
-        await onUpdateCategory(currentCategory.name, {
-          subcategoryImages: updatedImages,
-        });
-      }
-      showSuccess(`Updated photo for "${subcat}".`);
-    } catch (err: any) {
-      alert(err.message || `Failed to upload image for ${subcat}.`);
-    } finally {
-      setUploadingTarget(null);
-    }
+  // Open Edit Modal
+  const handleOpenEdit = (cat: CategoryConfig) => {
+    setEditingCategory(cat);
+    setFormName(cat.name);
+    setFormSlug(cat.slug || slugify(cat.name));
+    setFormDescription(cat.description || '');
+    setFormImageUrl(cat.imageUrl || '');
+    setFormMetaTitle(cat.metaTitle || `${cat.name} | Print Today UK`);
+    setFormMetaDescription(cat.metaDescription || cat.description || '');
+    setFormIsBestSeller(Boolean(cat.isBestSeller));
+    setModalError('');
+    setIsEditModalOpen(true);
   };
 
-  const handleRemoveSubcategoryImage = async (subcat: string) => {
-    if (!window.confirm(`Remove picture for "${subcat}"?`)) return;
-    setIsSaving(true);
-    try {
-      const updatedImages = { ...(currentCategory.subcategoryImages || {}) };
-      delete updatedImages[subcat];
-
-      if (onUpdateCategory) {
-        await onUpdateCategory(currentCategory.name, {
-          subcategoryImages: updatedImages,
-        });
-      }
-      showSuccess(`Removed photo for "${subcat}".`);
-    } catch (err: any) {
-      alert(err.message || 'Failed to remove image');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleAddSubcategory = async (e: React.FormEvent) => {
+  // Submit Add Category
+  const handleSubmitAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newSubcatInput.trim()) return;
-
-    const trimmed = newSubcatInput.trim();
-    const existing = currentCategory.subcategories || [];
-    if (existing.includes(trimmed)) {
-      alert('This subcategory already exists in this category.');
+    if (!formName.trim()) {
+      setModalError('Category name is required.');
       return;
     }
 
-    const updated = [...existing, trimmed];
-    setIsSaving(true);
+    setIsSubmitting(true);
+    setModalError('');
     try {
-      if (onUpdateCategory) {
-        await onUpdateCategory(currentCategory.name, { subcategories: updated });
-      } else {
-        await onUpdateSubcategories(currentCategory.name, updated);
-      }
-      setNewSubcatInput('');
-      showSuccess(`Added "${trimmed}" to ${currentCategory.name}.`);
+      await onCreateCategory({
+        name: formName.trim(),
+        slug: formSlug.trim() || slugify(formName),
+        description: formDescription.trim(),
+        imageUrl: formImageUrl.trim(),
+        metaTitle: formMetaTitle.trim(),
+        metaDescription: formMetaDescription.trim(),
+        isBestSeller: formIsBestSeller,
+      });
+      showSuccess(`Created category "${formName.trim()}".`);
+      setAddOpen(false);
     } catch (err: any) {
-      alert(err.message || 'Failed to add subcategory');
+      setModalError(err.message || 'Failed to create category.');
     } finally {
-      setIsSaving(false);
+      setIsSubmitting(false);
     }
   };
 
-  const handleRemoveSubcategory = async (subcatToRemove: string) => {
-    if (
-      !window.confirm(
-        `Remove "${subcatToRemove}" from ${currentCategory.name}? Products in this subcategory will remain in the catalog.`
-      )
-    ) {
-      return;
-    }
-
-    const updated = (currentCategory.subcategories || []).filter((s) => s !== subcatToRemove);
-    const updatedImages = { ...(currentCategory.subcategoryImages || {}) };
-    delete updatedImages[subcatToRemove];
-
-    setIsSaving(true);
-    try {
-      if (onUpdateCategory) {
-        await onUpdateCategory(currentCategory.name, {
-          subcategories: updated,
-          subcategoryImages: updatedImages,
-        });
-      } else {
-        await onUpdateSubcategories(currentCategory.name, updated);
-      }
-      showSuccess(`Removed "${subcatToRemove}".`);
-    } catch (err: any) {
-      alert(err.message || 'Failed to remove subcategory');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleModalImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setIsModalUploading(true);
-    try {
-      const url = await uploadFileToS3(file);
-      setNewCatImageUrl(url);
-    } catch (err: any) {
-      setCatModalError(err.message || 'Failed to upload category image.');
-    } finally {
-      setIsModalUploading(false);
-    }
-  };
-
-  const handleCreateCategorySubmit = async (e: React.FormEvent) => {
+  // Submit Edit Category
+  const handleSubmitEdit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setCatModalError('');
-
-    if (!newCatName.trim()) {
-      setCatModalError('Category name is required.');
+    if (!editingCategory) return;
+    if (!formName.trim()) {
+      setModalError('Category name is required.');
       return;
     }
 
-    const exists = categories.some(
-      (c) => c.name.toLowerCase() === newCatName.trim().toLowerCase()
-    );
-    if (exists) {
-      setCatModalError('A category with this name already exists.');
-      return;
-    }
-
-    const subcats = newCatSubcats
-      .split(',')
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0);
-
-    setIsSaving(true);
+    setIsSubmitting(true);
+    setModalError('');
     try {
-      if (onCreateCategory) {
-        await onCreateCategory({
-          name: newCatName.trim(),
-          description: newCatDescription.trim() || undefined,
-          imageUrl: newCatImageUrl.trim() || undefined,
-          subcategories: subcats,
-          isBestSeller: newCatIsBestSeller,
-        });
-        setActiveCategoryName(newCatName.trim());
-        setIsAddCatModalOpen(false);
-        setNewCatName('');
-        setNewCatDescription('');
-        setNewCatImageUrl('');
-        setNewCatSubcats('');
-        setNewCatIsBestSeller(false);
-        showSuccess(`Category "${newCatName.trim()}" created successfully!`);
-      } else {
-        alert('Category creation not configured on this host.');
-      }
+      await onUpdateCategory(editingCategory.name, {
+        name: formName.trim(),
+        slug: formSlug.trim() || slugify(formName),
+        description: formDescription.trim(),
+        imageUrl: formImageUrl.trim(),
+        metaTitle: formMetaTitle.trim(),
+        metaDescription: formMetaDescription.trim(),
+        isBestSeller: formIsBestSeller,
+      });
+      showSuccess(`Updated category "${formName.trim()}".`);
+      setIsEditModalOpen(false);
+      setEditingCategory(null);
     } catch (err: any) {
-      setCatModalError(err.message || 'Failed to create category.');
+      setModalError(err.message || 'Failed to update category.');
     } finally {
-      setIsSaving(false);
+      setIsSubmitting(false);
     }
   };
 
-  const handleDeleteCategory = async (catName: string) => {
-    if (
-      !window.confirm(
-        `Are you sure you want to delete the entire category "${catName}"? This will remove its navigation tabs and filters.`
-      )
-    ) {
+  // Delete Category
+  const handleDelete = async (categoryName: string) => {
+    if (!window.confirm(`Are you sure you want to delete category "${categoryName}"? All products in this category will remain, but will need to be reassigned.`)) {
       return;
     }
 
-    setIsSaving(true);
     try {
-      if (onDeleteCategory) {
-        await onDeleteCategory(catName);
-        const remaining = categories.filter((c) => c.name.toLowerCase() !== catName.toLowerCase());
-        if (remaining.length > 0) {
-          setActiveCategoryName(remaining[0].name);
-        }
-        showSuccess(`Deleted category "${catName}".`);
-      }
+      await onDeleteCategory(categoryName);
+      showSuccess(`Deleted category "${categoryName}".`);
     } catch (err: any) {
-      alert(err.message || 'Failed to delete category');
-    } finally {
-      setIsSaving(false);
+      alert(err.message || 'Failed to delete category.');
     }
   };
 
-  const showSuccess = (msg: string) => {
-    setSuccessMessage(msg);
-    setTimeout(() => setSuccessMessage(''), 3500);
+  // Quick toggle Best Seller
+  const handleToggleBestSeller = async (cat: CategoryConfig) => {
+    const newVal = !cat.isBestSeller;
+    try {
+      await onUpdateCategory(cat.name, { isBestSeller: newVal });
+      showSuccess(`${cat.name} ${newVal ? 'enlisted in Best Sellers & Mega Menu' : 'removed from Best Sellers'}.`);
+    } catch (err: any) {
+      alert(err.message || 'Failed to update Best Seller status.');
+    }
   };
 
   return (
-    <div className="space-y-6">
-      {/* Top Controls: Title & Add Category Button */}
+    <div className="space-y-6 font-['Open_Sans',sans-serif]">
+      {/* Top Banner Notice */}
+      {successNotice && (
+        <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-800 flex items-center gap-2 shadow-xs animate-fade-in">
+          <CheckCircle weight="fill" className="h-4 w-4 text-emerald-600 shrink-0" />
+          <span>{successNotice}</span>
+        </div>
+      )}
+
+      {/* Header & Controls Bar */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
         <div>
-          <h2 className="text-base font-bold text-slate-900">
-            Category & Subcategory Hierarchy (with S3 Images)
+          <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+            <span>Category Management</span>
+            <span className="text-xs px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 font-bold border border-blue-200">
+              {categories.length} Total
+            </span>
           </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Upload pictures for categories and subcategories (e.g. Mugs, Pens) to display on the storefront landing page.
+          <p className="text-xs text-slate-500 mt-1">
+            Manage your online store categories, cover pictures, and SEO meta tags. Products are added directly under each category.
           </p>
         </div>
 
-        <Button
-          variant="uk-blue"
-          size="md"
-          onClick={() => setIsAddCatModalOpen(true)}
-        >
-          <FolderPlus weight="bold" className="h-4 w-4 mr-1.5" />
-          <span>Add New Category</span>
-        </Button>
-      </div>
-
-      {/* Category Tabs Bar */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
-        {categories.map((cat) => {
-          const isSelected =
-            cat.name.toLowerCase() === currentCategory.name.toLowerCase();
-
-          return (
-            <div
-              key={cat.name}
-              className={`flex items-center gap-1.5 px-4 py-2.5 rounded-2xl font-bold text-xs transition-all border shrink-0 ${
-                isSelected
-                  ? 'bg-[#012169] text-white border-[#012169] shadow-md shadow-[#012169]/20'
-                  : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-              }`}
-            >
-              <button
-                onClick={() => {
-                  setActiveCategoryName(cat.name);
-                  if (onSelectCategory) onSelectCategory(cat.name);
-                }}
-                className="flex items-center gap-2 cursor-pointer"
-              >
-                <Stack weight="bold" className="h-3.5 w-3.5" />
-                <span>{cat.name}</span>
-                <span
-                  className={`text-[10px] px-2 py-0.5 rounded-full ${
-                    isSelected ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
-                  }`}
-                >
-                  {cat.subcategories?.length || 0}
-                </span>
-              </button>
-
-              {categories.length > 1 && (
-                <button
-                  onClick={() => handleDeleteCategory(cat.name)}
-                  className={`p-1 rounded-md transition-colors cursor-pointer ml-1 ${
-                    isSelected
-                      ? 'text-blue-200 hover:text-white hover:bg-white/10'
-                      : 'text-slate-400 hover:text-rose-600 hover:bg-slate-100'
-                  }`}
-                  title={`Delete ${cat.name} category`}
-                >
-                  <Trash weight="bold" className="h-3 w-3" />
-                </button>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Active Category Detail Card */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-6">
-        {/* Header with Category Name, Description & Category Cover Picture */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 border-b border-slate-100 pb-6">
-          <div className="space-y-1">
-            <div className="flex items-center gap-3 flex-wrap">
-              <h3 className="text-xl font-black text-slate-900">
-                {currentCategory.name}
-              </h3>
-              <Badge variant="uk-blue" className="text-[10px]">
-                {currentCategory.subcategories?.length || 0} Subcategories
-              </Badge>
-
-              {/* Enlist in Left Sidebar (Best Sellers) Checkbox Toggle */}
-              <label className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 cursor-pointer text-xs select-none">
-                <input
-                  type="checkbox"
-                  checked={Boolean(currentCategory.isBestSeller)}
-                  onChange={async (e) => {
-                    const checked = e.target.checked;
-                    if (onUpdateCategory) {
-                      await onUpdateCategory(currentCategory.name, { isBestSeller: checked });
-                      showSuccess(checked ? `Enlisted "${currentCategory.name}" in Best Sellers sidebar.` : `Removed "${currentCategory.name}" from Best Sellers sidebar.`);
-                    }
-                  }}
-                  className="h-3.5 w-3.5 rounded text-[#012169] border-slate-300 focus:ring-[#012169]"
-                />
-                <span className="font-bold text-slate-700">Enlist in Best Sellers Sidebar</span>
-              </label>
-            </div>
-            {currentCategory.description && (
-              <p className="text-xs text-slate-600 max-w-xl">
-                {currentCategory.description}
-              </p>
-            )}
-          </div>
-
-          {/* Category Cover Picture Upload / Preview */}
-          <div className="flex items-center gap-3 bg-slate-50 p-2.5 rounded-2xl border border-slate-200/80">
-            <div className="relative w-16 h-16 rounded-xl bg-white border border-slate-200 overflow-hidden flex items-center justify-center shrink-0">
-              {currentCategory.imageUrl ? (
-                <Image
-                  src={currentCategory.imageUrl}
-                  alt={currentCategory.name}
-                  fill
-                  className="object-cover"
-                />
-              ) : (
-                <ImageSquare className="w-6 h-6 text-slate-400" />
-              )}
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <div className="text-[11px] font-bold text-slate-700">
-                Category Cover Picture
-              </div>
-              <div className="flex items-center gap-1.5">
-                <input
-                  type="file"
-                  accept="image/*"
-                  ref={categoryImageInputRef}
-                  onChange={handleCategoryImageUpload}
-                  className="hidden"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => categoryImageInputRef.current?.click()}
-                  isLoading={uploadingTarget === 'category_cover'}
-                  className="text-[11px] h-7 px-2.5"
-                >
-                  <UploadSimple weight="bold" className="w-3 h-3 mr-1" />
-                  <span>{currentCategory.imageUrl ? 'Change' : 'Upload S3'}</span>
-                </Button>
-
-                {currentCategory.imageUrl && (
-                  <button
-                    type="button"
-                    onClick={handleRemoveCategoryImage}
-                    className="p-1 text-slate-400 hover:text-rose-600 rounded-lg transition-colors cursor-pointer"
-                    title="Remove category picture"
-                  >
-                    <Trash className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
+        <div className="flex items-center gap-3">
+          <Button variant="uk-blue" size="md" onClick={handleOpenAdd}>
+            <FolderPlus weight="bold" className="h-4 w-4 mr-1.5" />
+            <span>Add Category</span>
+          </Button>
         </div>
+      </div>
 
-        {successMessage && (
-          <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 font-bold flex items-center gap-2">
-            <Check weight="bold" className="h-4 w-4 text-emerald-600" />
-            <span>{successMessage}</span>
-          </div>
-        )}
-
-        {/* Add new subcategory form */}
-        <form onSubmit={handleAddSubcategory} className="flex gap-2 max-w-lg">
+      {/* Search Bar */}
+      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between gap-4">
+        <div className="relative flex-1 max-w-md">
+          <MagnifyingGlass weight="bold" className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <input
             type="text"
-            value={newSubcatInput}
-            onChange={(e) => setNewSubcatInput(e.target.value)}
-            placeholder={`Add subcategory to ${currentCategory.name} (e.g. Mugs, Pens, Keyrings)...`}
-            className="flex-1 h-11 px-3.5 rounded-xl border border-slate-200 bg-slate-50 text-xs text-slate-900 focus:outline-hidden focus:bg-white focus:border-[#012169]"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search categories by name or description..."
+            className="w-full h-10 pl-10 pr-4 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:outline-hidden focus:bg-white focus:border-[#012169]"
           />
-          <Button type="submit" variant="uk-blue" size="md" isLoading={isSaving}>
-            <Plus weight="bold" className="h-4 w-4 mr-1" />
-            <span>Add</span>
-          </Button>
-        </form>
+        </div>
 
-        {/* Subcategories list with Image Upload for each */}
-        <div>
-          <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-3">
-            Subcategories & Landing Page Images ({currentCategory.subcategories?.length || 0})
-          </div>
-
-          {(currentCategory.subcategories?.length || 0) === 0 ? (
-            <div className="p-8 text-center bg-slate-50 rounded-2xl border border-slate-200 text-xs text-slate-400">
-              No subcategories added yet. Type a name above (e.g. Mugs or Pens) and click Add.
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {(currentCategory.subcategories || []).map((subcat) => {
-                const imgUrl = currentCategory.subcategoryImages?.[subcat];
-                const isUploadingThis = uploadingTarget === `subcat_${subcat}`;
-
-                return (
-                  <div
-                    key={subcat}
-                    className="flex flex-col justify-between p-3.5 rounded-2xl bg-slate-50 border border-slate-200/90 hover:bg-slate-100/60 transition-colors space-y-3"
-                  >
-                    {/* Picture Preview and Subcategory Name */}
-                    <div className="flex items-center gap-3">
-                      <div className="relative w-14 h-14 rounded-xl bg-white border border-slate-200 overflow-hidden flex items-center justify-center shrink-0 shadow-xs">
-                        {imgUrl ? (
-                          <Image
-                            src={imgUrl}
-                            alt={subcat}
-                            fill
-                            className="object-cover"
-                          />
-                        ) : (
-                          <ImageSquare className="w-5 h-5 text-slate-300" />
-                        )}
-                        {isUploadingThis && (
-                          <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                            <CircleNotch className="w-4 h-4 text-white animate-spin" />
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="flex-1 min-w-0">
-                        <span className="text-xs font-bold text-slate-900 block truncate">
-                          {subcat}
-                        </span>
-                        <span className="text-[10px] text-slate-500 block truncate mt-0.5">
-                          {imgUrl ? 'Image uploaded' : 'Default image'}
-                        </span>
-                      </div>
-
-                      {/* Delete Subcategory Button */}
-                      <button
-                        onClick={() => handleRemoveSubcategory(subcat)}
-                        className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg transition-colors cursor-pointer shrink-0"
-                        title={`Delete ${subcat}`}
-                      >
-                        <Trash weight="bold" className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-
-                    {/* Actions: Upload Picture file input */}
-                    <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between gap-2">
-                      <input
-                        type="file"
-                        accept="image/*"
-                        ref={(el) => {
-                          subcatImageInputRefs.current[subcat] = el;
-                        }}
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) handleSubcategoryImageUpload(subcat, file);
-                          if (e.target) e.target.value = '';
-                        }}
-                        className="hidden"
-                      />
-
-                      <button
-                        type="button"
-                        onClick={() => subcatImageInputRefs.current[subcat]?.click()}
-                        disabled={isUploadingThis}
-                        className="inline-flex items-center gap-1 text-[11px] font-bold text-[#012169] hover:text-[#0A358C] hover:underline cursor-pointer"
-                      >
-                        <UploadSimple weight="bold" className="w-3 h-3" />
-                        <span>{imgUrl ? 'Change Picture' : 'Upload Picture'}</span>
-                      </button>
-
-                      {imgUrl && (
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveSubcategoryImage(subcat)}
-                          className="text-[10px] text-rose-600 hover:underline cursor-pointer"
-                        >
-                          Clear
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+        <div className="text-xs font-semibold text-slate-500 hidden sm:block">
+          Showing <span className="font-bold text-slate-900">{filteredCategories.length}</span> categories
         </div>
       </div>
 
-      {/* Add New Category Modal */}
+      {/* Categories List Table */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+        {filteredCategories.length === 0 ? (
+          <div className="p-12 text-center">
+            <Tag weight="fill" className="h-10 w-10 text-slate-300 mx-auto mb-3" />
+            <h4 className="text-sm font-bold text-slate-900">No categories found</h4>
+            <p className="mt-1 text-xs text-slate-500 max-w-sm mx-auto">
+              {searchQuery ? 'No categories match your search term.' : 'Click "Add Category" above to create your first catalog category.'}
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50/80 text-[11px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">
+                  <th className="py-3.5 px-4">Category</th>
+                  <th className="py-3.5 px-4">Description</th>
+                  <th className="py-3.5 px-4 text-center">Products</th>
+                  <th className="py-3.5 px-4 text-center">Best Seller / Menu</th>
+                  <th className="py-3.5 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-xs">
+                {filteredCategories.map((cat) => {
+                  const prodCount = products.filter(
+                    (p) => p && p.category && p.category.toLowerCase() === cat.name.toLowerCase()
+                  ).length;
+
+                  return (
+                    <tr key={cat.name} className="hover:bg-slate-50/70 transition-colors">
+                      {/* Name & Cover Image */}
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center gap-3">
+                          <div className="relative h-12 w-12 rounded-xl overflow-hidden bg-slate-100 border border-slate-200 shrink-0">
+                            {cat.imageUrl ? (
+                              <img
+                                src={cat.imageUrl}
+                                alt={cat.name}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <div className="h-full w-full flex items-center justify-center text-slate-300">
+                                <Images className="h-6 w-6" />
+                              </div>
+                            )}
+                          </div>
+                          <div>
+                            <div className="font-bold text-slate-900 text-sm">
+                              {cat.name}
+                            </div>
+                            <div className="text-[11px] text-slate-400 font-mono">
+                              /{cat.slug || slugify(cat.name)}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Description */}
+                      <td className="py-3.5 px-4 max-w-xs">
+                        <p className="text-slate-600 text-xs line-clamp-2">
+                          {cat.description || <span className="text-slate-400 italic">No description set</span>}
+                        </p>
+                      </td>
+
+                      {/* Product Count */}
+                      <td className="py-3.5 px-4 text-center">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 font-bold text-xs">
+                          <Package className="h-3 w-3 text-slate-500" />
+                          <span>{prodCount}</span>
+                        </span>
+                      </td>
+
+                      {/* Enlist in Best Sellers / Mega Menu Toggle */}
+                      <td className="py-3.5 px-4 text-center">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleBestSeller(cat)}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                            cat.isBestSeller
+                              ? 'bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100'
+                              : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                          }`}
+                          title="Toggle enlisting in A-Z Mega Menu & Best Sellers"
+                        >
+                          <Flame weight={cat.isBestSeller ? 'fill' : 'bold'} className={`h-3.5 w-3.5 ${cat.isBestSeller ? 'text-amber-500' : 'text-slate-400'}`} />
+                          <span>{cat.isBestSeller ? 'Enlisted' : 'Standard'}</span>
+                        </button>
+                      </td>
+
+                      {/* Actions */}
+                      <td className="py-3.5 px-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => handleOpenEdit(cat)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-700 text-xs font-bold transition-colors cursor-pointer"
+                            title="Edit Category"
+                          >
+                            <PencilSimple weight="bold" className="h-3.5 w-3.5" />
+                            <span>Edit</span>
+                          </button>
+
+                          <button
+                            onClick={() => handleDelete(cat.name)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold transition-colors cursor-pointer"
+                            title="Delete Category"
+                          >
+                            <Trash weight="bold" className="h-3.5 w-3.5" />
+                            <span>Delete</span>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Hidden File Input for Image Upload */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleImageFileChange}
+        accept="image/*"
+        className="hidden"
+      />
+
+      {/* ADD CATEGORY MODAL */}
       <Modal
-        isOpen={isAddCatModalOpen}
-        onClose={() => setIsAddCatModalOpen(false)}
-        title="Create New Category"
-        description="Add a new high-level catalog category (e.g. Gift Items, Signs, Packaging)."
-        maxWidth="md"
+        isOpen={isAddOpen}
+        onClose={() => setAddOpen(false)}
+        title="Add New Category"
+        description="Create a category with a cover picture, description, and SEO metadata."
+        maxWidth="lg"
       >
-        <form onSubmit={handleCreateCategorySubmit} className="space-y-4 pt-2">
-          {catModalError && (
-            <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700 font-semibold">
-              {catModalError}
+        <form onSubmit={handleSubmitAdd} className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
+          {modalError && (
+            <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-600 font-semibold flex items-center gap-2">
+              <WarningCircle weight="bold" className="h-4 w-4 shrink-0" />
+              <span>{modalError}</span>
             </div>
           )}
 
@@ -677,97 +446,310 @@ export function CategoryManager({
             <input
               type="text"
               required
-              value={newCatName}
-              onChange={(e) => setNewCatName(e.target.value)}
-              placeholder="e.g. Gift Items, Signs & Banners, Packaging"
-              className="w-full h-11 px-3.5 rounded-xl border border-slate-200 bg-white text-xs text-slate-900 focus:outline-hidden focus:border-[#012169]"
+              value={formName}
+              onChange={(e) => {
+                setFormName(e.target.value);
+                setFormSlug(slugify(e.target.value));
+              }}
+              placeholder="e.g. Signs & Signage"
+              className="w-full h-11 px-3.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:outline-hidden focus:border-[#012169]"
             />
           </div>
 
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1.5">
-              Category Cover Image (Upload to S3 or Paste URL)
-            </label>
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                value={newCatImageUrl}
-                onChange={(e) => setNewCatImageUrl(e.target.value)}
-                placeholder="https://... or click Upload file"
-                className="flex-1 h-11 px-3.5 rounded-xl border border-slate-200 bg-white text-xs text-slate-900 focus:outline-hidden focus:border-[#012169]"
-              />
-              <label className="h-11 px-3.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs font-bold text-slate-700 flex items-center gap-1.5 cursor-pointer shrink-0">
-                <UploadSimple className="w-3.5 h-3.5" />
-                <span>{isModalUploading ? 'Uploading...' : 'Upload'}</span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleModalImageUpload}
-                  className="hidden"
-                />
-              </label>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5">
-              Short Description (Optional)
+              URL Slug <span className="text-rose-500">*</span>
             </label>
             <input
               type="text"
-              value={newCatDescription}
-              onChange={(e) => setNewCatDescription(e.target.value)}
-              placeholder="e.g. Personalized mugs, pens, bottles and custom merchandise"
-              className="w-full h-11 px-3.5 rounded-xl border border-slate-200 bg-white text-xs text-slate-900 focus:outline-hidden focus:border-[#012169]"
+              required
+              value={formSlug}
+              onChange={(e) => setFormSlug(e.target.value)}
+              placeholder="e.g. signs-signage"
+              className="w-full h-11 px-3.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:outline-hidden focus:border-[#012169]"
             />
           </div>
 
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-1.5">
-              Initial Subcategories (Comma-separated)
+              Description
             </label>
             <textarea
-              rows={2}
-              value={newCatSubcats}
-              onChange={(e) => setNewCatSubcats(e.target.value)}
-              placeholder="e.g. Mugs, Pens, Water Bottles, Notebooks"
-              className="w-full p-3 rounded-xl border border-slate-200 bg-white text-xs text-slate-900 focus:outline-hidden focus:border-[#012169] resize-none"
+              rows={3}
+              value={formDescription}
+              onChange={(e) => setFormDescription(e.target.value)}
+              placeholder="Brief description of this category for landing page cards and SEO..."
+              className="w-full p-3 rounded-xl border border-slate-200 bg-white text-xs text-slate-900 focus:outline-hidden focus:border-[#012169]"
             />
           </div>
 
-          <label className="flex items-start gap-2.5 p-3 rounded-xl border border-slate-200 bg-slate-50/70 hover:bg-slate-50 cursor-pointer select-none">
+          {/* Cover Image Upload */}
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1.5">
+              Cover Image (S3 Picture)
+            </label>
+            <div className="flex items-center gap-3">
+              <div className="relative h-16 w-16 rounded-xl bg-slate-100 border border-slate-200 overflow-hidden shrink-0">
+                {formImageUrl ? (
+                  <img src={formImageUrl} alt="Preview" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="h-full w-full flex items-center justify-center text-slate-400">
+                    <Images className="h-6 w-6" />
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-col gap-1.5 flex-1">
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fileInputRef.current?.click()}
+                    isLoading={isUploading}
+                  >
+                    <UploadSimple weight="bold" className="h-3.5 w-3.5 mr-1" />
+                    <span>{formImageUrl ? 'Replace Picture' : 'Upload to S3'}</span>
+                  </Button>
+
+                  {formImageUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setFormImageUrl('')}
+                      className="px-2.5 py-1.5 text-xs text-rose-600 hover:text-rose-700 font-semibold cursor-pointer"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+                <input
+                  type="text"
+                  value={formImageUrl}
+                  onChange={(e) => setFormImageUrl(e.target.value)}
+                  placeholder="Or paste external image URL..."
+                  className="w-full h-8 px-2.5 rounded-lg border border-slate-200 bg-white text-[11px] text-slate-700 focus:outline-hidden focus:border-[#012169]"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* SEO Meta Fields */}
+          <div className="pt-2 border-t border-slate-100 space-y-3">
+            <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+              <Globe className="h-4 w-4 text-blue-600" />
+              <span>SEO & Meta Data (Google Ranking)</span>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                Meta Title
+              </label>
+              <input
+                type="text"
+                value={formMetaTitle}
+                onChange={(e) => setFormMetaTitle(e.target.value)}
+                placeholder={`${formName || 'Category'} | Same Day London Print Today UK`}
+                className="w-full h-9 px-3 rounded-lg border border-slate-200 bg-white text-xs text-slate-900 focus:outline-hidden focus:border-[#012169]"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                Meta Description
+              </label>
+              <textarea
+                rows={2}
+                value={formMetaDescription}
+                onChange={(e) => setFormMetaDescription(e.target.value)}
+                placeholder="Meta description for search engine previews..."
+                className="w-full p-2.5 rounded-lg border border-slate-200 bg-white text-xs text-slate-900 focus:outline-hidden focus:border-[#012169]"
+              />
+            </div>
+          </div>
+
+          {/* Enlist in Best Sellers */}
+          <div className="flex items-center gap-2.5 pt-2">
             <input
               type="checkbox"
-              checked={newCatIsBestSeller}
-              onChange={(e) => setNewCatIsBestSeller(e.target.checked)}
-              className="mt-0.5 h-4 w-4 rounded text-[#012169] border-slate-300 focus:ring-[#012169]"
+              id="addIsBestSeller"
+              checked={formIsBestSeller}
+              onChange={(e) => setFormIsBestSeller(e.target.checked)}
+              className="h-4 w-4 rounded-md border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
             />
-            <div className="flex flex-col">
-              <span className="text-xs font-bold text-slate-800">
-                Enlist in Left Sidebar (Best Sellers)
-              </span>
-              <span className="text-[11px] text-slate-500">
-                Tick this option to feature this category on the left side list of the A to Z Products mega menu.
-              </span>
-            </div>
-          </label>
+            <label htmlFor="addIsBestSeller" className="text-xs font-semibold text-slate-800 cursor-pointer flex items-center gap-1">
+              <Flame weight="fill" className="h-3.5 w-3.5 text-amber-500" />
+              <span>Enlist in A-Z Mega Menu Best Sellers section</span>
+            </label>
+          </div>
 
-          <div className="pt-3 flex items-center justify-end gap-2 border-t border-slate-100">
-            <Button
-              type="button"
-              variant="outline"
-              size="md"
-              onClick={() => setIsAddCatModalOpen(false)}
-            >
+          <div className="flex justify-end gap-2 pt-4 border-t border-slate-100">
+            <Button type="button" variant="outline" size="sm" onClick={() => setAddOpen(false)}>
               Cancel
             </Button>
-            <Button
-              type="submit"
-              variant="uk-blue"
-              size="md"
-              isLoading={isSaving || isModalUploading}
-            >
+            <Button type="submit" variant="uk-blue" size="sm" isLoading={isSubmitting}>
               Create Category
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* EDIT CATEGORY MODAL */}
+      <Modal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        title={`Edit Category: ${editingCategory?.name}`}
+        description="Update category name, cover picture, and SEO tags."
+        maxWidth="lg"
+      >
+        <form onSubmit={handleSubmitEdit} className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
+          {modalError && (
+            <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-600 font-semibold flex items-center gap-2">
+              <WarningCircle weight="bold" className="h-4 w-4 shrink-0" />
+              <span>{modalError}</span>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1.5">
+              Category Name <span className="text-rose-500">*</span>
+            </label>
+            <input
+              type="text"
+              required
+              value={formName}
+              onChange={(e) => setFormName(e.target.value)}
+              className="w-full h-11 px-3.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:outline-hidden focus:border-[#012169]"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1.5">
+              URL Slug <span className="text-rose-500">*</span>
+            </label>
+            <input
+              type="text"
+              required
+              value={formSlug}
+              onChange={(e) => setFormSlug(e.target.value)}
+              className="w-full h-11 px-3.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:outline-hidden focus:border-[#012169]"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1.5">
+              Description
+            </label>
+            <textarea
+              rows={3}
+              value={formDescription}
+              onChange={(e) => setFormDescription(e.target.value)}
+              className="w-full p-3 rounded-xl border border-slate-200 bg-white text-xs text-slate-900 focus:outline-hidden focus:border-[#012169]"
+            />
+          </div>
+
+          {/* Cover Image Upload */}
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1.5">
+              Cover Image (S3 Picture)
+            </label>
+            <div className="flex items-center gap-3">
+              <div className="relative h-16 w-16 rounded-xl bg-slate-100 border border-slate-200 overflow-hidden shrink-0">
+                {formImageUrl ? (
+                  <img src={formImageUrl} alt="Preview" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="h-full w-full flex items-center justify-center text-slate-400">
+                    <Images className="h-6 w-6" />
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-col gap-1.5 flex-1">
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fileInputRef.current?.click()}
+                    isLoading={isUploading}
+                  >
+                    <UploadSimple weight="bold" className="h-3.5 w-3.5 mr-1" />
+                    <span>{formImageUrl ? 'Replace Picture' : 'Upload to S3'}</span>
+                  </Button>
+
+                  {formImageUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setFormImageUrl('')}
+                      className="px-2.5 py-1.5 text-xs text-rose-600 hover:text-rose-700 font-semibold cursor-pointer"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+                <input
+                  type="text"
+                  value={formImageUrl}
+                  onChange={(e) => setFormImageUrl(e.target.value)}
+                  placeholder="Or paste external image URL..."
+                  className="w-full h-8 px-2.5 rounded-lg border border-slate-200 bg-white text-[11px] text-slate-700 focus:outline-hidden focus:border-[#012169]"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* SEO Meta Fields */}
+          <div className="pt-2 border-t border-slate-100 space-y-3">
+            <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+              <Globe className="h-4 w-4 text-blue-600" />
+              <span>SEO & Meta Data (Google Ranking)</span>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                Meta Title
+              </label>
+              <input
+                type="text"
+                value={formMetaTitle}
+                onChange={(e) => setFormMetaTitle(e.target.value)}
+                className="w-full h-9 px-3 rounded-lg border border-slate-200 bg-white text-xs text-slate-900 focus:outline-hidden focus:border-[#012169]"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                Meta Description
+              </label>
+              <textarea
+                rows={2}
+                value={formMetaDescription}
+                onChange={(e) => setFormMetaDescription(e.target.value)}
+                className="w-full p-2.5 rounded-lg border border-slate-200 bg-white text-xs text-slate-900 focus:outline-hidden focus:border-[#012169]"
+              />
+            </div>
+          </div>
+
+          {/* Enlist in Best Sellers */}
+          <div className="flex items-center gap-2.5 pt-2">
+            <input
+              type="checkbox"
+              id="editIsBestSeller"
+              checked={formIsBestSeller}
+              onChange={(e) => setFormIsBestSeller(e.target.checked)}
+              className="h-4 w-4 rounded-md border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+            />
+            <label htmlFor="editIsBestSeller" className="text-xs font-semibold text-slate-800 cursor-pointer flex items-center gap-1">
+              <Flame weight="fill" className="h-3.5 w-3.5 text-amber-500" />
+              <span>Enlist in A-Z Mega Menu Best Sellers section</span>
+            </label>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4 border-t border-slate-100">
+            <Button type="button" variant="outline" size="sm" onClick={() => setIsEditModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" variant="uk-blue" size="sm" isLoading={isSubmitting}>
+              Save Changes
             </Button>
           </div>
         </form>

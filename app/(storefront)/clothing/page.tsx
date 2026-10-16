@@ -38,7 +38,9 @@ export default function ClothingCatalogPage() {
           (c) => c.name.toLowerCase() === 'clothing'
         );
         const configSubcats = clothingCat?.subcategories || [];
-        const productSubcats = prodsData.map((p) => p.subcategory).filter(Boolean);
+        const productSubcats = prodsData
+          .map((p) => p.subcategory || '')
+          .filter((s): s is string => Boolean(s));
         const combinedSubcats = Array.from(
           new Set([...configSubcats, ...productSubcats])
         );
@@ -66,14 +68,14 @@ export default function ClothingCatalogPage() {
       .filter((p) => {
         if (searchQuery.trim()) {
           const q = searchQuery.toLowerCase();
-          const matchTitle = p.title.toLowerCase().includes(q);
-          const matchDesc = p.description.toLowerCase().includes(q);
-          const matchSubcat = p.subcategory.toLowerCase().includes(q);
+          const matchTitle = (p.title || '').toLowerCase().includes(q);
+          const matchDesc = (p.description || '').toLowerCase().includes(q);
+          const matchSubcat = (p.subcategory || '').toLowerCase().includes(q);
           if (!matchTitle && !matchDesc && !matchSubcat) return false;
         }
 
         if (selectedSubcategory !== 'All') {
-          if (p.subcategory.toLowerCase() !== selectedSubcategory.toLowerCase()) {
+          if ((p.subcategory || '').toLowerCase() !== selectedSubcategory.toLowerCase()) {
             return false;
           }
         }

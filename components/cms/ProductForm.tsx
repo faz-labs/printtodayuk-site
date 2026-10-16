@@ -31,7 +31,6 @@ export function ProductForm({
   const [price, setPrice] = useState<string>('25.00');
   const [discountedPrice, setDiscountedPrice] = useState<string>('');
   const [category, setCategory] = useState<string>(categories[0]?.name || '');
-  const [subcategory, setSubcategory] = useState('');
   const [isSameDayAvailable, setIsSameDayAvailable] = useState(true);
   const [minQuantity, setMinQuantity] = useState<string>('1');
   const [features, setFeatures] = useState<string[]>([]);
@@ -40,10 +39,6 @@ export function ProductForm({
   const [activeNewOptionText, setActiveNewOptionText] = useState<{ [fieldId: string]: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
-
-  // Available subcategories based on chosen category
-  const activeCategoryConfig = categories.find((c) => c.name === category);
-  const availableSubcategories = activeCategoryConfig?.subcategories || [];
 
   useEffect(() => {
     if (initialProduct) {
@@ -62,8 +57,7 @@ export function ProductForm({
       setDiscountedPrice(
         initialProduct.discountedPrice ? initialProduct.discountedPrice.toString() : ''
       );
-      setCategory(initialProduct.category);
-      setSubcategory(initialProduct.subcategory);
+      setCategory(initialProduct.category || categories[0]?.name || '');
       setIsSameDayAvailable(initialProduct.isSameDayAvailable);
       setMinQuantity(initialProduct.minQuantity ? initialProduct.minQuantity.toString() : '1');
       setFeatures(initialProduct.features || []);
@@ -78,7 +72,6 @@ export function ProductForm({
       setPrice('29.00');
       setDiscountedPrice('');
       setCategory(categories[0]?.name || '');
-      setSubcategory(availableSubcategories[0] || 'Standard');
       setIsSameDayAvailable(true);
       setMinQuantity('100');
       setFeatures([
@@ -89,7 +82,7 @@ export function ProductForm({
     }
     setActiveNewOptionText({});
     setError('');
-  }, [initialProduct, isOpen]);
+  }, [initialProduct, isOpen, categories]);
 
   const handleImagesChange = (newImages: string[]) => {
     setImages(newImages);
@@ -99,13 +92,6 @@ export function ProductForm({
       setImageUrl('');
     }
   };
-
-  // When category changes, auto-adjust subcategory if not in list
-  useEffect(() => {
-    if (!availableSubcategories.includes(subcategory) && availableSubcategories.length > 0) {
-      setSubcategory(availableSubcategories[0]);
-    }
-  }, [category, availableSubcategories]);
 
   const handleTitleChange = (val: string) => {
     setTitle(val);
@@ -217,12 +203,6 @@ export function ProductForm({
       return;
     }
 
-    const parsedDiscount = discountedPrice ? parseFloat(discountedPrice) : undefined;
-    if (parsedDiscount !== undefined && (isNaN(parsedDiscount) || parsedDiscount <= 0)) {
-      setError('Discounted price must be greater than 0.');
-      return;
-    }
-
     const finalImages = images.length > 0 ? images : imageUrl.trim() ? [imageUrl.trim()] : [];
     if (finalImages.length === 0) {
       setError('Please upload at least one product picture.');
@@ -246,14 +226,22 @@ export function ProductForm({
         imageUrl: finalImages[0],
         images: finalImages,
         price: parsedPrice,
-        discountedPrice: parsedDiscount,
-        category,
-        subcategory: subcategory || availableSubcategories[0] || 'General',
+        category: category || categories[0]?.name || 'General',
         isSameDayAvailable,
         minQuantity: parseInt(minQuantity, 10) || 1,
-        features: features.length > 0 ? features : undefined,
-        customFields: validCustomFields.length > 0 ? validCustomFields : undefined,
+        features: features.length > 0 ? features : [],
+        customFields: validCustomFields.length > 0 ? validCustomFields : [],
       };
+
+      if (discountedPrice.trim() !== '') {
+        const parsedDiscount = parseFloat(discountedPrice);
+        if (isNaN(parsedDiscount) || parsedDiscount <= 0) {
+          setError('Discounted price must be greater than 0.');
+          setIsSubmitting(false);
+          return;
+        }
+        payload.discountedPrice = parsedDiscount;
+      }
 
       await onSubmit(payload, initialProduct?.id);
       onClose();
@@ -310,41 +298,22 @@ export function ProductForm({
           </div>
         </div>
 
-        {/* Category & Subcategory */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5">
-              Category <span className="text-rose-500">*</span>
-            </label>
-            <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="w-full h-11 px-3 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-900 focus:outline-hidden focus:border-[#012169]"
-            >
-              {categories.map((cat) => (
-                <option key={cat.name} value={cat.name}>
-                  {cat.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5">
-              Subcategory <span className="text-rose-500">*</span>
-            </label>
-            <select
-              value={subcategory}
-              onChange={(e) => setSubcategory(e.target.value)}
-              className="w-full h-11 px-3 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-900 focus:outline-hidden focus:border-[#012169]"
-            >
-              {availableSubcategories.map((subcat) => (
-                <option key={subcat} value={subcat}>
-                  {subcat}
-                </option>
-              ))}
-            </select>
-          </div>
+        {/* Category Selection */}
+        <div>
+          <label className="block text-xs font-bold text-slate-700 mb-1.5">
+            Category <span className="text-rose-500">*</span>
+          </label>
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            className="w-full h-11 px-3 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-900 focus:outline-hidden focus:border-[#012169]"
+          >
+            {categories.map((cat) => (
+              <option key={cat.name} value={cat.name}>
+                {cat.name}
+              </option>
+            ))}
+          </select>
         </div>
 
         {/* Multi-Image S3 Uploader */}

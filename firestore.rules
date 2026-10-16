@@ -47,5 +47,15 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAdmin();
     }
+
+    // ----------------------------------------------------
+    // Landing Sections Collection (Dynamic CMS Sections)
+    // ----------------------------------------------------
+    // Public: anyone can view active sections on the storefront
+    // Admin: only logged-in CMS admins can create, update, or reorder sections
+    match /landing_sections/{sectionId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
   }
 }

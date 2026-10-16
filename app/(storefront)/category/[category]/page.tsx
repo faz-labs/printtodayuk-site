@@ -69,14 +69,14 @@ export default function CategoryPage() {
         setCategoryConfig(matchedCat || null);
 
         // Filter products belonging to this category (matches category name, subcategory, or title)
+        // Filter products belonging to this category (matches category name, or title)
         const catTarget = categoryName.toLowerCase().trim();
         const catProducts = prodsData.filter((p) => {
-          const pCat = p.category.toLowerCase().trim();
-          const pSub = p.subcategory.toLowerCase().trim();
+          const pCat = (p.category || '').toLowerCase().trim();
+          const pSub = (p.subcategory || '').toLowerCase().trim();
           return (
             pCat === catTarget ||
-            pSub === catTarget ||
-            catTarget.includes(pSub) ||
+            (pSub && pSub === catTarget) ||
             pCat.includes(catTarget) ||
             p.title.toLowerCase().includes(catTarget)
           );
@@ -85,7 +85,9 @@ export default function CategoryPage() {
 
         // Build list of subcategories
         const configSubcats = matchedCat?.subcategories || [];
-        const productSubcats = catProducts.map((p) => p.subcategory).filter(Boolean);
+        const productSubcats = catProducts
+          .map((p) => p.subcategory || '')
+          .filter((s): s is string => Boolean(s));
         const combined = Array.from(new Set([...configSubcats, ...productSubcats]));
         setSubcategories(['All', ...combined]);
       } catch (err) {
@@ -106,15 +108,15 @@ export default function CategoryPage() {
         // Search query
         if (searchQuery.trim()) {
           const q = searchQuery.toLowerCase();
-          const matchTitle = p.title.toLowerCase().includes(q);
-          const matchDesc = p.description.toLowerCase().includes(q);
-          const matchSubcat = p.subcategory.toLowerCase().includes(q);
+          const matchTitle = (p.title || '').toLowerCase().includes(q);
+          const matchDesc = (p.description || '').toLowerCase().includes(q);
+          const matchSubcat = (p.subcategory || '').toLowerCase().includes(q);
           if (!matchTitle && !matchDesc && !matchSubcat) return false;
         }
 
         // Subcategory filter
         if (selectedSubcategory !== 'All') {
-          if (p.subcategory.toLowerCase() !== selectedSubcategory.toLowerCase()) {
+          if ((p.subcategory || '').toLowerCase() !== selectedSubcategory.toLowerCase()) {
             return false;
           }
         }

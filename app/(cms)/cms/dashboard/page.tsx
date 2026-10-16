@@ -4,7 +4,14 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
-import { Product, ProductInput, CategoryConfig, Inquiry } from '@/lib/types';
+import {
+  Product,
+  ProductInput,
+  CategoryConfig,
+  Inquiry,
+  DynamicSection,
+  DynamicSectionInput,
+} from '@/lib/types';
 import {
   getProducts,
   createProduct,
@@ -12,18 +19,22 @@ import {
   deleteProduct,
   getCategories,
   getLocalCategories,
-  updateCategorySubcategories,
   createCategory,
   updateCategory,
   deleteCategory,
   getInquiries,
   updateInquiryStatus,
   deleteInquiry,
+  getLandingSections,
+  createLandingSection,
+  updateLandingSection,
+  deleteLandingSection,
   seedDefaultCatalogToFirestore,
 } from '@/lib/db';
-import { CMSSidebar } from '@/components/cms/CMSSidebar';
+import { CMSSidebar, CMSTab } from '@/components/cms/CMSSidebar';
 import { ProductManager } from '@/components/cms/ProductManager';
 import { CategoryManager } from '@/components/cms/CategoryManager';
+import { SectionManager } from '@/components/cms/SectionManager';
 import { InquiryInbox } from '@/components/cms/InquiryInbox';
 import { HeroBannerManager } from '@/components/cms/HeroBannerManager';
 import { Button } from '@/components/ui/Button';
@@ -32,28 +43,26 @@ import {
   Stack,
   PhoneCall,
   Lightning,
-  Printer,
-  TShirt,
   List,
   Plus,
   ArrowSquareOut,
   Database,
   CheckCircle,
   FolderPlus,
+  Layout,
   Images,
-  Flame,
 } from '@phosphor-icons/react';
 
 export default function CMSDashboardPage() {
   const router = useRouter();
   const { user, logout, loading: authLoading } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'categories' | 'inquiries' | 'banners'>('categories');
+  const [activeTab, setActiveTab] = useState<CMSTab>('categories');
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<CategoryConfig[]>(() =>
     typeof window !== 'undefined' ? getLocalCategories() : []
   );
-  const [selectedCategoryName, setSelectedCategoryName] = useState<string>('');
+  const [landingSections, setLandingSections] = useState<DynamicSection[]>([]);
   const [selectedProductCategory, setSelectedProductCategory] = useState<string>('All');
   const [isAddCatModalOpen, setIsAddCatModalOpen] = useState(false);
   const [isAddProductModalOpen, setIsAddProductModalOpen] = useState(false);
@@ -75,17 +84,16 @@ export default function CMSDashboardPage() {
   const refreshData = async () => {
     setLoadingData(true);
     try {
-      const [prods, cats, inqs] = await Promise.all([
+      const [prods, cats, inqs, secs] = await Promise.all([
         getProducts(),
         getCategories(),
         getInquiries(),
+        getLandingSections(),
       ]);
       setProducts(prods || []);
       setCategories(cats || []);
       setInquiries(inqs || []);
-      if (cats && cats.length > 0 && !selectedCategoryName) {
-        setSelectedCategoryName(cats[0]?.name || '');
-      }
+      setLandingSections(secs || []);
     } catch (err) {
       console.error('Failed to load CMS data:', err);
     } finally {
@@ -120,34 +128,25 @@ export default function CMSDashboardPage() {
   // Category CRUD Handlers
   const handleCreateCategory = async (cat: {
     name: string;
+    slug?: string;
     description?: string;
     imageUrl?: string;
-    subcategories?: string[];
-    subcategoryImages?: Record<string, string>;
+    metaTitle?: string;
+    metaDescription?: string;
     isBestSeller?: boolean;
   }) => {
     const created = await createCategory(cat);
-    setCategories((prev) => [...prev.filter((c) => c.name.toLowerCase() !== created.name.toLowerCase()), created]);
-    setSelectedCategoryName(created.name);
+    setCategories((prev) => [
+      ...prev.filter((c) => c.name.toLowerCase() !== created.name.toLowerCase()),
+      created,
+    ]);
   };
 
   const handleDeleteCategory = async (categoryName: string) => {
     await deleteCategory(categoryName);
-    setCategories((prev) => {
-      const remaining = prev.filter((c) => c.name.toLowerCase() !== categoryName.toLowerCase());
-      if (selectedCategoryName.toLowerCase() === categoryName.toLowerCase()) {
-        setSelectedCategoryName(remaining[0]?.name || '');
-      }
-      return remaining;
-    });
-  };
-
-  const handleUpdateSubcategories = async (
-    categoryName: string,
-    subcategories: string[]
-  ) => {
-    const updated = await updateCategorySubcategories(categoryName, subcategories);
-    setCategories([...updated]);
+    setCategories((prev) =>
+      prev.filter((c) => c.name.toLowerCase() !== categoryName.toLowerCase())
+    );
   };
 
   const handleUpdateCategory = async (
@@ -158,6 +157,26 @@ export default function CMSDashboardPage() {
     setCategories((prev) =>
       prev.map((c) => (c.name.toLowerCase() === categoryName.toLowerCase() ? updated : c))
     );
+  };
+
+  // Landing Section CRUD Handlers
+  const handleCreateSection = async (input: DynamicSectionInput) => {
+    const created = await createLandingSection(input);
+    setLandingSections((prev) => [...prev, created].sort((a, b) => a.order - b.order));
+  };
+
+  const handleUpdateSection = async (id: string, updates: Partial<DynamicSection>) => {
+    const updated = await updateLandingSection(id, updates);
+    if (updated) {
+      setLandingSections((prev) =>
+        prev.map((s) => (s.id === id ? updated : s)).sort((a, b) => a.order - b.order)
+      );
+    }
+  };
+
+  const handleDeleteSection = async (id: string) => {
+    await deleteLandingSection(id);
+    setLandingSections((prev) => prev.filter((s) => s.id !== id));
   };
 
   // Inquiry CRUD Handlers
@@ -226,32 +245,13 @@ export default function CMSDashboardPage() {
 
   return (
     <div className="flex h-screen bg-slate-100 overflow-hidden font-['Open_Sans',sans-serif]">
-      {/* 1. Left Drawer Navigation (Generic Professional CMS Sidebar) */}
+      {/* 1. Left Drawer Navigation (Clean page list) */}
       <CMSSidebar
         activeTab={activeTab}
-        onTabChange={(tab) => {
-          setActiveTab(tab);
-        }}
-        categories={categories}
-        selectedCategoryName={selectedCategoryName}
-        onSelectCategory={(name) => {
-          setSelectedCategoryName(name);
-          setActiveTab('categories');
-        }}
-        products={products}
-        selectedProductCategory={selectedProductCategory}
-        onSelectProductCategory={(cat) => {
-          setSelectedProductCategory(cat);
-          setActiveTab('products');
-        }}
-        onOpenAddCategoryModal={() => {
-          setActiveTab('categories');
-          setIsAddCatModalOpen(true);
-        }}
-        onOpenAddProductModal={() => {
-          setActiveTab('products');
-          setIsAddProductModalOpen(true);
-        }}
+        onTabChange={(tab) => setActiveTab(tab)}
+        categoriesCount={categories.length}
+        productsCount={products.length}
+        sectionsCount={landingSections.length}
         pendingInquiriesCount={pendingInquiriesCount}
         isOpenMobile={isMobileDrawerOpen}
         onCloseMobile={() => setIsMobileDrawerOpen(false)}
@@ -277,14 +277,7 @@ export default function CMSDashboardPage() {
               <span className="text-slate-300 hidden sm:inline">/</span>
               <h1 className="text-sm font-black text-slate-900 capitalize">
                 {activeTab === 'overview' && 'Dashboard Overview & Analytics'}
-                {activeTab === 'categories' && (
-                  <span>
-                    Category Management{' '}
-                    {selectedCategoryName && (
-                      <span className="text-[#012169] font-bold">› {selectedCategoryName}</span>
-                    )}
-                  </span>
-                )}
+                {activeTab === 'categories' && 'Category Management'}
                 {activeTab === 'products' && (
                   <span>
                     Product Catalog{' '}
@@ -293,6 +286,7 @@ export default function CMSDashboardPage() {
                     )}
                   </span>
                 )}
+                {activeTab === 'sections' && 'Dynamic Landing Page Sections'}
                 {activeTab === 'banners' && 'Hero Carousel Banners'}
                 {activeTab === 'inquiries' && 'Leads & Callback Inquiries'}
               </h1>
@@ -351,8 +345,8 @@ export default function CMSDashboardPage() {
           </div>
         </header>
 
-        {/* Scrollable Main Body Content */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6">
+        {/* Scrollable Main Body Content (Smooth, unclipped scrolling) */}
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6 scroll-smooth">
           {loadingData ? (
             <div className="bg-white rounded-2xl border border-slate-200 p-16 text-center shadow-xs">
               <div className="h-8 w-8 border-3 border-[#012169]/30 border-t-[#012169] rounded-full animate-spin mx-auto mb-3" />
@@ -373,7 +367,7 @@ export default function CMSDashboardPage() {
                         <div className="text-2xl font-black text-slate-900 mt-1">
                           {categories.length}
                         </div>
-                        <div className="text-[10px] text-slate-500 mt-0.5">Active in A-Z Menu</div>
+                        <div className="text-[10px] text-slate-500 mt-0.5">Active in Catalog</div>
                       </div>
                       <div className="h-11 w-11 rounded-xl bg-[#012169]/10 text-[#012169] flex items-center justify-center">
                         <Stack className="h-5 w-5" weight="bold" />
@@ -398,15 +392,15 @@ export default function CMSDashboardPage() {
                     <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
                       <div>
                         <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                          Same-Day Express
+                          Dynamic Sections
                         </div>
-                        <div className="text-2xl font-black text-emerald-600 mt-1">
-                          {sameDayCount}
+                        <div className="text-2xl font-black text-purple-600 mt-1">
+                          {landingSections.length}
                         </div>
-                        <div className="text-[10px] text-slate-500 mt-0.5">London Dispatch</div>
+                        <div className="text-[10px] text-slate-500 mt-0.5">Homepage Layouts</div>
                       </div>
-                      <div className="h-11 w-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                        <Lightning className="h-5 w-5" weight="fill" />
+                      <div className="h-11 w-11 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
+                        <Layout className="h-5 w-5" weight="fill" />
                       </div>
                     </div>
 
@@ -427,7 +421,7 @@ export default function CMSDashboardPage() {
                   </div>
 
                   {/* Quick Jump Action Grid */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div
                       onClick={() => setActiveTab('categories')}
                       className="bg-white p-6 rounded-2xl border border-slate-200 hover:border-[#012169] transition-all cursor-pointer group shadow-xs"
@@ -438,10 +432,10 @@ export default function CMSDashboardPage() {
                         </div>
                         <div>
                           <h3 className="text-sm font-black text-slate-900 group-hover:text-[#012169] transition-colors">
-                            Manage Categories & Subcategories
+                            Manage Categories
                           </h3>
                           <p className="text-xs text-slate-500 mt-0.5">
-                            Organize your A to Z menu, upload S3 photos, and manage Best Sellers.
+                            Create categories, upload S3 photos, and manage SEO meta tags.
                           </p>
                         </div>
                       </div>
@@ -457,10 +451,29 @@ export default function CMSDashboardPage() {
                         </div>
                         <div>
                           <h3 className="text-sm font-black text-slate-900 group-hover:text-blue-600 transition-colors">
-                            Manage Products & Pricing
+                            Manage Products
                           </h3>
                           <p className="text-xs text-slate-500 mt-0.5">
-                            Add products, configure variants, turnaround times, and prices.
+                            Add products under categories, configure options, and set pricing.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div
+                      onClick={() => setActiveTab('sections')}
+                      className="bg-white p-6 rounded-2xl border border-slate-200 hover:border-[#012169] transition-all cursor-pointer group shadow-xs"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-xl bg-purple-600 text-white flex items-center justify-center">
+                          <Layout weight="bold" className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-black text-slate-900 group-hover:text-purple-600 transition-colors">
+                            Landing Sections
+                          </h3>
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            Set up auto-scrolling product rows and 8-tile grids on homepage.
                           </p>
                         </div>
                       </div>
@@ -473,15 +486,13 @@ export default function CMSDashboardPage() {
               {activeTab === 'categories' && (
                 <CategoryManager
                   categories={categories}
-                  selectedCategoryName={selectedCategoryName}
-                  onSelectCategory={(name) => setSelectedCategoryName(name)}
-                  isAddModalOpen={isAddCatModalOpen}
-                  onOpenAddModal={() => setIsAddCatModalOpen(true)}
-                  onCloseAddModal={() => setIsAddCatModalOpen(false)}
-                  onUpdateSubcategories={handleUpdateSubcategories}
+                  products={products}
                   onCreateCategory={handleCreateCategory}
                   onDeleteCategory={handleDeleteCategory}
                   onUpdateCategory={handleUpdateCategory}
+                  isAddModalOpen={isAddCatModalOpen}
+                  onOpenAddModal={() => setIsAddCatModalOpen(true)}
+                  onCloseAddModal={() => setIsAddCatModalOpen(false)}
                 />
               )}
 
@@ -502,10 +513,22 @@ export default function CMSDashboardPage() {
                 />
               )}
 
-              {/* 4. Hero Banners Tab */}
+              {/* 4. Dynamic Landing Sections Tab */}
+              {activeTab === 'sections' && (
+                <SectionManager
+                  sections={landingSections}
+                  categories={categories}
+                  products={products}
+                  onCreateSection={handleCreateSection}
+                  onUpdateSection={handleUpdateSection}
+                  onDeleteSection={handleDeleteSection}
+                />
+              )}
+
+              {/* 5. Hero Banners Tab */}
               {activeTab === 'banners' && <HeroBannerManager />}
 
-              {/* 5. Leads / Inquiries Tab */}
+              {/* 6. Leads / Inquiries Tab */}
               {activeTab === 'inquiries' && (
                 <InquiryInbox
                   inquiries={inquiries}

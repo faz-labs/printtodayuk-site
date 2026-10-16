@@ -199,7 +199,7 @@ export function ProductManager({
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search products by title, category, subcategory..."
+              placeholder="Search products by title or category..."
               className="w-full h-10 pl-10 pr-4 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 focus:outline-hidden focus:bg-white focus:border-[#012169]"
             />
           </div>
@@ -269,7 +269,6 @@ export function ProductManager({
                 <tr className="bg-slate-50/80 text-[11px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">
                   <th className="py-3.5 px-4">Product</th>
                   <th className="py-3.5 px-4">Category</th>
-                  <th className="py-3.5 px-4">Subcategory</th>
                   <th className="py-3.5 px-4">Price</th>
                   <th className="py-3.5 px-4">Same-Day</th>
                   <th className="py-3.5 px-4 text-right">Actions</th>
@@ -312,11 +311,6 @@ export function ProductManager({
                         >
                           {product.category}
                         </Badge>
-                      </td>
-
-                      {/* Subcategory */}
-                      <td className="py-3.5 px-4 font-semibold text-slate-700">
-                        {product.subcategory}
                       </td>
 
                       {/* Price */}

@@ -20,7 +20,7 @@ export interface Product {
   price: number;
   discountedPrice?: number;
   category: ProductCategory;
-  subcategory: string;
+  subcategory?: string; // Optional legacy field
   isSameDayAvailable: boolean;
   minQuantity?: number;
   features?: string[];
@@ -32,12 +32,15 @@ export interface Product {
 export interface CategoryConfig {
   id?: string;
   name: string;
+  slug?: string;
   icon?: string;
   imageUrl?: string;
   description?: string;
-  subcategories: string[];
-  subcategoryImages?: Record<string, string>;
+  metaTitle?: string;
+  metaDescription?: string;
   isBestSeller?: boolean;
+  subcategories?: string[]; // Kept optional for backwards compatibility
+  subcategoryImages?: Record<string, string>;
 }
 
 export interface Inquiry {
@@ -63,6 +66,22 @@ export interface HeroSlide {
   order?: number;
 }
 
+export type DynamicSectionType = 'horizontal_scroll' | 'grid_8_tiles';
+
+export interface DynamicSection {
+  id?: string;
+  title: string;
+  subtitle?: string;
+  type: DynamicSectionType; // 'horizontal_scroll' (auto-scroll row) or 'grid_8_tiles' (2 rows x 4 items)
+  sourceType: 'category' | 'products';
+  categoryName?: string;
+  productIds?: string[];
+  order: number;
+  isActive: boolean;
+  createdAt?: number;
+  updatedAt?: number;
+}
+
 export type ProductInput = Omit<Product, 'id' | 'createdAt' | 'updatedAt'>;
 export type InquiryInput = Omit<Inquiry, 'id' | 'createdAt'>;
-
+export type DynamicSectionInput = Omit<DynamicSection, 'id' | 'createdAt' | 'updatedAt'>;

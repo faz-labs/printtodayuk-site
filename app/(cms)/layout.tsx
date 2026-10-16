@@ -8,7 +8,7 @@ export default function CMSLayout({
 }) {
   return (
     <AuthProvider>
-      <div className="min-h-screen bg-slate-100 text-slate-900 font-sans">
+      <div className="min-h-screen bg-slate-100 text-slate-900 font-['Open_Sans',sans-serif] text-[16px]">
         {children}
       </div>
     </AuthProvider>

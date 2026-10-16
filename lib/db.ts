@@ -11,9 +11,43 @@ import {
   where,
 } from 'firebase/firestore';
 import { db, isConfigured } from './firebase';
-import { Product, CategoryConfig, Inquiry, ProductInput, HeroSlide } from './types';
+import {
+  Product,
+  CategoryConfig,
+  Inquiry,
+  ProductInput,
+  HeroSlide,
+  DynamicSection,
+  DynamicSectionInput,
+} from './types';
 import { INITIAL_CATEGORIES, SEED_PRODUCTS, DEFAULT_HERO_SLIDES } from './data';
 import { slugify } from './utils';
+
+/**
+ * Strips all keys with `undefined` values recursively so Firestore never throws:
+ * "unsupported field value: undefined found in field ..."
+ */
+export function cleanFirestoreData<T extends Record<string, any>>(obj: T): T {
+  const result: any = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value === undefined) {
+      continue;
+    } else if (Array.isArray(value)) {
+      result[key] = value
+        .filter((item) => item !== undefined)
+        .map((item) =>
+          item !== null && typeof item === 'object' && !Array.isArray(item)
+            ? cleanFirestoreData(item)
+            : item
+        );
+    } else if (value !== null && typeof value === 'object') {
+      result[key] = cleanFirestoreData(value);
+    } else {
+      result[key] = value;
+    }
+  }
+  return result;
+}
 
 
 // Helper to get local stored products if offline
@@ -207,7 +241,8 @@ export async function createProduct(productInput: ProductInput): Promise<Product
 
   if (isConfigured && db) {
     try {
-      const docRef = await addDoc(collection(db, 'products'), newProduct);
+      const cleanData = cleanFirestoreData(newProduct);
+      const docRef = await addDoc(collection(db, 'products'), cleanData);
       newProduct.id = docRef.id;
       // Also sync to local cache
       const local = getLocalProducts();
@@ -238,8 +273,9 @@ export async function updateProduct(
 
   if (isConfigured && db) {
     try {
+      const cleanData = cleanFirestoreData(payload);
       const docRef = doc(db, 'products', id);
-      await updateDoc(docRef, payload);
+      await updateDoc(docRef, cleanData);
     } catch (error) {
       console.error('Firestore updateProduct failed:', error);
       throw error;
@@ -336,10 +372,11 @@ export async function getCategories(): Promise<CategoryConfig[]> {
 
 export async function createCategory(cat: {
   name: string;
+  slug?: string;
   description?: string;
   imageUrl?: string;
-  subcategories?: string[];
-  subcategoryImages?: Record<string, string>;
+  metaTitle?: string;
+  metaDescription?: string;
   isBestSeller?: boolean;
 }): Promise<CategoryConfig> {
   const normName = cat.name.toLowerCase().trim();
@@ -349,12 +386,14 @@ export async function createCategory(cat: {
     saveDeletedCategories(deletedSet);
   }
 
+  const slug = cat.slug?.trim() || slugify(cat.name);
   const newCat: CategoryConfig = {
     name: cat.name.trim(),
-    description: cat.description?.trim(),
-    imageUrl: cat.imageUrl,
-    subcategories: cat.subcategories || [],
-    subcategoryImages: cat.subcategoryImages || {},
+    slug,
+    description: cat.description?.trim() || '',
+    imageUrl: cat.imageUrl || '',
+    metaTitle: cat.metaTitle?.trim() || '',
+    metaDescription: cat.metaDescription?.trim() || '',
     isBestSeller: Boolean(cat.isBestSeller),
   };
 
@@ -362,7 +401,8 @@ export async function createCategory(cat: {
 
   if (isConfigured && db) {
     try {
-      await setDoc(doc(db, 'categories', docId), newCat);
+      const cleanData = cleanFirestoreData(newCat);
+      await setDoc(doc(db, 'categories', docId), cleanData);
       newCat.id = docId;
     } catch (error) {
       console.warn('Firestore createCategory warning (offline/auth):', error);
@@ -410,32 +450,6 @@ export async function deleteCategory(categoryName: string, categoryId?: string):
   return true;
 }
 
-export async function updateCategorySubcategories(
-  categoryName: string,
-  subcategories: string[]
-): Promise<CategoryConfig[]> {
-  const docId = categoryName.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-');
-
-  if (isConfigured && db) {
-    try {
-      const docRef = doc(db, 'categories', docId);
-      await setDoc(docRef, { name: categoryName, subcategories }, { merge: true });
-    } catch (error) {
-      console.warn('Firestore updateCategorySubcategories warning (offline/auth):', error);
-    }
-  }
-
-  const local = getLocalCategories();
-  const index = local.findIndex((c) => c.name.toLowerCase() === categoryName.toLowerCase());
-  if (index !== -1) {
-    local[index].subcategories = subcategories;
-  } else {
-    local.push({ name: categoryName, subcategories });
-  }
-  saveLocalCategories(local);
-  return local;
-}
-
 export async function updateCategory(
   categoryName: string,
   updates: Partial<CategoryConfig>
@@ -445,7 +459,8 @@ export async function updateCategory(
   if (isConfigured && db) {
     try {
       const docRef = doc(db, 'categories', docId);
-      await setDoc(docRef, { name: categoryName, ...updates }, { merge: true });
+      const cleanData = cleanFirestoreData({ name: categoryName, ...updates });
+      await setDoc(docRef, cleanData, { merge: true });
     } catch (error) {
       console.warn('Firestore updateCategory warning (offline/auth):', error);
     }
@@ -460,7 +475,6 @@ export async function updateCategory(
   } else {
     const created: CategoryConfig = {
       name: categoryName,
-      subcategories: [],
       ...updates,
     };
     local.push(created);
@@ -645,3 +659,122 @@ export async function deleteHeroSlide(slideId: string): Promise<boolean> {
   saveLocalHeroSlides(local);
   return true;
 }
+
+// ---------------- DYNAMIC LANDING SECTIONS CRUD ----------------
+
+function getLocalLandingSections(): DynamicSection[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const data = localStorage.getItem('print_today_landing_sections');
+    if (data) {
+      const parsed = JSON.parse(data);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch {}
+  return [];
+}
+
+function saveLocalLandingSections(sections: DynamicSection[]) {
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem('print_today_landing_sections', JSON.stringify(sections));
+    } catch {}
+  }
+}
+
+export async function getLandingSections(): Promise<DynamicSection[]> {
+  const local = getLocalLandingSections();
+  if (isConfigured && db) {
+    try {
+      const snap = await getDocs(collection(db, 'landing_sections'));
+      if (!snap.empty) {
+        const sections = snap.docs.map((d) => ({
+          id: d.id,
+          ...d.data(),
+        })) as DynamicSection[];
+        sections.sort((a, b) => (a.order || 0) - (b.order || 0));
+        saveLocalLandingSections(sections);
+        return sections;
+      }
+    } catch (error) {
+      console.warn('Firestore getLandingSections failed, using fallback:', error);
+    }
+  }
+  return local.sort((a, b) => (a.order || 0) - (b.order || 0));
+}
+
+export async function createLandingSection(input: DynamicSectionInput): Promise<DynamicSection> {
+  const newSection: DynamicSection = {
+    ...input,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+
+  if (isConfigured && db) {
+    try {
+      const cleanData = cleanFirestoreData(newSection);
+      const docRef = await addDoc(collection(db, 'landing_sections'), cleanData);
+      newSection.id = docRef.id;
+      const local = getLocalLandingSections();
+      local.push(newSection);
+      saveLocalLandingSections(local);
+      return newSection;
+    } catch (error) {
+      console.error('Firestore createLandingSection failed:', error);
+      throw error;
+    }
+  }
+
+  newSection.id = `sec-${Date.now()}`;
+  const local = getLocalLandingSections();
+  local.push(newSection);
+  saveLocalLandingSections(local);
+  return newSection;
+}
+
+export async function updateLandingSection(
+  id: string,
+  updates: Partial<DynamicSection>
+): Promise<DynamicSection | null> {
+  const payload = {
+    ...updates,
+    updatedAt: Date.now(),
+  };
+
+  if (isConfigured && db) {
+    try {
+      const cleanData = cleanFirestoreData(payload);
+      const docRef = doc(db, 'landing_sections', id);
+      await updateDoc(docRef, cleanData);
+    } catch (error) {
+      console.error('Firestore updateLandingSection failed:', error);
+      throw error;
+    }
+  }
+
+  const local = getLocalLandingSections();
+  const idx = local.findIndex((s) => s.id === id);
+  if (idx !== -1) {
+    local[idx] = { ...local[idx], ...payload };
+    saveLocalLandingSections(local);
+    return local[idx];
+  }
+  return { id, ...payload } as DynamicSection;
+}
+
+export async function deleteLandingSection(id: string): Promise<boolean> {
+  if (isConfigured && db) {
+    try {
+      const docRef = doc(db, 'landing_sections', id);
+      await deleteDoc(docRef);
+    } catch (error) {
+      console.error('Firestore deleteLandingSection error:', error);
+      throw error;
+    }
+  }
+
+  const local = getLocalLandingSections().filter((s) => s.id !== id);
+  saveLocalLandingSections(local);
+  return true;
+}
+

@@ -5,6 +5,7 @@ import { HeroSection } from '@/components/storefront/HeroSection';
 import { FeatureHighlights } from '@/components/storefront/FeatureHighlights';
 import { CategoryTilesSection } from '@/components/storefront/CategoryTilesSection';
 import { CategorySections } from '@/components/storefront/CategorySections';
+import { DynamicLandingSections } from '@/components/storefront/DynamicLandingSections';
 import { CuratedSolutionsSection } from '@/components/storefront/CuratedSolutionsSection';
 import { PromoCalloutBanner } from '@/components/storefront/PromoCalloutBanner';
 import { CustomerShowcaseSection } from '@/components/storefront/CustomerShowcaseSection';
@@ -20,7 +21,10 @@ export default function HomePage() {
       {/* 2. Vistaprint 4-Pillar Confidence & Trust Bar */}
       <FeatureHighlights />
 
-      {/* 3. Category Sections (Gift Items, Printing, Clothing) with Subcategory Picture Cards (Mug, Pen, etc.) */}
+      {/* 3. Dynamic CMS-Managed Landing Sections (Horizontal Auto-Scroll & 8-Tile Grids) */}
+      <DynamicLandingSections />
+
+      {/* 4. Category Showcase */}
       <CategorySections />
 
       {/* 4. Popular Category Quick Highlights */}
