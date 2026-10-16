@@ -3,23 +3,62 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { DynamicSection, Product } from '@/lib/types';
-import { getLandingSections, getLocalLandingSections, getProducts } from '@/lib/db';
+import { getLandingSections, getLocalLandingSections, getProducts, getLocalProducts, saveLocalLandingSections, saveLocalProducts } from '@/lib/db';
 import { formatCurrency, calculateDiscount } from '@/lib/utils';
 import { Lightning, ArrowRight, Sparkle, Tag } from '@phosphor-icons/react';
 
-export function DynamicLandingSections() {
-  // 1. Initialize synchronously from local cache so there is ZERO flash, ZERO delay, and NO loading modal
+interface DynamicLandingSectionsProps {
+  initialSections?: DynamicSection[];
+  initialProducts?: Product[];
+}
+
+export function DynamicLandingSections({
+  initialSections,
+  initialProducts,
+}: DynamicLandingSectionsProps = {}) {
+  // 1. Initialize synchronously: use server SSR props first, then local browser cache
   const [sections, setSections] = useState<DynamicSection[]>(() => {
+    if (initialSections && initialSections.length > 0) {
+      return initialSections.filter((s) => s.isActive);
+    }
     if (typeof window !== 'undefined') {
       return getLocalLandingSections().filter((s) => s.isActive);
     }
     return [];
   });
-  const [products, setProducts] = useState<Product[]>([]);
+
+  const [products, setProducts] = useState<Product[]>(() => {
+    if (initialProducts && initialProducts.length > 0) {
+      return initialProducts;
+    }
+    if (typeof window !== 'undefined') {
+      return getLocalProducts();
+    }
+    return [];
+  });
 
   useEffect(() => {
-    // 2. Fetch fresh data from Firestore in the background
+    // 2. Fetch fresh data through high-speed server API route (cached in memory, returns in ~15ms)
     async function loadData() {
+      try {
+        const res = await fetch('/api/landing-data');
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.sections) && data.sections.length > 0) {
+            setSections(data.sections.filter((s: DynamicSection) => s.isActive));
+            saveLocalLandingSections(data.sections);
+          }
+          if (Array.isArray(data.products) && data.products.length > 0) {
+            setProducts(data.products);
+            saveLocalProducts(data.products);
+          }
+          return;
+        }
+      } catch (err) {
+        console.warn('API landing data fetch error, falling back to direct DB:', err);
+      }
+
+      // Fallback: direct database fetch if API route is unavailable
       try {
         const [secs, prods] = await Promise.all([
           getLandingSections(),
@@ -32,12 +71,12 @@ export function DynamicLandingSections() {
           setProducts(prods);
         }
       } catch (err) {
-        console.warn('DynamicLandingSections fetch warning:', err);
+        console.warn('Direct landing sections fetch warning:', err);
       }
     }
     loadData();
 
-    // 3. Instant reactive sync when sections are modified in CMS (same-tab or cross-tab)
+    // 3. Instant reactive sync when sections or products are modified in CMS (same-tab or cross-tab)
     const handleStorageUpdate = (e: StorageEvent) => {
       if (e.key === 'print_today_landing_sections') {
         try {
@@ -46,22 +85,38 @@ export function DynamicLandingSections() {
             setSections(updated.filter((s) => s.isActive));
           }
         } catch {}
+      } else if (e.key === 'print_today_products') {
+        try {
+          const updatedProds = JSON.parse(e.newValue || '[]');
+          if (Array.isArray(updatedProds)) {
+            setProducts(updatedProds);
+          }
+        } catch {}
       }
     };
 
-    const handleCustomUpdate = (e: Event) => {
+    const handleSectionsCustomUpdate = (e: Event) => {
       const customEvent = e as CustomEvent<DynamicSection[]>;
       if (Array.isArray(customEvent.detail)) {
         setSections(customEvent.detail.filter((s) => s.isActive));
       }
     };
 
+    const handleProductsCustomUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent<Product[]>;
+      if (Array.isArray(customEvent.detail)) {
+        setProducts(customEvent.detail);
+      }
+    };
+
     window.addEventListener('storage', handleStorageUpdate);
-    window.addEventListener('print_today_sections_updated', handleCustomUpdate);
+    window.addEventListener('print_today_sections_updated', handleSectionsCustomUpdate);
+    window.addEventListener('print_today_products_updated', handleProductsCustomUpdate);
 
     return () => {
       window.removeEventListener('storage', handleStorageUpdate);
-      window.removeEventListener('print_today_sections_updated', handleCustomUpdate);
+      window.removeEventListener('print_today_sections_updated', handleSectionsCustomUpdate);
+      window.removeEventListener('print_today_products_updated', handleProductsCustomUpdate);
     };
   }, []);
 
@@ -94,7 +149,31 @@ export function DynamicLandingSections() {
           );
         }
 
-        if (sectionProducts.length === 0) return null;
+        if (sectionProducts.length === 0) {
+          // If products are loading on cold start, show skeleton instead of blank gap
+          if (products.length === 0) {
+            return (
+              <section key={section.id || section.title} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 animate-pulse">
+                <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-8 gap-3 border-b border-slate-100 pb-4">
+                  <div>
+                    <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                      {section.title}
+                    </h2>
+                    {section.subtitle && (
+                      <p className="text-sm text-slate-600 mt-1 font-medium">{section.subtitle}</p>
+                    )}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="aspect-[4/3] bg-slate-100 rounded-2xl" />
+                  ))}
+                </div>
+              </section>
+            );
+          }
+          return null;
+        }
 
         return (
           <section key={section.id || section.title} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

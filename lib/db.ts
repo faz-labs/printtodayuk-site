@@ -56,8 +56,8 @@ export function cleanFirestoreData<T extends Record<string, any>>(obj: T): T {
 }
 
 
-// Helper to get local stored products if offline
-function getLocalProducts(): Product[] {
+// Helper to get local stored products if offline or for immediate synchronous hydration
+export function getLocalProducts(): Product[] {
   if (typeof window === 'undefined') return [];
   try {
     const data = localStorage.getItem('print_today_products');
@@ -71,10 +71,11 @@ function getLocalProducts(): Product[] {
   return [];
 }
 
-function saveLocalProducts(products: Product[]) {
+export function saveLocalProducts(products: Product[]) {
   if (typeof window !== 'undefined') {
     try {
       localStorage.setItem('print_today_products', JSON.stringify(products));
+      window.dispatchEvent(new CustomEvent('print_today_products_updated', { detail: products }));
     } catch {}
   }
 }
@@ -172,7 +173,19 @@ function saveLocalInquiries(inquiries: Inquiry[]) {
 
 // ---------------- PRODUCTS CRUD ----------------
 
+let memoryProducts: { data: Product[]; timestamp: number } | null = null;
+const MEMORY_CACHE_TTL_MS = 60 * 1000; // 60 seconds
+
+export function invalidateProductsCache() {
+  memoryProducts = null;
+}
+
 export async function getProducts(category?: string): Promise<Product[]> {
+  const now = Date.now();
+  if (!category && memoryProducts && now - memoryProducts.timestamp < MEMORY_CACHE_TTL_MS) {
+    return memoryProducts.data;
+  }
+
   if (isConfigured && db) {
     try {
       const q = collection(db, 'products');
@@ -194,6 +207,10 @@ export async function getProducts(category?: string): Promise<Product[]> {
           price: typeof data.price === 'number' ? data.price : Number(data.price) || 0,
         };
       }) as Product[];
+      if (!category && Array.isArray(products) && products.length > 0) {
+        memoryProducts = { data: products, timestamp: now };
+        saveLocalProducts(products);
+      }
       return products;
     } catch (error) {
       console.warn('Firestore fetch products failed, using local fallback:', error);
@@ -238,6 +255,7 @@ export async function getProductById(idOrSlug: string): Promise<Product | null> 
 }
 
 export async function createProduct(productInput: ProductInput): Promise<Product> {
+  invalidateProductsCache();
   const newProduct: Product = {
     ...productInput,
     slug: productInput.slug || slugify(productInput.title),
@@ -272,6 +290,7 @@ export async function updateProduct(
   id: string,
   updates: Partial<Product>
 ): Promise<Product | null> {
+  invalidateProductsCache();
   const payload = {
     ...updates,
     updatedAt: Date.now(),
@@ -300,6 +319,7 @@ export async function updateProduct(
 }
 
 export async function deleteProduct(id: string): Promise<boolean> {
+  invalidateProductsCache();
   if (isConfigured && db) {
     try {
       const docRef = doc(db, 'products', id);
@@ -750,6 +770,12 @@ export async function deleteHeroSlide(slideId: string): Promise<boolean> {
 
 // ---------------- DYNAMIC LANDING SECTIONS CRUD ----------------
 
+let memoryLandingSections: { data: DynamicSection[]; timestamp: number } | null = null;
+
+export function invalidateLandingSectionsCache() {
+  memoryLandingSections = null;
+}
+
 export function getLocalLandingSections(): DynamicSection[] {
   if (typeof window === 'undefined') return [];
   try {
@@ -772,6 +798,11 @@ export function saveLocalLandingSections(sections: DynamicSection[]) {
 }
 
 export async function getLandingSections(): Promise<DynamicSection[]> {
+  const now = Date.now();
+  if (memoryLandingSections && now - memoryLandingSections.timestamp < MEMORY_CACHE_TTL_MS) {
+    return memoryLandingSections.data;
+  }
+
   const local = getLocalLandingSections();
   if (isConfigured && db) {
     try {
@@ -782,6 +813,7 @@ export async function getLandingSections(): Promise<DynamicSection[]> {
           ...d.data(),
         })) as DynamicSection[];
         sections.sort((a, b) => (a.order || 0) - (b.order || 0));
+        memoryLandingSections = { data: sections, timestamp: now };
         saveLocalLandingSections(sections);
         return sections;
       }
@@ -793,6 +825,7 @@ export async function getLandingSections(): Promise<DynamicSection[]> {
 }
 
 export async function createLandingSection(input: DynamicSectionInput): Promise<DynamicSection> {
+  invalidateLandingSectionsCache();
   const newSection: DynamicSection = {
     ...input,
     createdAt: Date.now(),
@@ -825,6 +858,7 @@ export async function updateLandingSection(
   id: string,
   updates: Partial<DynamicSection>
 ): Promise<DynamicSection | null> {
+  invalidateLandingSectionsCache();
   const payload = {
     ...updates,
     updatedAt: Date.now(),
@@ -852,6 +886,7 @@ export async function updateLandingSection(
 }
 
 export async function deleteLandingSection(id: string): Promise<boolean> {
+  invalidateLandingSectionsCache();
   if (isConfigured && db) {
     try {
       const docRef = doc(db, 'landing_sections', id);

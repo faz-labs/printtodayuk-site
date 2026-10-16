@@ -30,7 +30,7 @@ import { cn } from '@/lib/utils';
 import { useCallMe } from './CallMeContext';
 import { useSmoothScroll } from '@/components/providers/SmoothScrollProvider';
 import { CategoryConfig, Product } from '@/lib/types';
-import { getCategories, getProducts, getLocalCategories } from '@/lib/db';
+import { getCategories, getProducts, getLocalCategories, getLocalProducts } from '@/lib/db';
 import { INITIAL_CATEGORIES } from '@/lib/data';
 import { AllProductsMegaMenu } from './AllProductsMegaMenu';
 
@@ -46,7 +46,9 @@ export function Navbar() {
   const [categories, setCategories] = useState<CategoryConfig[]>(() =>
     typeof window !== 'undefined' ? getLocalCategories() : []
   );
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<Product[]>(() =>
+    typeof window !== 'undefined' ? getLocalProducts() : []
+  );
   const [hoveredMenu, setHoveredMenu] = useState<'all-products' | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
