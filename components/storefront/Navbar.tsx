@@ -171,11 +171,17 @@ export function Navbar({ initialCategories = [], initialProducts = [] }: NavbarP
   return (
     <>
       <header
-        className="sticky top-0 z-40 w-full relative bg-white border-b border-slate-200/90 shadow-xs"
+        className="sticky top-0 z-40 w-full relative bg-white/80 backdrop-blur-xl border-b border-slate-200/60 shadow-2xs supports-[backdrop-filter]:bg-white/75 transition-all duration-300 overflow-hidden"
         onMouseLeave={handleMouseLeave}
       >
-        {/* SINGLE LINE NAVBAR: Left (Logo), Center (A to Z Products, Signage, Build Website), Right (Expandable Search Bar + 10% Promo Button) */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Soft Multi-Color Aurora Glow Behind Center Nav (Matching User's Reference Screenshot) */}
+        <div
+          aria-hidden="true"
+          className="absolute -top-6 left-1/2 -translate-x-1/2 w-80 sm:w-96 h-28 bg-gradient-to-r from-purple-500/25 via-pink-500/35 to-amber-300/30 blur-3xl rounded-full pointer-events-none opacity-90 transition-opacity"
+        />
+
+        {/* SINGLE LINE NAVBAR: Left (Logo), Center (A to Z Products, Signage, Build Website), Right (Expandable Search Bar) */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="flex items-center justify-between gap-3 lg:gap-6 h-18 sm:h-20">
             {/* 1. Logo (Left) */}
             <Link
@@ -213,10 +219,16 @@ export function Navbar({ initialCategories = [], initialProducts = [] }: NavbarP
             </Link>
 
             {/* 2. Center: A to Z Products Mega Menu, Signage & Build Website */}
-            <nav className="hidden lg:flex items-center justify-center gap-1 xl:gap-2 h-full flex-1">
+            <nav className="hidden lg:flex items-center justify-center gap-1 xl:gap-2 h-full flex-1 relative">
+              {/* Subtle ambient light center anchor */}
+              <div
+                aria-hidden="true"
+                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-12 bg-gradient-to-r from-violet-400/20 via-fuchsia-400/25 to-yellow-300/20 blur-xl rounded-full pointer-events-none"
+              />
+
               {/* A to Z Products Mega Menu Trigger */}
               <div
-                className="relative h-full flex items-center shrink-0"
+                className="relative h-full flex items-center shrink-0 z-10"
                 onMouseEnter={() => handleMouseEnter('all-products')}
                 onMouseLeave={handleMouseLeave}
               >
@@ -227,7 +239,7 @@ export function Navbar({ initialCategories = [], initialProducts = [] }: NavbarP
                     'h-11 px-4 rounded-xl flex items-center gap-2 font-sans text-[15px] xl:text-[16px] font-medium transition-all cursor-pointer',
                     hoveredMenu === 'all-products'
                       ? 'bg-blue-50/80 text-[#012169] shadow-2xs font-bold'
-                      : 'text-slate-800 hover:text-[#012169] hover:bg-slate-50'
+                      : 'text-slate-800 hover:text-[#012169] hover:bg-slate-900/5'
                   )}
                 >
                   <SquaresFour weight="bold" className="h-4.5 w-4.5 text-[#012169]" />
@@ -247,7 +259,7 @@ export function Navbar({ initialCategories = [], initialProducts = [] }: NavbarP
                 href="https://signtoday.co.uk"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="h-11 px-4 rounded-xl flex items-center transition-colors font-sans text-[15px] xl:text-[16px] font-medium text-slate-700 hover:text-[#012169] hover:bg-slate-50 whitespace-nowrap"
+                className="h-11 px-4 rounded-xl flex items-center transition-colors font-sans text-[15px] xl:text-[16px] font-medium text-slate-700 hover:text-[#012169] hover:bg-slate-900/5 whitespace-nowrap z-10"
               >
                 <span>Signage</span>
               </a>
@@ -257,13 +269,13 @@ export function Navbar({ initialCategories = [], initialProducts = [] }: NavbarP
                 href="https://todayai.co.uk"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="h-11 px-4 rounded-xl flex items-center transition-colors font-sans text-[15px] xl:text-[16px] font-medium text-slate-700 hover:text-[#012169] hover:bg-slate-50 whitespace-nowrap"
+                className="h-11 px-4 rounded-xl flex items-center transition-colors font-sans text-[15px] xl:text-[16px] font-medium text-slate-700 hover:text-[#012169] hover:bg-slate-900/5 whitespace-nowrap z-10"
               >
                 <span>Build Website</span>
               </a>
             </nav>
 
-            {/* 3. Right: Expandable Search Bar + 10% Promo Button + Mobile Menu */}
+            {/* 3. Right: Expandable Search Bar + Mobile Menu */}
             <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
               {/* Expandable Search Input (short bar that pops open on hover or focus) */}
               <form
@@ -276,7 +288,7 @@ export function Navbar({ initialCategories = [], initialProducts = [] }: NavbarP
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search products..."
-                    className="w-32 sm:w-44 md:w-56 focus:w-64 sm:focus:w-72 md:focus:w-80 hover:w-48 sm:hover:w-56 md:hover:w-64 h-10.5 pl-9.5 pr-3.5 bg-slate-100 hover:bg-white focus:bg-white border border-slate-200 focus:border-[#012169] rounded-full text-xs sm:text-sm text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[#012169]/15 transition-all duration-300 shadow-2xs"
+                    className="w-32 sm:w-44 md:w-56 focus:w-64 sm:focus:w-72 md:focus:w-80 hover:w-48 sm:hover:w-56 md:hover:w-64 h-10.5 pl-9.5 pr-3.5 bg-slate-100/80 hover:bg-white/95 focus:bg-white border border-slate-200/80 focus:border-[#012169] rounded-full text-xs sm:text-sm text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[#012169]/15 transition-all duration-300 shadow-2xs backdrop-blur-xs"
                   />
                   <button
                     type="submit"
