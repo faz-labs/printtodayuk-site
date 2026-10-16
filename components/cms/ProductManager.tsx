@@ -7,7 +7,6 @@ import { Badge } from '@/components/ui/Badge';
 import { ProductForm } from './ProductForm';
 import { ImageWithFallback } from '@/components/storefront/ImageWithFallback';
 import { formatCurrency, calculateDiscount } from '@/lib/utils';
-import { seedDefaultCatalogToFirestore } from '@/lib/db';
 import {
   Plus,
   MagnifyingGlass,
@@ -16,7 +15,7 @@ import {
   ArrowSquareOut,
   Lightning,
   Sparkle,
-  Database,
+  ArrowClockwise,
   CheckCircle,
   WarningCircle,
 } from '@phosphor-icons/react';
@@ -68,7 +67,6 @@ export function ProductManager({
 
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [isSeeding, setIsSeeding] = useState(false);
   const [notice, setNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const showNotification = (type: 'success' | 'error', message: string) => {
@@ -140,23 +138,6 @@ export function ProductManager({
         showNotification('error', err.message || 'Failed to delete product.');
       } finally {
         setDeletingId(null);
-      }
-    }
-  };
-
-  const handleSeedFirestore = async () => {
-    if (window.confirm('Sync initial default categories into your live Firestore database?')) {
-      setIsSeeding(true);
-      try {
-        const res = await seedDefaultCatalogToFirestore();
-        showNotification('success', `Successfully initialized ${res.count} categories in Firestore!`);
-        if (onRefreshData) {
-          await onRefreshData();
-        }
-      } catch (err: any) {
-        showNotification('error', err.message || 'Failed to initialize categories.');
-      } finally {
-        setIsSeeding(false);
       }
     }
   };
@@ -237,15 +218,16 @@ export function ProductManager({
             Total Products: <span className="text-[#012169]">{filteredProducts.length}</span>
           </div>
 
-          <button
-            onClick={handleSeedFirestore}
-            disabled={isSeeding}
-            className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-[#012169] font-semibold transition-colors cursor-pointer disabled:opacity-50"
-            title="Initialize standard categories into Firestore"
-          >
-            <Database weight="bold" className="h-3.5 w-3.5" />
-            <span>{isSeeding ? 'Syncing...' : 'Sync Categories to Firestore'}</span>
-          </button>
+          {onRefreshData && (
+            <button
+              onClick={() => onRefreshData()}
+              className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-[#012169] font-semibold transition-colors cursor-pointer"
+              title="Refresh product list"
+            >
+              <ArrowClockwise weight="bold" className="h-3.5 w-3.5" />
+              <span>Refresh</span>
+            </button>
+          )}
         </div>
 
         {filteredProducts.length === 0 ? (

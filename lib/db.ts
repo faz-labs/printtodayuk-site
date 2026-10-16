@@ -20,7 +20,13 @@ import {
   DynamicSection,
   DynamicSectionInput,
 } from './types';
-import { INITIAL_CATEGORIES, SEED_PRODUCTS, DEFAULT_HERO_SLIDES } from './data';
+import {
+  INITIAL_CATEGORIES,
+  SEED_PRODUCTS,
+  DEFAULT_HERO_SLIDES,
+  DUMMY_CATEGORY_NAMES,
+  DUMMY_PRODUCT_IDS,
+} from './data';
 import { slugify } from './utils';
 
 /**
@@ -52,17 +58,17 @@ export function cleanFirestoreData<T extends Record<string, any>>(obj: T): T {
 
 // Helper to get local stored products if offline
 function getLocalProducts(): Product[] {
-  if (typeof window === 'undefined') return SEED_PRODUCTS;
+  if (typeof window === 'undefined') return [];
   try {
     const data = localStorage.getItem('print_today_products');
     if (data) {
       const parsed = JSON.parse(data);
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      if (Array.isArray(parsed)) {
         return parsed;
       }
     }
   } catch {}
-  return SEED_PRODUCTS;
+  return [];
 }
 
 function saveLocalProducts(products: Product[]) {
@@ -310,17 +316,97 @@ export async function deleteProduct(id: string): Promise<boolean> {
   return true;
 }
 
-// Seed initial default categories to Firestore
-export async function seedDefaultCatalogToFirestore(): Promise<{ count: number }> {
-  if (!isConfigured || !db) {
-    throw new Error('Firebase is not configured.');
+/**
+ * Permanently deletes all mock / seed dummy categories and products from live Firestore database
+ * and clears local caches so only user-created content remains.
+ */
+export async function purgeDummyDataFromFirestore(): Promise<{ categoriesDeleted: number; productsDeleted: number }> {
+  let categoriesDeleted = 0;
+  let productsDeleted = 0;
+
+  if (isConfigured && db) {
+    try {
+      // 1. Delete all dummy categories from Firestore
+      const catSnap = await getDocs(collection(db, 'categories'));
+      for (const d of catSnap.docs) {
+        const data = d.data() as any;
+        const name = (data.name || '').toLowerCase().trim();
+        const id = d.id.toLowerCase().trim();
+        const isDummy =
+          DUMMY_CATEGORY_NAMES.includes(name) ||
+          DUMMY_CATEGORY_NAMES.some((dn) => id === dn.replace(/[^a-z0-9]+/g, '-'));
+
+        if (isDummy) {
+          await deleteDoc(doc(db, 'categories', d.id));
+          categoriesDeleted++;
+        }
+      }
+
+      // 2. Delete all dummy products from Firestore
+      const prodSnap = await getDocs(collection(db, 'products'));
+      for (const d of prodSnap.docs) {
+        const data = d.data() as any;
+        const id = d.id;
+        const title = (data.title || '').toLowerCase().trim();
+        const isDummy =
+          DUMMY_PRODUCT_IDS.includes(id) ||
+          id.startsWith('gift-') ||
+          title.includes('ceramic photo mug') ||
+          title.includes('magic mug') ||
+          title.includes('engraved metal ballpoint pen') ||
+          title.includes('soft-touch stylus click pens') ||
+          title.includes('stainless steel water bottle');
+
+        if (isDummy) {
+          await deleteDoc(doc(db, 'products', d.id));
+          productsDeleted++;
+        }
+      }
+    } catch (error) {
+      console.error('Firestore purge dummy data failed:', error);
+      throw error;
+    }
   }
 
+  // 3. Clear all local storage caches
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.removeItem('print_today_categories');
+      localStorage.removeItem('print_today_products');
+      localStorage.removeItem('print_today_deleted_categories');
+      localStorage.removeItem('print_today_categories_initialized');
+      window.dispatchEvent(new CustomEvent('print_today_categories_updated', { detail: [] }));
+    } catch {}
+  }
+
+  return { categoriesDeleted, productsDeleted };
+}
+
+/**
+ * Permanently deletes ALL categories from Firestore (for users wanting a 100% fresh slate).
+ */
+export async function purgeAllCategoriesFromFirestore(): Promise<{ count: number }> {
   let count = 0;
-  for (const cat of INITIAL_CATEGORIES) {
-    const docId = cat.name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-');
-    await setDoc(doc(db, 'categories', docId), cat);
-    count++;
+  if (isConfigured && db) {
+    try {
+      const snap = await getDocs(collection(db, 'categories'));
+      for (const d of snap.docs) {
+        await deleteDoc(doc(db, 'categories', d.id));
+        count++;
+      }
+    } catch (error) {
+      console.error('Firestore purgeAllCategories error:', error);
+      throw error;
+    }
+  }
+
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.removeItem('print_today_categories');
+      localStorage.removeItem('print_today_deleted_categories');
+      localStorage.removeItem('print_today_categories_initialized');
+      window.dispatchEvent(new CustomEvent('print_today_categories_updated', { detail: [] }));
+    } catch {}
   }
 
   return { count };
@@ -335,35 +421,37 @@ export async function getCategories(): Promise<CategoryConfig[]> {
   if (isConfigured && db) {
     try {
       const snap = await getDocs(collection(db, 'categories'));
-      if (!snap.empty) {
-        let firestoreCats = snap.docs.map((d) => {
-          const data = d.data() as any;
-          return {
-            id: d.id,
-            name: data.name || '',
-            description: data.description || '',
-            imageUrl: data.imageUrl || '',
-            subcategories: Array.isArray(data.subcategories) ? data.subcategories : [],
-            subcategoryImages: data.subcategoryImages && typeof data.subcategoryImages === 'object' ? data.subcategoryImages : {},
-            isBestSeller: Boolean(data.isBestSeller),
-          } as CategoryConfig;
-        });
-        firestoreCats = firestoreCats.filter(
-          (c) =>
-            c &&
-            c.name &&
-            c.name.toLowerCase() !== 'printing' &&
-            c.name.toLowerCase() !== 'clothing' &&
-            !deletedSet.has(c.name.toLowerCase().trim())
-        );
+      const firestoreCats: CategoryConfig[] = [];
 
-        if (firestoreCats.length > 0) {
-          saveLocalCategories(firestoreCats);
-          return firestoreCats;
+      for (const d of snap.docs) {
+        const data = d.data() as any;
+        const name = (data.name || '').trim();
+        if (
+          !name ||
+          name.toLowerCase() === 'printing' ||
+          name.toLowerCase() === 'clothing' ||
+          deletedSet.has(name.toLowerCase())
+        ) {
+          continue;
         }
+
+        firestoreCats.push({
+          id: d.id,
+          name,
+          slug: data.slug || slugify(name),
+          description: data.description || '',
+          imageUrl: data.imageUrl || '',
+          metaTitle: data.metaTitle || '',
+          metaDescription: data.metaDescription || '',
+          isBestSeller: Boolean(data.isBestSeller),
+        });
       }
+
+      // Sync Firestore result to local cache
+      saveLocalCategories(firestoreCats);
+      return firestoreCats;
     } catch (error) {
-      console.warn('Firestore fetch categories error:', error);
+      console.warn('Firestore fetch categories error, using local fallback:', error);
     }
   }
 

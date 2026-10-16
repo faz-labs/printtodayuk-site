@@ -19,6 +19,7 @@ import {
   Globe,
   Tag,
   Package,
+  Broom,
 } from '@phosphor-icons/react';
 
 interface CategoryManagerProps {
@@ -35,6 +36,7 @@ interface CategoryManagerProps {
   }) => Promise<void>;
   onDeleteCategory: (categoryName: string) => Promise<void>;
   onUpdateCategory: (categoryName: string, updates: Partial<CategoryConfig>) => Promise<void>;
+  onPurgeMockData?: () => Promise<{ categoriesDeleted: number; productsDeleted: number }>;
   isAddModalOpen?: boolean;
   onOpenAddModal?: () => void;
   onCloseAddModal?: () => void;
@@ -46,6 +48,7 @@ export function CategoryManager({
   onCreateCategory,
   onDeleteCategory,
   onUpdateCategory,
+  onPurgeMockData,
   isAddModalOpen: controlledAddModalOpen,
   onOpenAddModal,
   onCloseAddModal,
@@ -54,6 +57,7 @@ export function CategoryManager({
   const [internalAddModalOpen, setInternalAddModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<CategoryConfig | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isPurging, setIsPurging] = useState(false);
 
   // Form states for Add/Edit
   const [formName, setFormName] = useState('');
@@ -244,6 +248,26 @@ export function CategoryManager({
     }
   };
 
+  const handlePurgeMockData = async () => {
+    if (!onPurgeMockData) return;
+    if (
+      !window.confirm(
+        'Are you sure you want to permanently delete all mock / seed dummy data from Firestore? This will remove all dummy test categories (e.g. brochures, mugs, flyers, hoodies, pens) and keep only your genuine custom items.'
+      )
+    ) {
+      return;
+    }
+    setIsPurging(true);
+    try {
+      const res = await onPurgeMockData();
+      showSuccess(`Cleaned up ${res.categoriesDeleted} dummy categories and ${res.productsDeleted} dummy products from Firestore!`);
+    } catch (err: any) {
+      alert(err.message || 'Failed to purge mock data.');
+    } finally {
+      setIsPurging(false);
+    }
+  };
+
   return (
     <div className="space-y-6 font-['Open_Sans',sans-serif]">
       {/* Top Banner Notice */}
@@ -269,6 +293,18 @@ export function CategoryManager({
         </div>
 
         <div className="flex items-center gap-3">
+          {onPurgeMockData && (
+            <button
+              onClick={handlePurgeMockData}
+              disabled={isPurging}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold border border-rose-200 transition-colors cursor-pointer disabled:opacity-50"
+              title="Permanently remove all dummy/mock seed categories from Firestore"
+            >
+              <Broom weight="bold" className="h-4 w-4" />
+              <span>{isPurging ? 'Purging...' : 'Purge Mock Data'}</span>
+            </button>
+          )}
+
           <Button variant="uk-blue" size="md" onClick={handleOpenAdd}>
             <FolderPlus weight="bold" className="h-4 w-4 mr-1.5" />
             <span>Add Category</span>

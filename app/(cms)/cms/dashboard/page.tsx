@@ -29,7 +29,7 @@ import {
   createLandingSection,
   updateLandingSection,
   deleteLandingSection,
-  seedDefaultCatalogToFirestore,
+  purgeDummyDataFromFirestore,
 } from '@/lib/db';
 import { CMSSidebar, CMSTab } from '@/components/cms/CMSSidebar';
 import { ProductManager } from '@/components/cms/ProductManager';
@@ -51,6 +51,8 @@ import {
   FolderPlus,
   Layout,
   Images,
+  ArrowClockwise,
+  Broom,
 } from '@phosphor-icons/react';
 
 export default function CMSDashboardPage() {
@@ -195,16 +197,32 @@ export default function CMSDashboardPage() {
     setInquiries((prev) => prev.filter((inq) => inq.id !== id));
   };
 
-  const handleSyncFirestore = async () => {
+  const handleRefreshData = async () => {
     setIsSyncing(true);
     try {
-      const res = await seedDefaultCatalogToFirestore();
-      setSyncNotice(`Synced catalog to Firestore successfully! (${res.count} categories)`);
       await refreshData();
-      setTimeout(() => setSyncNotice(null), 4000);
+      setSyncNotice('Refreshed catalog from Firestore successfully!');
+      setTimeout(() => setSyncNotice(null), 3500);
     } catch (err: any) {
-      setSyncNotice(`Sync warning: ${err.message || 'Check Firestore credentials'}`);
+      setSyncNotice(`Refresh warning: ${err.message || 'Check connection'}`);
+      setTimeout(() => setSyncNotice(null), 4000);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handlePurgeMockData = async () => {
+    setIsSyncing(true);
+    try {
+      const res = await purgeDummyDataFromFirestore();
+      setSyncNotice(`Purged ${res.categoriesDeleted} dummy categories & ${res.productsDeleted} dummy products!`);
+      await refreshData();
       setTimeout(() => setSyncNotice(null), 5000);
+      return res;
+    } catch (err: any) {
+      setSyncNotice(`Purge warning: ${err.message || 'Check Firestore credentials'}`);
+      setTimeout(() => setSyncNotice(null), 5000);
+      throw err;
     } finally {
       setIsSyncing(false);
     }
@@ -325,13 +343,13 @@ export default function CMSDashboardPage() {
             )}
 
             <button
-              onClick={handleSyncFirestore}
+              onClick={handleRefreshData}
               disabled={isSyncing}
               className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50"
-              title="Sync catalog to Firestore"
+              title="Refresh catalog from Firestore"
             >
-              <Database weight="bold" className="h-3.5 w-3.5 text-[#012169]" />
-              <span>{isSyncing ? 'Syncing...' : 'Sync DB'}</span>
+              <ArrowClockwise weight="bold" className={`h-3.5 w-3.5 text-[#012169] ${isSyncing ? 'animate-spin' : ''}`} />
+              <span>{isSyncing ? 'Refreshing...' : 'Refresh Catalog'}</span>
             </button>
 
             <Link
@@ -490,6 +508,7 @@ export default function CMSDashboardPage() {
                   onCreateCategory={handleCreateCategory}
                   onDeleteCategory={handleDeleteCategory}
                   onUpdateCategory={handleUpdateCategory}
+                  onPurgeMockData={handlePurgeMockData}
                   isAddModalOpen={isAddCatModalOpen}
                   onOpenAddModal={() => setIsAddCatModalOpen(true)}
                   onCloseAddModal={() => setIsAddCatModalOpen(false)}
