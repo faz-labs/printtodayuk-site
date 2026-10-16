@@ -12,6 +12,7 @@ import {
   Link as LinkIcon,
   UploadSimple,
 } from '@phosphor-icons/react';
+import { convertAndOptimizeImage } from '@/lib/image-optimizer';
 
 export function HeroBannerManager() {
   const [slides, setSlides] = useState<HeroSlide[]>([]);
@@ -58,12 +59,13 @@ export function HeroBannerManager() {
     setSlides((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // Direct file upload to S3 for a slide
+  // Direct file upload to S3 for a slide with automatic WebP conversion
   const handleFileUpload = async (index: number, file: File) => {
     setUploadingIndex(index);
     try {
+      const optimized = await convertAndOptimizeImage(file);
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append('file', optimized);
       const res = await fetch('/api/upload', {
         method: 'POST',
         body: formData,

@@ -750,7 +750,7 @@ export async function deleteHeroSlide(slideId: string): Promise<boolean> {
 
 // ---------------- DYNAMIC LANDING SECTIONS CRUD ----------------
 
-function getLocalLandingSections(): DynamicSection[] {
+export function getLocalLandingSections(): DynamicSection[] {
   if (typeof window === 'undefined') return [];
   try {
     const data = localStorage.getItem('print_today_landing_sections');
@@ -762,10 +762,11 @@ function getLocalLandingSections(): DynamicSection[] {
   return [];
 }
 
-function saveLocalLandingSections(sections: DynamicSection[]) {
+export function saveLocalLandingSections(sections: DynamicSection[]) {
   if (typeof window !== 'undefined') {
     try {
       localStorage.setItem('print_today_landing_sections', JSON.stringify(sections));
+      window.dispatchEvent(new CustomEvent('print_today_sections_updated', { detail: sections }));
     } catch {}
   }
 }

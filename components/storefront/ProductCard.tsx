@@ -18,13 +18,13 @@ export function ProductCard({ product }: ProductCardProps) {
       href={`/product/${product.id || product.slug}`}
       className="group flex flex-col w-full focus:outline-hidden"
     >
-      {/* 1. CARD CONTAINER: Shows ONLY the image with rounded border. NO text or badges inside */}
-      <div className="relative w-full aspect-square bg-white rounded-2xl sm:rounded-3xl border border-slate-200 overflow-hidden p-3 sm:p-5 flex items-center justify-center transition-all duration-300 group-hover:border-slate-300 group-hover:shadow-md">
+      {/* 1. CARD CONTAINER: Shows full picture with auto w x h, no white padding border */}
+      <div className="relative w-full aspect-square bg-slate-50/70 rounded-xl overflow-hidden flex items-center justify-center transition-all duration-300 group-hover:shadow-md">
         <ImageWithFallback
           src={product.imageUrl}
           alt={product.title}
           fallbackText={product.title}
-          className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
+          className="w-full h-full object-contain p-0 transition-transform duration-300 group-hover:scale-105"
         />
       </div>
 

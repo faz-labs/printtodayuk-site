@@ -3,8 +3,6 @@
 import React from 'react';
 import { HeroSection } from '@/components/storefront/HeroSection';
 import { FeatureHighlights } from '@/components/storefront/FeatureHighlights';
-import { CategoryTilesSection } from '@/components/storefront/CategoryTilesSection';
-import { CategorySections } from '@/components/storefront/CategorySections';
 import { DynamicLandingSections } from '@/components/storefront/DynamicLandingSections';
 import { CuratedSolutionsSection } from '@/components/storefront/CuratedSolutionsSection';
 import { PromoCalloutBanner } from '@/components/storefront/PromoCalloutBanner';
@@ -21,14 +19,8 @@ export default function HomePage() {
       {/* 2. Vistaprint 4-Pillar Confidence & Trust Bar */}
       <FeatureHighlights />
 
-      {/* 3. Dynamic CMS-Managed Landing Sections (Horizontal Auto-Scroll & 8-Tile Grids) */}
+      {/* 3. Dynamic CMS-Managed Landing Sections (Horizontal Auto-Scroll, 8-Tile Grids & Split Banners) */}
       <DynamicLandingSections />
-
-      {/* 4. Category Showcase */}
-      <CategorySections />
-
-      {/* 4. Popular Category Quick Highlights */}
-      <CategoryTilesSection />
 
       {/* 5. Curated Industry Solutions */}
       <CuratedSolutionsSection />

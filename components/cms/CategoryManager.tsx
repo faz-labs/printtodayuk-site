@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { slugify } from '@/lib/utils';
+import { convertAndOptimizeImage } from '@/lib/image-optimizer';
 import {
   FolderPlus,
   MagnifyingGlass,
@@ -98,10 +99,12 @@ export function CategoryManager({
     );
   });
 
-  // Upload S3 helper
+  // Upload S3 helper with automatic WebP conversion
   const uploadFileToS3 = async (file: File): Promise<string> => {
+    // Automatically optimize, scale down, and convert to modern .webp format
+    const optimizedFile = await convertAndOptimizeImage(file);
     const formData = new FormData();
-    formData.append('files', file);
+    formData.append('files', optimizedFile);
 
     const response = await fetch('/api/upload', {
       method: 'POST',
@@ -368,7 +371,7 @@ export function CategoryManager({
                               <img
                                 src={cat.imageUrl}
                                 alt={cat.name}
-                                className="h-full w-full object-cover"
+                                className="h-full w-full object-contain p-0.5"
                               />
                             ) : (
                               <div className="h-full w-full flex items-center justify-center text-slate-300">

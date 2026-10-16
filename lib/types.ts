@@ -66,16 +66,23 @@ export interface HeroSlide {
   order?: number;
 }
 
-export type DynamicSectionType = 'horizontal_scroll' | 'grid_8_tiles';
+export type DynamicSectionType = 'horizontal_scroll' | 'grid_8_tiles' | 'split_banner';
 
 export interface DynamicSection {
   id?: string;
   title: string;
   subtitle?: string;
-  type: DynamicSectionType; // 'horizontal_scroll' (auto-scroll row) or 'grid_8_tiles' (2 rows x 4 items)
-  sourceType: 'category' | 'products';
+  type: DynamicSectionType; // 'horizontal_scroll' | 'grid_8_tiles' | 'split_banner'
+  sourceType?: 'category' | 'products';
   categoryName?: string;
   productIds?: string[];
+  // Split Banner properties
+  backgroundColor?: string;
+  imageUrl?: string; // Transparent picture URL
+  layoutDirection?: 'image_left' | 'image_right'; // Left picture or right picture
+  buttonText?: string;
+  buttonUrl?: string;
+  badgeText?: string;
   order: number;
   isActive: boolean;
   createdAt?: number;

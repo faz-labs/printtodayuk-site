@@ -50,7 +50,7 @@ export function ImagePreviewer({
               alt="Live URL Preview"
               fill
               sizes="(max-width: 768px) 100vw, 400px"
-              className="object-cover"
+              className="object-contain p-1"
               onError={() => setImgError(true)}
             />
             <div className="absolute bottom-2 right-2 bg-emerald-600/90 text-white text-[10px] font-bold px-2 py-0.5 rounded-md backdrop-blur-xs flex items-center gap-1 shadow-sm">

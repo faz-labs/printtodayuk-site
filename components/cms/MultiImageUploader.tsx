@@ -13,6 +13,7 @@ import {
   CloudArrowUp,
   Link as LinkIcon,
 } from '@phosphor-icons/react';
+import { convertAndOptimizeImage } from '@/lib/image-optimizer';
 
 interface MultiImageUploaderProps {
   images: string[];
@@ -75,11 +76,18 @@ export function MultiImageUploader({
   const uploadFiles = async (fileList: File[]) => {
     setErrorMessage('');
     setIsUploading(true);
-    setUploadProgress(`Uploading ${fileList.length} image(s) to S3 (Print Today folder)...`);
+    setUploadProgress(`Converting & optimizing ${fileList.length} image(s) to WebP...`);
 
     try {
+      // Automatically convert each file to .webp and compress size
+      const optimizedFiles = await Promise.all(
+        fileList.map((file) => convertAndOptimizeImage(file))
+      );
+
+      setUploadProgress(`Uploading ${optimizedFiles.length} optimized image(s) to S3...`);
+
       const formData = new FormData();
-      fileList.forEach((file) => {
+      optimizedFiles.forEach((file) => {
         formData.append('files', file);
       });
 
@@ -292,7 +300,7 @@ export function MultiImageUploader({
                       alt={`Product picture ${index + 1}`}
                       fill
                       sizes="(max-width: 768px) 50vw, 200px"
-                      className="object-cover"
+                      className="object-contain p-1"
                       unoptimized
                     />
                   </div>
