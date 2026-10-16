@@ -962,10 +962,10 @@ export function SectionManager({
                     </div>
                   )}
 
-                  {/* Category Selection Checklist */}
-                  <div className="max-h-48 overflow-y-auto p-2 rounded-xl border border-slate-200 bg-slate-50 space-y-1">
+                  {/* Category Selection Checklist - Existing Categories Only */}
+                  <div className="max-h-56 overflow-y-auto p-2 rounded-xl border border-slate-200 bg-slate-50 space-y-1.5">
                     {categories
-                      .filter((c) => !categorySearch.trim() || c.name.toLowerCase().includes(categorySearch.toLowerCase().trim()))
+                      .filter((c) => c && c.name && (!categorySearch.trim() || c.name.toLowerCase().includes(categorySearch.toLowerCase().trim())))
                       .map((c) => {
                         const isChecked = formCategoryNames.includes(c.name);
                         const prodCount = products.filter(
@@ -975,10 +975,10 @@ export function SectionManager({
                         return (
                           <label
                             key={c.name}
-                            className={`flex items-center justify-between p-2 rounded-lg text-xs cursor-pointer transition-colors ${
+                            className={`flex items-center justify-between p-2 rounded-xl text-xs cursor-pointer transition-colors ${
                               isChecked
-                                ? 'bg-blue-50 text-blue-900 font-bold border border-blue-200'
-                                : 'bg-white hover:bg-slate-100 text-slate-700'
+                                ? 'bg-blue-50 text-blue-900 font-bold border border-blue-200 shadow-2xs'
+                                : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200/60'
                             }`}
                           >
                             <div className="flex items-center gap-2.5 truncate">
@@ -986,8 +986,20 @@ export function SectionManager({
                                 type="checkbox"
                                 checked={isChecked}
                                 onChange={() => handleToggleCategory(c.name)}
-                                className="rounded border-slate-300 text-blue-600 h-4 w-4"
+                                className="rounded border-slate-300 text-blue-600 h-4 w-4 shrink-0"
                               />
+                              {/* Category Cover Image Preview */}
+                              <div className="h-8 w-8 rounded-lg bg-slate-100 overflow-hidden shrink-0 border border-slate-200 flex items-center justify-center">
+                                {c.imageUrl ? (
+                                  <img
+                                    src={c.imageUrl}
+                                    alt={c.name}
+                                    className="h-full w-full object-cover"
+                                  />
+                                ) : (
+                                  <SquaresFour weight="bold" className="h-4 w-4 text-slate-400" />
+                                )}
+                              </div>
                               <span className="truncate">{c.name}</span>
                             </div>
                             <span className="text-[10px] text-slate-400 shrink-0 ml-2 font-medium">
@@ -998,7 +1010,7 @@ export function SectionManager({
                       })}
                   </div>
                   <span className="text-[11px] text-slate-500 block">
-                    Products from all selected categories will be pooled into this section on the storefront.
+                    Selected categories with their cover images will be showcased in this section on the landing page.
                   </span>
                 </div>
               ) : (

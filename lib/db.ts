@@ -704,7 +704,7 @@ export async function deleteInquiry(id: string): Promise<boolean> {
 
 // ---------------- HERO BANNER SLIDES CRUD ----------------
 
-function getLocalHeroSlides(): HeroSlide[] {
+export function getLocalHeroSlides(): HeroSlide[] {
   if (typeof window === 'undefined') return DEFAULT_HERO_SLIDES;
   try {
     const data = localStorage.getItem('print_today_hero_slides');

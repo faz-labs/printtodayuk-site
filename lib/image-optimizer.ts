@@ -7,8 +7,8 @@
  */
 export async function convertAndOptimizeImage(
   file: File,
-  maxDimension: number = 1600,
-  quality: number = 0.85
+  maxDimension: number = 2560,
+  quality: number = 0.94
 ): Promise<File> {
   // If it's an SVG, keep it as SVG
   if (file.type === 'image/svg+xml') {
@@ -29,7 +29,8 @@ export async function convertAndOptimizeImage(
       img.onload = () => {
         let { width, height } = img;
 
-        // Auto-scale if dimensions exceed maxDimension (e.g. 1600px)
+        // Only scale if image exceeds Ultra HD maxDimension (e.g. 2560px)
+        // This ensures sharp graphics and text remain 100% crisp and un-downscaled
         if (width > maxDimension || height > maxDimension) {
           if (width > height) {
             height = Math.round((height * maxDimension) / width);
@@ -50,11 +51,15 @@ export async function convertAndOptimizeImage(
           return;
         }
 
+        // Enable high quality image smoothing for crisp text and print graphics
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+
         // Draw image onto canvas (alpha channel is automatically preserved for transparent PNGs)
         ctx.clearRect(0, 0, width, height);
         ctx.drawImage(img, 0, 0, width, height);
 
-        // Convert to webp with high quality compression
+        // Convert to webp with near lossless HD quality (0.94)
         canvas.toBlob(
           (blob) => {
             if (!blob) {

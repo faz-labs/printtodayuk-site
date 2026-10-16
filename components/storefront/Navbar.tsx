@@ -34,7 +34,12 @@ import { getCategories, getProducts, getLocalCategories, getLocalProducts } from
 import { INITIAL_CATEGORIES } from '@/lib/data';
 import { AllProductsMegaMenu } from './AllProductsMegaMenu';
 
-export function Navbar() {
+interface NavbarProps {
+  initialCategories?: CategoryConfig[];
+  initialProducts?: Product[];
+}
+
+export function Navbar({ initialCategories = [], initialProducts = [] }: NavbarProps = {}) {
   const pathname = usePathname();
   const router = useRouter();
   const { openCallMe } = useCallMe();
@@ -43,12 +48,14 @@ export function Navbar() {
   const [promoModalOpen, setPromoModalOpen] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
   const [noticeModal, setNoticeModal] = useState<string | null>(null);
-  const [categories, setCategories] = useState<CategoryConfig[]>(() =>
-    typeof window !== 'undefined' ? getLocalCategories() : []
-  );
-  const [products, setProducts] = useState<Product[]>(() =>
-    typeof window !== 'undefined' ? getLocalProducts() : []
-  );
+  const [categories, setCategories] = useState<CategoryConfig[]>(() => {
+    if (initialCategories && initialCategories.length > 0) return initialCategories;
+    return typeof window !== 'undefined' ? getLocalCategories() : [];
+  });
+  const [products, setProducts] = useState<Product[]>(() => {
+    if (initialProducts && initialProducts.length > 0) return initialProducts;
+    return typeof window !== 'undefined' ? getLocalProducts() : [];
+  });
   const [hoveredMenu, setHoveredMenu] = useState<'all-products' | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -167,9 +174,9 @@ export function Navbar() {
         className="sticky top-0 z-40 w-full relative bg-white border-b border-slate-200/90 shadow-xs"
         onMouseLeave={handleMouseLeave}
       >
-        {/* LINE 1: Top Row (Logo, Solopress Search Bar, Operation Hours, Same-Day Delivery & Live Chat) */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
-          <div className="flex items-center justify-between gap-4 lg:gap-8">
+        {/* SINGLE LINE NAVBAR: Left (Logo), Center (A to Z Products, Signage, Build Website), Right (Expandable Search Bar + 10% Promo Button) */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between gap-3 lg:gap-6 h-18 sm:h-20">
             {/* 1. Logo (Left) */}
             <Link
               href="/"
@@ -179,7 +186,7 @@ export function Navbar() {
                 <img
                   src="/images/logo.png"
                   alt="Print Today UK"
-                  className="h-10 sm:h-12 w-auto max-w-[200px] object-contain block"
+                  className="h-10 sm:h-12 w-auto max-w-[190px] object-contain block"
                   onError={(e) => {
                     e.currentTarget.style.display = 'none';
                     const fallbackEl = document.getElementById('navbar-text-logo');
@@ -205,68 +212,102 @@ export function Navbar() {
               </div>
             </Link>
 
-            {/* 2. Solopress Center Search Bar - Blue icon, no solid background */}
-            <form
-              onSubmit={handleSearch}
-              className="hidden md:flex flex-1 max-w-lg lg:max-w-xl items-center relative"
-            >
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="What are you looking for?"
-                className="w-full h-10.5 pl-4 pr-11 bg-white border border-slate-300 rounded-lg text-sm text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:border-[#012169] focus:ring-1 focus:ring-[#012169]/20 transition-all shadow-2xs"
-              />
-              <button
-                type="submit"
-                aria-label="Search"
-                className="absolute right-1 top-1/2 -translate-y-1/2 h-8.5 w-8.5 flex items-center justify-center text-[#012169] hover:bg-blue-50/80 rounded-md transition-colors cursor-pointer"
+            {/* 2. Center: A to Z Products Mega Menu, Signage & Build Website */}
+            <nav className="hidden lg:flex items-center justify-center gap-1 xl:gap-2 h-full flex-1">
+              {/* A to Z Products Mega Menu Trigger */}
+              <div
+                className="relative h-full flex items-center shrink-0"
+                onMouseEnter={() => handleMouseEnter('all-products')}
+                onMouseLeave={handleMouseLeave}
               >
-                <MagnifyingGlass weight="bold" className="h-4.5 w-4.5 text-[#012169]" />
-              </button>
-            </form>
-
-            {/* 3. Right: Opening Times & Live Chat */}
-            <div className="hidden lg:flex flex-col items-end shrink-0">
-              {/* Opening Hours: Monday to Friday */}
-              <div className="text-xs font-semibold text-slate-700 flex items-center gap-1.5 leading-snug">
-                <Clock weight="fill" className="h-3.5 w-3.5 text-slate-400" />
-                <span>Open <strong className="text-slate-900">8:00am to 8:00pm</strong>, Monday to Friday</span>
-              </div>
-
-              {/* Opening Hours: Saturday & Sunday + Live Chat */}
-              <div className="flex items-center gap-2.5 mt-1 text-xs">
-                <span className="text-slate-600 font-medium">
-                  <strong className="text-slate-900 font-semibold">10:00am to 4:00pm</strong>, Saturday &amp; Sunday
-                </span>
-                <span className="text-slate-300">•</span>
-                <a
-                  href="https://wa.me/447969559746"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-xs font-bold text-[#012169] hover:text-[#C8102E] transition-colors cursor-pointer"
+                <button
+                  type="button"
+                  onClick={() => setHoveredMenu(hoveredMenu === 'all-products' ? null : 'all-products')}
+                  className={cn(
+                    'h-11 px-4 rounded-xl flex items-center gap-2 font-sans text-[15px] xl:text-[16px] font-medium transition-all cursor-pointer',
+                    hoveredMenu === 'all-products'
+                      ? 'bg-blue-50/80 text-[#012169] shadow-2xs font-bold'
+                      : 'text-slate-800 hover:text-[#012169] hover:bg-slate-50'
+                  )}
                 >
-                  <Chats weight="fill" className="h-3.5 w-3.5 text-[#012169]" />
-                  <span>Live chat</span>
-                </a>
+                  <SquaresFour weight="bold" className="h-4.5 w-4.5 text-[#012169]" />
+                  <span>A to Z Products</span>
+                  <CaretDown
+                    weight="bold"
+                    className={cn(
+                      'h-3.5 w-3.5 transition-transform duration-200',
+                      hoveredMenu === 'all-products' ? 'rotate-180 text-[#012169]' : 'text-slate-400'
+                    )}
+                  />
+                </button>
               </div>
-            </div>
 
-            {/* Mobile actions (Live Chat / Hamburger) */}
-            <div className="flex lg:hidden items-center gap-2">
+              {/* Signage - Redirects to signtoday.co.uk */}
               <a
-                href="https://wa.me/447969559746"
+                href="https://signtoday.co.uk"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-xs font-bold text-[#012169] bg-blue-50 px-2.5 py-1.5 rounded-lg border border-blue-200"
+                className="h-11 px-4 rounded-xl flex items-center transition-colors font-sans text-[15px] xl:text-[16px] font-medium text-slate-700 hover:text-[#012169] hover:bg-slate-50 whitespace-nowrap"
               >
-                <Chats weight="fill" className="h-4 w-4" />
-                <span>Chat</span>
+                <span>Signage</span>
               </a>
 
+              {/* Build Website - Redirects to todayai.co.uk */}
+              <a
+                href="https://todayai.co.uk"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="h-11 px-4 rounded-xl flex items-center transition-colors font-sans text-[15px] xl:text-[16px] font-medium text-slate-700 hover:text-[#012169] hover:bg-slate-50 whitespace-nowrap"
+              >
+                <span>Build Website</span>
+              </a>
+            </nav>
+
+            {/* 3. Right: Expandable Search Bar + 10% Promo Button + Mobile Menu */}
+            <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
+              {/* Expandable Search Input (short bar that pops open on hover or focus) */}
+              <form
+                onSubmit={handleSearch}
+                className="relative flex items-center group"
+              >
+                <div className="relative flex items-center">
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search products..."
+                    className="w-28 sm:w-36 md:w-44 focus:w-56 sm:focus:w-64 md:focus:w-72 hover:w-56 sm:hover:w-64 md:hover:w-72 h-10 pl-9 pr-3 bg-slate-100 hover:bg-white focus:bg-white border border-slate-200 focus:border-[#012169] rounded-full text-xs sm:text-sm text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[#012169]/15 transition-all duration-300 shadow-2xs"
+                  />
+                  <button
+                    type="submit"
+                    aria-label="Search"
+                    className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 group-hover:text-[#012169] focus:text-[#012169] transition-colors cursor-pointer"
+                  >
+                    <MagnifyingGlass weight="bold" className="h-4 w-4" />
+                  </button>
+                </div>
+              </form>
+
+              {/* Promo Offer Button */}
+              <button
+                type="button"
+                onClick={() => setPromoModalOpen(true)}
+                className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-red-50/90 hover:bg-red-100/90 border border-red-200/90 transition-all shadow-2xs hover:shadow-xs cursor-pointer"
+                title="Claim 10% off your next print order"
+              >
+                <Tag weight="fill" className="h-3.5 w-3.5 text-[#C8102E]" />
+                <span className="hidden xl:inline font-sans font-medium text-xs text-slate-800">
+                  Get <strong className="text-[#C8102E] font-bold">10% off</strong>
+                </span>
+                <span className="text-[10px] font-mono font-bold bg-[#C8102E] text-white px-2 py-0.5 rounded shadow-2xs">
+                  FIRSTPRINT10
+                </span>
+              </button>
+
+              {/* Mobile Menu Toggle Button */}
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="p-2 rounded-xl text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-colors cursor-pointer"
+                className="lg:hidden p-2 rounded-xl text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-colors cursor-pointer"
                 aria-label="Toggle navigation menu"
               >
                 {mobileMenuOpen ? (
@@ -276,103 +317,6 @@ export function Navbar() {
                 )}
               </button>
             </div>
-          </div>
-
-          {/* Mobile search bar */}
-          <form
-            onSubmit={handleSearch}
-            className="flex md:hidden mt-2.5 items-center relative"
-          >
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="What are you looking for?"
-              className="w-full h-9 pl-3.5 pr-10 bg-white border border-slate-300 rounded-lg text-xs text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:border-[#012169]"
-            />
-            <button
-              type="submit"
-              aria-label="Search"
-              className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 flex items-center justify-center text-[#012169] hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
-            >
-              <MagnifyingGlass weight="bold" className="h-4 w-4 text-[#012169]" />
-            </button>
-          </form>
-        </div>
-
-        {/* LINE 2: Bottom Row: Left: More Products, Signage & Build Website, Right: Get 10% off your next print order */}
-        <div className="hidden lg:block border-t border-slate-200/90 bg-white shadow-2xs">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <nav className="flex items-center justify-between h-11 relative">
-              {/* Left: More Products Mega Menu Trigger, Signage & Build Website */}
-              <div className="flex items-center gap-1 sm:gap-2 h-full">
-                {/* More Products Trigger */}
-                <div
-                  className="relative h-full flex items-center shrink-0"
-                  onMouseEnter={() => handleMouseEnter('all-products')}
-                  onMouseLeave={handleMouseLeave}
-                >
-                  <button
-                    type="button"
-                    onClick={() => setHoveredMenu(hoveredMenu === 'all-products' ? null : 'all-products')}
-                    className={cn(
-                      'h-full px-3 flex items-center gap-2 font-sans text-[16px] font-medium transition-all border-b-2 cursor-pointer',
-                      hoveredMenu === 'all-products'
-                        ? 'border-[#012169] text-[#012169] bg-slate-50/80'
-                        : 'border-transparent text-slate-800 hover:text-[#012169]'
-                    )}
-                  >
-                    <SquaresFour weight="bold" className="h-4.5 w-4.5" />
-                    <span>A to Z Products</span>
-                    <CaretDown
-                      weight="bold"
-                      className={cn(
-                        'h-3.5 w-3.5 transition-transform duration-200',
-                        hoveredMenu === 'all-products' ? 'rotate-180 text-[#012169]' : 'text-slate-400'
-                      )}
-                    />
-                  </button>
-                </div>
-
-                {/* Signage - Redirects to signtoday.co.uk */}
-                <a
-                  href="https://signtoday.co.uk"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="h-full px-3 flex items-center transition-colors border-b-2 border-transparent font-sans text-[16px] font-medium text-slate-700 hover:text-[#012169] hover:border-[#012169] whitespace-nowrap"
-                >
-                  <span>Signage</span>
-                </a>
-
-                {/* Build Website - Redirects to todayai.co.uk */}
-                <a
-                  href="https://todayai.co.uk"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="h-full px-3 flex items-center transition-colors border-b-2 border-transparent font-sans text-[16px] font-medium text-slate-700 hover:text-[#012169] hover:border-[#012169] whitespace-nowrap"
-                >
-                  <span>Build Website</span>
-                </a>
-              </div>
-
-              {/* Right: Get 10% off your next print order */}
-              <div className="flex items-center shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setPromoModalOpen(true)}
-                  className="group inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-red-50/90 hover:bg-red-100/90 border border-red-200/90 transition-all shadow-2xs hover:shadow-xs cursor-pointer"
-                  title="Claim 10% off your next print order"
-                >
-                  <Tag weight="fill" className="h-3.5 w-3.5 text-[#C8102E] group-hover:scale-110 transition-transform" />
-                  <span className="font-sans font-medium text-[13px] text-slate-900 group-hover:text-[#C8102E] transition-colors">
-                    Get <strong className="text-[#C8102E] font-bold">10% off</strong> your next print order
-                  </span>
-                  <span className="text-[10px] font-mono font-bold bg-[#C8102E] text-white px-2 py-0.5 rounded shadow-2xs">
-                    FIRSTPRINT10
-                  </span>
-                </button>
-              </div>
-            </nav>
           </div>
         </div>
 

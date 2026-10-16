@@ -6,16 +6,23 @@ import { CallMeProvider } from '@/components/storefront/CallMeContext';
 import { CallMeModal } from '@/components/storefront/CallMeModal';
 import { FloatingWhatsApp } from '@/components/storefront/FloatingWhatsApp';
 
-export default function StorefrontLayout({
+import { getCategories, getProducts } from '@/lib/db';
+
+export default async function StorefrontLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const [categories, products] = await Promise.all([
+    getCategories().catch(() => []),
+    getProducts().catch(() => []),
+  ]);
+
   return (
     <CallMeProvider>
       <div className="flex min-h-screen flex-col bg-slate-50 relative">
         <TopBar />
-        <Navbar />
+        <Navbar initialCategories={categories} initialProducts={products} />
         <main className="flex-1">{children}</main>
         <Footer />
         <CallMeModal />

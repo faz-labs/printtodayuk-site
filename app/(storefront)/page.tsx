@@ -7,21 +7,23 @@ import { PromoCalloutBanner } from '@/components/storefront/PromoCalloutBanner';
 import { CustomerShowcaseSection } from '@/components/storefront/CustomerShowcaseSection';
 import { WhyChooseUsSection } from '@/components/storefront/WhyChooseUsSection';
 import { NewsletterSection } from '@/components/storefront/NewsletterSection';
-import { getLandingSections, getProducts } from '@/lib/db';
+import { getLandingSections, getProducts, getHeroSlides, getCategories } from '@/lib/db';
 
 // Always render the latest CMS-managed sections and hero banners in real-time
 export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
-  const [initialSections, initialProducts] = await Promise.all([
+  const [initialSections, initialProducts, initialHeroSlides, initialCategories] = await Promise.all([
     getLandingSections().catch(() => []),
     getProducts().catch(() => []),
+    getHeroSlides().catch(() => []),
+    getCategories().catch(() => []),
   ]);
 
   return (
     <div className="space-y-0">
       {/* 1. Vistaprint-Style Hero Section with Crystal Clear Video */}
-      <HeroSection categoryType="Printing" />
+      <HeroSection categoryType="Printing" initialSlides={initialHeroSlides} />
 
       {/* 2. Vistaprint 4-Pillar Confidence & Trust Bar */}
       <FeatureHighlights />
@@ -30,6 +32,7 @@ export default async function HomePage() {
       <DynamicLandingSections
         initialSections={initialSections}
         initialProducts={initialProducts}
+        initialCategories={initialCategories}
       />
 
       {/* 5. Curated Industry Solutions */}

@@ -5,15 +5,23 @@ import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CaretLeft, CaretRight } from '@phosphor-icons/react';
 import { HeroSlide } from '@/lib/types';
-import { getHeroSlides } from '@/lib/db';
+import { getHeroSlides, getLocalHeroSlides } from '@/lib/db';
 import { DEFAULT_HERO_SLIDES } from '@/lib/data';
 
 interface HeroSectionProps {
   categoryType?: 'Printing' | 'Clothing';
+  initialSlides?: HeroSlide[];
 }
 
-export function HeroSection({ categoryType }: HeroSectionProps) {
-  const [slides, setSlides] = useState<HeroSlide[]>(DEFAULT_HERO_SLIDES);
+export function HeroSection({ categoryType, initialSlides }: HeroSectionProps) {
+  const [slides, setSlides] = useState<HeroSlide[]>(() => {
+    if (initialSlides && initialSlides.length > 0) return initialSlides;
+    if (typeof window !== 'undefined') {
+      const local = getLocalHeroSlides();
+      if (local && local.length > 0) return local;
+    }
+    return DEFAULT_HERO_SLIDES;
+  });
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [direction, setDirection] = useState<1 | -1>(1);
@@ -98,7 +106,7 @@ export function HeroSection({ categoryType }: HeroSectionProps) {
         loading="eager"
         onError={(e) => {
           e.currentTarget.src =
-            'https://images.unsplash.com/photo-1561070791-2526d30994b5?q=80&w=1800&auto=format&fit=crop';
+            'https://placehold.co/1800x540/012169/ffffff?text=Print+Today+London';
         }}
       />
     );
@@ -128,7 +136,7 @@ export function HeroSection({ categoryType }: HeroSectionProps) {
 
   return (
     <div
-      className="relative w-full h-[340px] sm:h-[420px] md:h-[480px] overflow-hidden bg-slate-900 select-none group"
+      className="relative w-full h-[360px] sm:h-[440px] md:h-[520px] lg:h-[560px] overflow-hidden bg-slate-900 select-none group"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >

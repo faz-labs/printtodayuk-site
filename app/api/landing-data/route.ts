@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getLandingSections, getProducts, invalidateLandingSectionsCache } from '@/lib/db';
-import { DynamicSection, Product } from '@/lib/types';
+import { getLandingSections, getProducts, getCategories, invalidateLandingSectionsCache } from '@/lib/db';
+import { DynamicSection, Product, CategoryConfig } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
 
 interface CachedPayload {
   sections: DynamicSection[];
   products: Product[];
+  categories: CategoryConfig[];
   timestamp: number;
 }
 
@@ -30,6 +31,7 @@ export async function GET(req: NextRequest) {
       {
         sections: memoryCache.sections,
         products: memoryCache.products,
+        categories: memoryCache.categories,
         cached: true,
       },
       {
@@ -42,14 +44,16 @@ export async function GET(req: NextRequest) {
 
   // 2. Refresh from Firestore/Database
   try {
-    const [sections, products] = await Promise.all([
+    const [sections, products, categories] = await Promise.all([
       getLandingSections().catch(() => []),
       getProducts().catch(() => []),
+      getCategories().catch(() => []),
     ]);
 
     memoryCache = {
       sections,
       products,
+      categories,
       timestamp: now,
     };
 
@@ -57,6 +61,7 @@ export async function GET(req: NextRequest) {
       {
         sections,
         products,
+        categories,
         cached: false,
       },
       {
@@ -72,12 +77,13 @@ export async function GET(req: NextRequest) {
         {
           sections: memoryCache.sections,
           products: memoryCache.products,
+          categories: memoryCache.categories,
           cached: true,
           fallback: true,
         },
         { status: 200 }
       );
     }
-    return NextResponse.json({ sections: [], products: [] }, { status: 500 });
+    return NextResponse.json({ sections: [], products: [], categories: [] }, { status: 500 });
   }
 }

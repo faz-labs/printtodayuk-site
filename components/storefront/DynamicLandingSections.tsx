@@ -2,19 +2,31 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { DynamicSection, Product } from '@/lib/types';
-import { getLandingSections, getLocalLandingSections, getProducts, getLocalProducts, saveLocalLandingSections, saveLocalProducts } from '@/lib/db';
+import { DynamicSection, Product, CategoryConfig } from '@/lib/types';
+import {
+  getLandingSections,
+  getLocalLandingSections,
+  getProducts,
+  getLocalProducts,
+  getCategories,
+  getLocalCategories,
+  saveLocalLandingSections,
+  saveLocalProducts,
+  saveLocalCategories,
+} from '@/lib/db';
 import { formatCurrency, calculateDiscount } from '@/lib/utils';
-import { Lightning, ArrowRight, Sparkle, Tag } from '@phosphor-icons/react';
+import { Lightning, ArrowRight, Sparkle, Tag, SquaresFour } from '@phosphor-icons/react';
 
 interface DynamicLandingSectionsProps {
   initialSections?: DynamicSection[];
   initialProducts?: Product[];
+  initialCategories?: CategoryConfig[];
 }
 
 export function DynamicLandingSections({
   initialSections,
   initialProducts,
+  initialCategories,
 }: DynamicLandingSectionsProps = {}) {
   // 1. Initialize synchronously: prioritize fresh browser cache if available, else server props
   const [sections, setSections] = useState<DynamicSection[]>(() => {
@@ -39,6 +51,17 @@ export function DynamicLandingSections({
     return [];
   });
 
+  const [categories, setCategories] = useState<CategoryConfig[]>(() => {
+    if (typeof window !== 'undefined') {
+      const localCats = getLocalCategories();
+      if (localCats && localCats.length > 0) return localCats;
+    }
+    if (initialCategories && initialCategories.length > 0) {
+      return initialCategories;
+    }
+    return [];
+  });
+
   useEffect(() => {
     // 2. Fetch fresh data through server API with cache-busting
     async function loadData() {
@@ -58,6 +81,10 @@ export function DynamicLandingSections({
             setProducts(data.products);
             saveLocalProducts(data.products);
           }
+          if (Array.isArray(data.categories) && data.categories.length > 0) {
+            setCategories(data.categories);
+            saveLocalCategories(data.categories);
+          }
           return;
         }
       } catch (err) {
@@ -66,9 +93,10 @@ export function DynamicLandingSections({
 
       // Fallback: direct database fetch if API route is unavailable
       try {
-        const [secs, prods] = await Promise.all([
+        const [secs, prods, cats] = await Promise.all([
           getLandingSections(),
           getProducts(),
+          getCategories(),
         ]);
         if (Array.isArray(secs)) {
           setSections(secs.filter((s) => s.isActive));
@@ -76,13 +104,16 @@ export function DynamicLandingSections({
         if (Array.isArray(prods)) {
           setProducts(prods);
         }
+        if (Array.isArray(cats)) {
+          setCategories(cats);
+        }
       } catch (err) {
         console.warn('Direct landing sections fetch warning:', err);
       }
     }
     loadData();
 
-    // 3. Instant reactive sync when sections or products are modified in CMS (same-tab or cross-tab)
+    // 3. Instant reactive sync when sections, products, or categories are modified in CMS
     const handleStorageUpdate = (e: StorageEvent) => {
       if (e.key === 'print_today_landing_sections') {
         try {
@@ -96,6 +127,13 @@ export function DynamicLandingSections({
           const updatedProds = JSON.parse(e.newValue || '[]');
           if (Array.isArray(updatedProds)) {
             setProducts(updatedProds);
+          }
+        } catch {}
+      } else if (e.key === 'print_today_categories') {
+        try {
+          const updatedCats = JSON.parse(e.newValue || '[]');
+          if (Array.isArray(updatedCats)) {
+            setCategories(updatedCats);
           }
         } catch {}
       }
@@ -115,14 +153,23 @@ export function DynamicLandingSections({
       }
     };
 
+    const handleCategoriesCustomUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent<CategoryConfig[]>;
+      if (Array.isArray(customEvent.detail)) {
+        setCategories(customEvent.detail);
+      }
+    };
+
     window.addEventListener('storage', handleStorageUpdate);
     window.addEventListener('print_today_sections_updated', handleSectionsCustomUpdate);
     window.addEventListener('print_today_products_updated', handleProductsCustomUpdate);
+    window.addEventListener('print_today_categories_updated', handleCategoriesCustomUpdate);
 
     return () => {
       window.removeEventListener('storage', handleStorageUpdate);
       window.removeEventListener('print_today_sections_updated', handleSectionsCustomUpdate);
       window.removeEventListener('print_today_products_updated', handleProductsCustomUpdate);
+      window.removeEventListener('print_today_categories_updated', handleCategoriesCustomUpdate);
     };
   }, []);
 
@@ -133,7 +180,7 @@ export function DynamicLandingSections({
   return (
     <div className="space-y-16 py-8 font-sans">
       {sections.map((section) => {
-        // TYPE 3: Split Feature Banner (Transparent Picture + Text + Custom Background)
+        // TYPE 3: Split Feature Banner (End-to-end full display width, transparent picture, custom background)
         if (section.type === 'split_banner') {
           return (
             <SplitBannerSection
@@ -143,35 +190,74 @@ export function DynamicLandingSections({
           );
         }
 
-        // TYPE 1 & 2: Product Grid / Auto-Scroll Sections
-        let sectionProducts: Product[] = [];
+        // TYPE 1 & 2 (Option A): Source is CATEGORY -> Show Category Cover Images & Links
         if (section.sourceType === 'category') {
-          // Support multiple selected categories (pooled) or single category
-          const targetCategories = (section.categoryNames && section.categoryNames.length > 0)
+          const targetCategoryNames = (section.categoryNames && section.categoryNames.length > 0)
             ? section.categoryNames.map((c) => c.toLowerCase().trim())
             : section.categoryName
             ? [section.categoryName.toLowerCase().trim()]
             : [];
 
-          if (targetCategories.length > 0) {
-            sectionProducts = products.filter(
-              (p) => p && p.category && targetCategories.includes(p.category.toLowerCase().trim())
-            );
-          } else {
-            sectionProducts = products;
+          let sectionCategories = targetCategoryNames.length > 0
+            ? categories.filter((c) => c && c.name && targetCategoryNames.includes(c.name.toLowerCase().trim()))
+            : categories;
+
+          // Fallback if none matched
+          if (sectionCategories.length === 0 && categories.length > 0) {
+            sectionCategories = categories.slice(0, 8);
           }
-        } else if (section.sourceType === 'products' && section.productIds && section.productIds.length > 0) {
-          // Preserve user-selected order from all products
+
+          const firstCategoryName = (section.categoryNames && section.categoryNames[0]) || section.categoryName;
+          const viewLink = firstCategoryName
+            ? `/category/${encodeURIComponent(firstCategoryName)}`
+            : '/category/Printing';
+
+          return (
+            <section key={section.id || section.title} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              {/* Section Header */}
+              <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-8 gap-3 border-b border-slate-100 pb-4">
+                <div>
+                  <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                    {section.title}
+                  </h2>
+                  {section.subtitle && (
+                    <p className="text-sm text-slate-600 mt-1 font-medium">{section.subtitle}</p>
+                  )}
+                </div>
+
+                <Link
+                  href={viewLink}
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-[#012169] hover:text-[#C8102E] transition-colors"
+                >
+                  <span>
+                    {section.categoryNames && section.categoryNames.length > 1
+                      ? `View Collection (${section.categoryNames.length} Categories)`
+                      : 'View Collection'}
+                  </span>
+                  <ArrowRight weight="bold" className="h-3.5 w-3.5" />
+                </Link>
+              </div>
+
+              {section.type === 'horizontal_scroll' ? (
+                <CategoryAutoScrollRow categories={sectionCategories} products={products} />
+              ) : (
+                <CategoryGrid8Tiles categories={sectionCategories.slice(0, 8)} products={products} />
+              )}
+            </section>
+          );
+        }
+
+        // TYPE 1 & 2 (Option B): Source is PRODUCTS -> Show Specific Products
+        let sectionProducts: Product[] = [];
+        if (section.productIds && section.productIds.length > 0) {
           sectionProducts = section.productIds
             .map((id) => products.find((p) => p.id === id || p.slug === id))
             .filter((p): p is Product => Boolean(p));
         }
 
-        // Fallback: If section has no matched products yet but product catalog is available,
-        // use available products so newly created sections never render as invisible blank gaps
+        // Fallback: If section has no matched products yet but products are loaded
         if (sectionProducts.length === 0) {
           if (products.length === 0) {
-            // Cold start skeleton
             return (
               <section key={section.id || section.title} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 animate-pulse">
                 <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-8 gap-3 border-b border-slate-100 pb-4">
@@ -192,15 +278,8 @@ export function DynamicLandingSections({
               </section>
             );
           }
-          // Products exist in database, pool first 8 so section is immediately interactive
           sectionProducts = products.slice(0, 8);
         }
-
-        // Determine view link
-        const firstCategory = (section.categoryNames && section.categoryNames[0]) || section.categoryName;
-        const viewLink = firstCategory
-          ? `/category/${encodeURIComponent(firstCategory)}`
-          : '/category/Printing';
 
         return (
           <section key={section.id || section.title} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -215,26 +294,18 @@ export function DynamicLandingSections({
                 )}
               </div>
 
-              {firstCategory && (
-                <Link
-                  href={viewLink}
-                  className="inline-flex items-center gap-1.5 text-xs font-bold text-[#012169] hover:text-[#C8102E] transition-colors"
-                >
-                  <span>
-                    {section.categoryNames && section.categoryNames.length > 1
-                      ? `View Collection (${section.categoryNames.length} Categories)`
-                      : `View All in ${firstCategory}`}
-                  </span>
-                  <ArrowRight weight="bold" className="h-3.5 w-3.5" />
-                </Link>
-              )}
+              <Link
+                href="/category/Printing"
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-[#012169] hover:text-[#C8102E] transition-colors"
+              >
+                <span>View All Products</span>
+                <ArrowRight weight="bold" className="h-3.5 w-3.5" />
+              </Link>
             </div>
 
-            {/* Layout Type 1: Horizontal Scroll Row with Auto-Scroll */}
             {section.type === 'horizontal_scroll' ? (
               <AutoScrollRow products={sectionProducts} />
             ) : (
-              /* Layout Type 2: Fixed 8-Tile Grid (2 Rows x 4 Items) */
               <Grid8Tiles products={sectionProducts.slice(0, 8)} />
             )}
           </section>
@@ -245,6 +316,7 @@ export function DynamicLandingSections({
 }
 
 // ----------------- COMPONENT: SPLIT FEATURE BANNER -----------------
+// End-to-end full width display with zero left/right gaps
 function SplitBannerSection({ section }: { section: DynamicSection }) {
   const isImageLeft = section.layoutDirection !== 'image_right';
   const bgColor = section.backgroundColor || '#012169';
@@ -256,28 +328,28 @@ function SplitBannerSection({ section }: { section: DynamicSection }) {
   const badgeBg = isLightBg ? 'bg-slate-200/80 text-slate-800' : 'bg-white/15 text-white border border-white/20';
 
   return (
-    <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div
-        style={{ backgroundColor: bgColor }}
-        className="relative rounded-3xl overflow-hidden shadow-xl p-8 sm:p-12 transition-all duration-300"
-      >
-        {/* Subtle ambient lighting effect */}
-        <div className="absolute top-0 right-0 -mr-20 -mt-20 w-80 h-80 bg-white/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-80 h-80 bg-black/10 rounded-full blur-3xl pointer-events-none" />
+    <section
+      style={{ backgroundColor: bgColor }}
+      className="w-full relative overflow-hidden transition-all duration-300 py-12 sm:py-16 my-4 shadow-sm"
+    >
+      {/* Subtle ambient lighting effect */}
+      <div className="absolute top-0 right-0 -mr-24 -mt-24 w-96 h-96 bg-white/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-0 left-0 -ml-24 -mb-24 w-96 h-96 bg-black/10 rounded-full blur-3xl pointer-events-none" />
 
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div
-          className={`relative z-10 flex flex-col items-center gap-8 lg:gap-12 ${
+          className={`relative z-10 flex flex-col items-center gap-8 lg:gap-14 ${
             isImageLeft ? 'lg:flex-row' : 'lg:flex-row-reverse'
           }`}
         >
           {/* Picture Side: Transparent image auto-scaled w x h without clipping or borders */}
           {section.imageUrl && (
             <div className="w-full lg:w-1/2 flex items-center justify-center">
-              <div className="relative max-h-[380px] w-full flex items-center justify-center">
+              <div className="relative max-h-[400px] w-full flex items-center justify-center">
                 <img
                   src={section.imageUrl}
                   alt={section.title}
-                  className="max-h-[360px] max-w-full w-auto h-auto object-contain drop-shadow-2xl transition-transform duration-500 hover:scale-105"
+                  className="max-h-[380px] max-w-full w-auto h-auto object-contain drop-shadow-2xl transition-transform duration-500 hover:scale-105"
                   loading="lazy"
                 />
               </div>
@@ -338,7 +410,160 @@ function isColorLight(hex: string): boolean {
   return luma > 165;
 }
 
-// ----------------- COMPONENT: AUTO-SCROLL ROW -----------------
+// ----------------- COMPONENT: CATEGORY AUTO-SCROLL ROW -----------------
+function CategoryAutoScrollRow({
+  categories,
+  products,
+}: {
+  categories: CategoryConfig[];
+  products: Product[];
+}) {
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const [isHovered, setIsHovered] = useState(false);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    let animId: number;
+    let step = 1;
+
+    const scroll = () => {
+      if (!isHovered && el) {
+        el.scrollLeft += step;
+        if (el.scrollLeft >= el.scrollWidth - el.clientWidth - 2) {
+          el.scrollLeft = 0;
+        }
+      }
+      animId = requestAnimationFrame(scroll);
+    };
+
+    animId = requestAnimationFrame(scroll);
+    return () => cancelAnimationFrame(animId);
+  }, [isHovered]);
+
+  return (
+    <div
+      ref={scrollRef}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      className="flex gap-5 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-slate-200 scroll-smooth"
+    >
+      {categories.map((cat, idx) => {
+        const prodCount = products.filter(
+          (p) => p.category && p.category.toLowerCase().trim() === cat.name.toLowerCase().trim()
+        ).length;
+
+        return (
+          <Link
+            key={cat.id || `${cat.name}-${idx}`}
+            href={`/category/${encodeURIComponent(cat.name)}`}
+            className="group flex-shrink-0 w-64 sm:w-72 bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs hover:shadow-xl hover:border-[#012169]/30 transition-all duration-300 flex flex-col"
+          >
+            {/* Category Cover Image: Full picture display, object-cover, NO white border */}
+            <div className="relative w-full aspect-[4/3] bg-slate-100 flex items-center justify-center overflow-hidden">
+              <img
+                src={cat.imageUrl || '/images/category-placeholder.png'}
+                alt={cat.name}
+                className="w-full h-full object-cover p-0 transition-transform duration-500 group-hover:scale-105 block"
+                loading="lazy"
+              />
+              <div className="absolute top-2.5 left-2.5 inline-flex items-center gap-1 bg-[#012169]/90 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-xs backdrop-blur-xs">
+                <SquaresFour weight="bold" className="h-3 w-3" />
+                <span>Category</span>
+              </div>
+            </div>
+
+            {/* Info */}
+            <div className="p-4 flex-1 flex flex-col justify-between">
+              <div>
+                <h3 className="text-base font-black text-slate-900 group-hover:text-[#012169] transition-colors line-clamp-1">
+                  {cat.name}
+                </h3>
+                <p className="text-xs text-slate-500 font-medium line-clamp-1 mt-0.5">
+                  {prodCount > 0 ? `${prodCount} Products Available` : 'Explore Range'}
+                </p>
+              </div>
+
+              <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
+                <span className="text-xs font-bold text-[#012169] group-hover:text-[#C8102E] transition-colors">
+                  Browse Collection
+                </span>
+                <div className="h-8 w-8 rounded-xl bg-slate-100 group-hover:bg-[#012169] text-slate-600 group-hover:text-white flex items-center justify-center transition-colors">
+                  <ArrowRight weight="bold" className="h-4 w-4" />
+                </div>
+              </div>
+            </div>
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
+
+// ----------------- COMPONENT: CATEGORY FIXED 8-TILES GRID (2x4) -----------------
+function CategoryGrid8Tiles({
+  categories,
+  products,
+}: {
+  categories: CategoryConfig[];
+  products: Product[];
+}) {
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
+      {categories.map((cat, idx) => {
+        const prodCount = products.filter(
+          (p) => p.category && p.category.toLowerCase().trim() === cat.name.toLowerCase().trim()
+        ).length;
+
+        return (
+          <Link
+            key={cat.id || `${cat.name}-${idx}`}
+            href={`/category/${encodeURIComponent(cat.name)}`}
+            className="group bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs hover:shadow-xl hover:border-[#012169]/30 transition-all duration-300 flex flex-col"
+          >
+            {/* Category Cover Image: Full picture display, object-cover, NO white border */}
+            <div className="relative w-full aspect-[4/3] bg-slate-100 flex items-center justify-center overflow-hidden">
+              <img
+                src={cat.imageUrl || '/images/category-placeholder.png'}
+                alt={cat.name}
+                className="w-full h-full object-cover p-0 transition-transform duration-500 group-hover:scale-105 block"
+                loading="lazy"
+              />
+              <div className="absolute top-2 left-2 inline-flex items-center gap-1 bg-[#012169]/90 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-xs backdrop-blur-xs">
+                <SquaresFour weight="bold" className="h-3 w-3" />
+                <span>Category</span>
+              </div>
+            </div>
+
+            {/* Info */}
+            <div className="p-3.5 sm:p-4 flex-1 flex flex-col justify-between">
+              <div>
+                <h3 className="text-sm sm:text-base font-black text-slate-900 group-hover:text-[#012169] transition-colors line-clamp-1">
+                  {cat.name}
+                </h3>
+                <p className="text-xs text-slate-500 font-medium line-clamp-1 mt-0.5">
+                  {prodCount > 0 ? `${prodCount} Products` : 'Explore Range'}
+                </p>
+              </div>
+
+              <div className="mt-2.5 pt-2.5 border-t border-slate-100 flex items-center justify-between">
+                <span className="text-xs font-bold text-[#012169] group-hover:text-[#C8102E] transition-colors">
+                  View All
+                </span>
+                <div className="h-7 w-7 rounded-lg bg-slate-100 group-hover:bg-[#012169] text-slate-600 group-hover:text-white flex items-center justify-center transition-colors">
+                  <ArrowRight weight="bold" className="h-3.5 w-3.5" />
+                </div>
+              </div>
+            </div>
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
+
+// ----------------- COMPONENT: AUTO-SCROLL ROW (PRODUCTS) -----------------
 function AutoScrollRow({ products }: { products: Product[] }) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [isHovered, setIsHovered] = useState(false);
@@ -354,7 +579,6 @@ function AutoScrollRow({ products }: { products: Product[] }) {
     const scroll = () => {
       if (!isHovered && el) {
         el.scrollLeft += step;
-        // Loop back seamlessly
         if (el.scrollLeft >= el.scrollWidth - el.clientWidth - 2) {
           el.scrollLeft = 0;
         }
@@ -383,12 +607,12 @@ function AutoScrollRow({ products }: { products: Product[] }) {
             href={`/product/${product.slug}`}
             className="group flex-shrink-0 w-64 sm:w-72 bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs hover:shadow-xl hover:border-[#012169]/30 transition-all duration-300 flex flex-col"
           >
-            {/* Image Box: Full picture display, auto w x h, no white padding border, no inner rounded border */}
-            <div className="relative w-full aspect-[4/3] bg-slate-50 flex items-center justify-center overflow-hidden">
+            {/* Image Box: Full picture display, object-cover, NO white padding border */}
+            <div className="relative w-full aspect-[4/3] bg-slate-100 flex items-center justify-center overflow-hidden">
               <img
                 src={product.imageUrl}
                 alt={product.title}
-                className="w-full h-full object-contain p-0 transition-transform duration-300 group-hover:scale-105"
+                className="w-full h-full object-cover p-0 transition-transform duration-300 group-hover:scale-105 block"
                 loading="lazy"
               />
               {product.isSameDayAvailable && (
@@ -442,7 +666,7 @@ function AutoScrollRow({ products }: { products: Product[] }) {
   );
 }
 
-// ----------------- COMPONENT: FIXED 8-TILES GRID (2x4) -----------------
+// ----------------- COMPONENT: FIXED 8-TILES GRID (PRODUCTS) -----------------
 function Grid8Tiles({ products }: { products: Product[] }) {
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
@@ -456,12 +680,12 @@ function Grid8Tiles({ products }: { products: Product[] }) {
             href={`/product/${product.slug}`}
             className="group bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs hover:shadow-xl hover:border-[#012169]/30 transition-all duration-300 flex flex-col"
           >
-            {/* Image Box: Full picture display, auto w x h, no white padding border, no inner rounded border */}
-            <div className="relative w-full aspect-[4/3] bg-slate-50 flex items-center justify-center overflow-hidden">
+            {/* Image Box: Full picture display, object-cover, NO white padding border */}
+            <div className="relative w-full aspect-[4/3] bg-slate-100 flex items-center justify-center overflow-hidden">
               <img
                 src={product.imageUrl}
                 alt={product.title}
-                className="w-full h-full object-contain p-0 transition-transform duration-300 group-hover:scale-105"
+                className="w-full h-full object-cover p-0 transition-transform duration-300 group-hover:scale-105 block"
                 loading="lazy"
               />
               {product.isSameDayAvailable && (
