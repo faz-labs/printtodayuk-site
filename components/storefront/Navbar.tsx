@@ -25,8 +25,9 @@ import {
   Tag,
   Copy,
   Check,
+  ArrowRight,
 } from '@phosphor-icons/react';
-import { cn } from '@/lib/utils';
+import { cn, formatCurrency } from '@/lib/utils';
 import { useCallMe } from './CallMeContext';
 import { useSmoothScroll } from '@/components/providers/SmoothScrollProvider';
 import { CategoryConfig, Product } from '@/lib/types';
@@ -59,15 +60,53 @@ export function Navbar({ initialCategories = [], initialProducts = [] }: NavbarP
   const [hoveredMenu, setHoveredMenu] = useState<'all-products' | null>(null);
   const [isMenuPinned, setIsMenuPinned] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchFocused, setSearchFocused] = useState(false);
+  const searchContainerRef = useRef<HTMLDivElement | null>(null);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const headerRef = useRef<HTMLElement | null>(null);
+
+  // Live universal product search
+  const searchResults = useMemo(() => {
+    if (!searchQuery.trim()) return [];
+    const q = searchQuery.toLowerCase().trim();
+    return products
+      .filter((p) => {
+        if (!p) return false;
+        const titleMatch = (p.title || '').toLowerCase().includes(q);
+        const catMatch = (p.category || '').toLowerCase().includes(q);
+        const descMatch = (p.description || '').toLowerCase().includes(q);
+        return titleMatch || catMatch || descMatch;
+      })
+      .slice(0, 6);
+  }, [products, searchQuery]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      router.push(`/category/Printing?q=${encodeURIComponent(searchQuery.trim())}`);
+      setSearchFocused(false);
+      router.push(`/all-products?q=${encodeURIComponent(searchQuery.trim())}`);
     }
   };
+
+  // Close search dropdown on click outside or Escape
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
+        setSearchFocused(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSearchFocused(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
 
   useEffect(() => {
     async function loadData() {
@@ -203,7 +242,7 @@ export function Navbar({ initialCategories = [], initialProducts = [] }: NavbarP
     <>
       <header
         ref={headerRef}
-        className="sticky top-0 z-40 w-full bg-white/40 supports-[backdrop-filter]:bg-white/30 backdrop-blur-2xl sm:backdrop-blur-3xl backdrop-saturate-180 border-b border-white/40 shadow-xs transition-all duration-300 relative"
+        className="sticky top-0 z-40 w-full bg-white/10 supports-[backdrop-filter]:bg-white/10 backdrop-blur-xs sm:backdrop-blur-sm border-b border-white/15 shadow-none transition-all duration-300 relative"
         onMouseLeave={handleMouseLeave}
       >
         {/* Soft Multi-Color Aurora Glow Behind Center Nav */}
@@ -308,30 +347,143 @@ export function Navbar({ initialCategories = [], initialProducts = [] }: NavbarP
               </a>
             </nav>
 
-            {/* 3. Right: Expandable Search Bar + Mobile Menu */}
+            {/* 3. Right: Universal Search Bar + Mobile Menu */}
             <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
-              {/* Expandable Search Input (short bar that pops open on hover or focus) */}
-              <form
-                onSubmit={handleSearch}
-                className="relative flex items-center group"
-              >
-                <div className="relative flex items-center">
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search products..."
-                    className="w-32 sm:w-44 md:w-56 focus:w-64 sm:focus:w-72 md:focus:w-80 hover:w-48 sm:hover:w-56 md:hover:w-64 h-10 pl-9.5 pr-3.5 bg-white/45 hover:bg-white/70 focus:bg-white/95 border border-white/80 hover:border-slate-200 focus:border-[#012169]/40 rounded-full text-xs sm:text-sm text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[#012169]/15 transition-all duration-300 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_2px_6px_rgba(0,0,0,0.03)] backdrop-blur-md"
-                  />
-                  <button
-                    type="submit"
-                    aria-label="Search"
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-hover:text-[#012169] focus:text-[#012169] transition-colors cursor-pointer"
-                  >
-                    <MagnifyingGlass weight="bold" className="h-4.5 w-4.5" />
-                  </button>
-                </div>
-              </form>
+              <div ref={searchContainerRef} className="relative flex items-center">
+                {/* Search Form with Search Icon and Clear Button */}
+                <form
+                  onSubmit={handleSearch}
+                  className="relative flex items-center group"
+                >
+                  <div className="relative flex items-center">
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => {
+                        setSearchQuery(e.target.value);
+                        if (!searchFocused) setSearchFocused(true);
+                      }}
+                      onFocus={() => setSearchFocused(true)}
+                      placeholder="Search products..."
+                      className="w-32 sm:w-44 md:w-56 focus:w-64 sm:focus:w-72 md:focus:w-80 hover:w-48 sm:hover:w-56 md:hover:w-64 h-10 pl-9.5 pr-8 bg-white/20 hover:bg-white/35 focus:bg-white/95 border border-white/35 hover:border-white/60 focus:border-[#012169]/40 rounded-full text-xs sm:text-sm text-slate-800 placeholder:text-slate-500 focus:outline-hidden focus:ring-2 focus:ring-[#012169]/15 transition-all duration-300 backdrop-blur-xs"
+                    />
+                    <button
+                      type="submit"
+                      aria-label="Search"
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-hover:text-[#012169] focus:text-[#012169] transition-colors cursor-pointer"
+                    >
+                      <MagnifyingGlass weight="bold" className="h-4.5 w-4.5" />
+                    </button>
+                    {searchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSearchQuery('');
+                          setSearchFocused(false);
+                        }}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-700 rounded-full hover:bg-slate-200/50 transition-colors"
+                      >
+                        <X weight="bold" className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </form>
+
+                {/* Universal Search Results Dropdown */}
+                <AnimatePresence>
+                  {searchFocused && searchQuery.trim().length > 0 && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 8, scale: 0.98 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute right-0 top-full mt-2 w-80 sm:w-96 max-w-[92vw] bg-white rounded-2xl shadow-2xl border border-slate-200/90 overflow-hidden z-50 text-left font-sans"
+                    >
+                      {/* Header */}
+                      <div className="px-3.5 py-2.5 bg-slate-50/80 border-b border-slate-100 flex items-center justify-between text-xs">
+                        <span className="font-bold text-slate-500 uppercase tracking-wider text-[11px]">
+                          Products ({searchResults.length})
+                        </span>
+                        <span className="text-[11px] text-slate-400">
+                          Press Enter to view all
+                        </span>
+                      </div>
+
+                      {/* Results List */}
+                      <div className="max-h-[340px] overflow-y-auto divide-y divide-slate-100 p-1.5">
+                        {searchResults.length > 0 ? (
+                          searchResults.map((prod) => (
+                            <Link
+                              key={prod.id || prod.slug}
+                              href={`/product/${prod.slug || prod.id}`}
+                              onClick={() => {
+                                setSearchFocused(false);
+                                setSearchQuery('');
+                              }}
+                              className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-50 group transition-colors"
+                            >
+                              <div className="w-11 h-11 rounded-lg overflow-hidden bg-slate-100 shrink-0 border border-slate-200/60 flex items-center justify-center">
+                                {prod.imageUrl ? (
+                                  <img
+                                    src={prod.imageUrl}
+                                    alt={prod.title}
+                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                  />
+                                ) : (
+                                  <SquaresFour className="w-5 h-5 text-slate-400" />
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <h4 className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-[#012169] transition-colors truncate">
+                                  {prod.title}
+                                </h4>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
+                                    {prod.category}
+                                  </span>
+                                  {prod.isSameDayAvailable && (
+                                    <span className="text-[10px] font-bold text-emerald-600 flex items-center gap-0.5">
+                                      <Lightning weight="fill" className="h-3 w-3" />
+                                      Same Day
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="text-right shrink-0">
+                                <span className="text-xs sm:text-sm font-black text-[#012169]">
+                                  {formatCurrency(prod.discountedPrice || prod.price)}
+                                </span>
+                              </div>
+                            </Link>
+                          ))
+                        ) : (
+                          <div className="py-8 px-4 text-center">
+                            <MagnifyingGlass weight="duotone" className="h-8 w-8 text-slate-300 mx-auto mb-2" />
+                            <p className="text-xs font-bold text-slate-700">
+                              No products found for &ldquo;{searchQuery}&rdquo;
+                            </p>
+                            <p className="text-[11px] text-slate-400 mt-0.5">
+                              Try searching for business cards, flyers, banners, or hoodies
+                            </p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Footer: View all in catalogue */}
+                      <Link
+                        href={`/all-products?q=${encodeURIComponent(searchQuery.trim())}`}
+                        onClick={() => {
+                          setSearchFocused(false);
+                        }}
+                        className="flex items-center justify-between px-3.5 py-2.5 bg-slate-50 hover:bg-blue-50/80 text-[#012169] text-xs font-bold border-t border-slate-100 transition-colors"
+                      >
+                        <span>View all results for &ldquo;{searchQuery}&rdquo;</span>
+                        <ArrowRight weight="bold" className="h-3.5 w-3.5" />
+                      </Link>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
 
               {/* Mobile Menu Toggle Button */}
               <button

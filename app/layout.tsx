@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Lato } from 'next/font/google';
 import './globals.css';
 import { SmoothScrollProvider } from '@/components/providers/SmoothScrollProvider';
+import { ScrollToTop } from '@/components/providers/ScrollToTop';
 
 const lato = Lato({
   subsets: ['latin'],
@@ -24,6 +25,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${lato.variable} ${lato.className}`}>
       <body className={`${lato.className} min-h-screen bg-slate-50 text-slate-900 font-sans antialiased selection:bg-[#C8102E] selection:text-white`}>
+        <ScrollToTop />
         <SmoothScrollProvider>
           {children}
         </SmoothScrollProvider>

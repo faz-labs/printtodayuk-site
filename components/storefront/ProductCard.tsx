@@ -15,7 +15,7 @@ export function ProductCard({ product }: ProductCardProps) {
 
   return (
     <Link
-      href={`/product/${product.id || product.slug}`}
+      href={`/product/${product.slug || product.id}`}
       className="group flex flex-col w-full focus:outline-hidden"
     >
       {/* 1. CARD CONTAINER: Full fill picture, no white padding border */}

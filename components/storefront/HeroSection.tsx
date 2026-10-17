@@ -96,6 +96,9 @@ export function HeroSection({ categoryType, initialSlides }: HeroSectionProps) {
   if (slides.length === 0) return null;
 
   const currentSlide = slides[currentIndex];
+  const hasLink = Boolean(currentSlide?.linkUrl && currentSlide.linkUrl.trim().length > 0);
+  const slideLink = hasLink ? currentSlide.linkUrl!.trim() : '';
+  const isExternal = slideLink.startsWith('http://') || slideLink.startsWith('https://');
 
   const renderSlideImage = () => {
     return (
@@ -129,7 +132,27 @@ export function HeroSection({ categoryType, initialSlides }: HeroSectionProps) {
           transition={{ duration: 0.6, ease: [0.25, 1, 0.5, 1] }}
           className="absolute inset-0 w-full h-full"
         >
-          {renderSlideImage()}
+          {hasLink ? (
+            isExternal ? (
+              <a
+                href={slideLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block w-full h-full cursor-pointer"
+              >
+                {renderSlideImage()}
+              </a>
+            ) : (
+              <Link
+                href={slideLink}
+                className="block w-full h-full cursor-pointer"
+              >
+                {renderSlideImage()}
+              </Link>
+            )
+          ) : (
+            renderSlideImage()
+          )}
         </motion.div>
       </AnimatePresence>
 

@@ -225,24 +225,47 @@ export async function getProducts(category?: string): Promise<Product[]> {
 }
 
 export async function getProductById(idOrSlug: string): Promise<Product | null> {
+  if (!idOrSlug) return null;
+  const decoded = decodeURIComponent(idOrSlug).trim();
+
   if (isConfigured && db) {
     try {
-      // Direct doc ID check
-      const docRef = doc(db, 'products', idOrSlug);
+      // 1. Slug query check first (since storefront links use human-friendly slugs)
+      const qSlug = query(collection(db, 'products'), where('slug', '==', decoded));
+      const snapSlug = await getDocs(qSlug);
+      if (!snapSlug.empty) {
+        const firstDoc = snapSlug.docs[0];
+        return { id: firstDoc.id, ...firstDoc.data() } as Product;
+      }
+
+      // Also check raw string if different from decoded
+      if (idOrSlug !== decoded) {
+        const qRaw = query(collection(db, 'products'), where('slug', '==', idOrSlug));
+        const snapRaw = await getDocs(qRaw);
+        if (!snapRaw.empty) {
+          const firstDoc = snapRaw.docs[0];
+          return { id: firstDoc.id, ...firstDoc.data() } as Product;
+        }
+      }
+
+      // 2. Direct doc ID check
+      const docRef = doc(db, 'products', decoded);
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
         return { id: docSnap.id, ...docSnap.data() } as Product;
       }
 
-      // Slug query check
-      const q = query(collection(db, 'products'), where('slug', '==', idOrSlug));
-      const snap = await getDocs(q);
-      if (!snap.empty) {
-        const firstDoc = snap.docs[0];
-        return { id: firstDoc.id, ...firstDoc.data() } as Product;
+      // 3. Resilient fallback: search all products for case-insensitive slug or ID
+      const allSnap = await getDocs(collection(db, 'products'));
+      const targetLower = decoded.toLowerCase();
+      for (const d of allSnap.docs) {
+        const data = d.data() as any;
+        const prodSlug = (data.slug || '').toLowerCase().trim();
+        if (prodSlug === targetLower || d.id === decoded || d.id === idOrSlug) {
+          return { id: d.id, ...data } as Product;
+        }
       }
 
-      // If Firestore is configured and product was not found, return null
       return null;
     } catch (error) {
       console.warn('Firestore fetch single product error:', error);
@@ -250,7 +273,15 @@ export async function getProductById(idOrSlug: string): Promise<Product | null> 
   }
 
   const local = getLocalProducts();
-  const found = local.find((p) => p.id === idOrSlug || p.slug === idOrSlug);
+  const targetLower = decoded.toLowerCase();
+  const found = local.find(
+    (p) =>
+      (p.slug && p.slug.toLowerCase().trim() === targetLower) ||
+      p.slug === decoded ||
+      p.slug === idOrSlug ||
+      p.id === decoded ||
+      p.id === idOrSlug
+  );
   return found || null;
 }
 

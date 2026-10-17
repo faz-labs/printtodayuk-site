@@ -323,7 +323,7 @@ export function ProductManager({
                       <td className="py-3.5 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           <Link
-                            href={`/product/${product.id || product.slug}`}
+                            href={`/product/${product.slug || product.id}`}
                             target="_blank"
                             className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
                             title="View on Storefront"

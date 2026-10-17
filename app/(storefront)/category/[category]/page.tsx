@@ -29,6 +29,7 @@ export default function CategoryPage() {
   const categoryName = decodeURIComponent(rawCategoryParam);
 
   const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [allCategories, setAllCategories] = useState<CategoryConfig[]>([]);
   const [categoryConfig, setCategoryConfig] = useState<CategoryConfig | null>(null);
   const [subcategories, setSubcategories] = useState<string[]>(['All']);
   const [selectedSubcategory, setSelectedSubcategory] = useState<string>('All');
@@ -61,6 +62,12 @@ export default function CategoryPage() {
           getProducts(),
           getCategories(),
         ]);
+
+        const cleanCats = catsData.filter(
+          (c) => c && c.name && c.name.toLowerCase() !== 'printing' && c.name.toLowerCase() !== 'clothing'
+        );
+        cleanCats.sort((a, b) => a.name.localeCompare(b.name));
+        setAllCategories(cleanCats);
 
         // Find this category (case-insensitive)
         const matchedCat = catsData.find(
@@ -249,6 +256,8 @@ export default function CategoryPage() {
         <SearchFilterBar
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
+          categories={allCategories}
+          currentCategory={categoryName}
           subcategories={subcategories}
           selectedSubcategory={selectedSubcategory}
           onSelectSubcategory={setSelectedSubcategory}
@@ -270,7 +279,7 @@ export default function CategoryPage() {
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
             {filteredProducts.map((product) => (
               <ProductCard
-                key={product.id || product.slug}
+                key={product.slug || product.id}
                 product={product}
               />
             ))}
