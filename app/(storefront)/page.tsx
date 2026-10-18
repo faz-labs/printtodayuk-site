@@ -1,5 +1,6 @@
 import React from 'react';
 import { HeroSection } from '@/components/storefront/HeroSection';
+import { TrustBar } from '@/components/storefront/TrustBar';
 import { FeatureHighlights } from '@/components/storefront/FeatureHighlights';
 import { DynamicLandingSections } from '@/components/storefront/DynamicLandingSections';
 import { CuratedSolutionsSection } from '@/components/storefront/CuratedSolutionsSection';
@@ -21,10 +22,13 @@ export default async function HomePage() {
 
   return (
     <div className="space-y-0">
-      {/* 1. Vistaprint-Style Hero Section with Crystal Clear Video */}
+      {/* 1. Hero Section */}
       <HeroSection categoryType="Printing" initialSlides={initialHeroSlides} />
 
-      {/* 2. Vistaprint 4-Pillar Confidence & Trust Bar */}
+      {/* 2. 6-Feature Confidence & Opening Hours Trust Bar */}
+      <TrustBar />
+
+      {/* 3. 24-Hour & Same-Day Service Highlights */}
       <FeatureHighlights />
 
       {/* 3. Dynamic CMS-Managed Landing Sections (Horizontal Auto-Scroll, 8-Tile Grids & Split Banners) */}

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { HeroSection } from '@/components/storefront/HeroSection';
+import { TrustBar } from '@/components/storefront/TrustBar';
 import { FeatureHighlights } from '@/components/storefront/FeatureHighlights';
 import { SearchFilterBar } from '@/components/storefront/SearchFilterBar';
 import { ProductGrid } from '@/components/storefront/ProductGrid';
@@ -109,11 +110,14 @@ export default function ClothingCatalogPage() {
   };
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-0">
       {/* Clothing Hero */}
       <HeroSection categoryType="Clothing" />
 
-      {/* Trust & Feature Highlights Bar */}
+      {/* Trust & Features Bar */}
+      <TrustBar />
+
+      {/* Feature Highlights */}
       <FeatureHighlights />
 
       {/* Main Clothing Showcase */}
