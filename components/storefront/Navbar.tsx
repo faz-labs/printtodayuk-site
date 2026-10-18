@@ -549,9 +549,9 @@ export function Navbar({ initialCategories = [], initialProducts = [] }: NavbarP
           </div>
         </div>
 
-        {/* ROW 2: More Products + Up to 8 CMS Categories */}
+        {/* ROW 2: More Products + Up to 8 CMS Categories (Centered per request) */}
         <div className="w-full bg-white border-t border-slate-100 shadow-xs relative z-20 hidden lg:block">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center gap-6 xl:gap-8 h-11 overflow-x-auto no-scrollbar">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-center gap-6 xl:gap-8 h-11 overflow-x-auto no-scrollbar">
             {/* More Products Button (triggers AllProductsMegaMenu) */}
             <div
               className="relative h-full flex items-center shrink-0"
@@ -583,8 +583,8 @@ export function Navbar({ initialCategories = [], initialProducts = [] }: NavbarP
             {/* Separator */}
             <div className="h-3.5 w-px bg-slate-200 shrink-0" />
 
-            {/* Up to 8 CMS Categories */}
-            <div className="flex items-center gap-6 xl:gap-8 flex-1 overflow-x-auto no-scrollbar">
+            {/* Up to 8 CMS Categories Centered */}
+            <div className="flex items-center justify-center gap-6 xl:gap-8 shrink-0">
               {displayCategories.map((cat) => (
                 <Link
                   key={cat.id || cat.name}

@@ -117,7 +117,7 @@ export function HeroSection({ categoryType, initialSlides }: HeroSectionProps) {
 
   return (
     <div
-      className="relative w-full h-[400px] sm:h-[480px] md:h-[560px] lg:h-[620px] xl:h-[680px] overflow-hidden bg-slate-900 select-none group"
+      className="relative w-full aspect-[16/7.5] xs:aspect-[16/7.5] sm:aspect-[21/8] md:aspect-[24/8] lg:h-[540px] xl:h-[600px] min-h-[165px] max-h-[640px] overflow-hidden bg-slate-900 select-none group"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >
@@ -156,32 +156,32 @@ export function HeroSection({ categoryType, initialSlides }: HeroSectionProps) {
         </motion.div>
       </AnimatePresence>
 
-      {/* Navigation Arrows: Hidden until mouse hover over hero section */}
+      {/* Navigation Arrows: Centered vertically */}
       {slides.length > 1 && (
         <>
           <button
             onClick={handlePrev}
             aria-label="Previous slide"
             type="button"
-            className="absolute left-4 top-[calc(50%+24px)] -translate-y-1/2 h-10 w-10 sm:h-11 sm:w-11 rounded-full bg-black/40 hover:bg-black/80 backdrop-blur-xs text-white flex items-center justify-center opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity duration-300 z-20 cursor-pointer hover:scale-105 shadow-md"
+            className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 h-8 w-8 sm:h-11 sm:w-11 rounded-full bg-black/40 hover:bg-black/80 backdrop-blur-xs text-white flex items-center justify-center opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity duration-300 z-20 cursor-pointer hover:scale-105 shadow-md"
           >
-            <CaretLeft weight="bold" className="h-5 w-5 sm:h-6 sm:w-6" />
+            <CaretLeft weight="bold" className="h-4 w-4 sm:h-6 sm:w-6" />
           </button>
 
           <button
             onClick={handleNext}
             aria-label="Next slide"
             type="button"
-            className="absolute right-4 top-[calc(50%+24px)] -translate-y-1/2 h-10 w-10 sm:h-11 sm:w-11 rounded-full bg-black/40 hover:bg-black/80 backdrop-blur-xs text-white flex items-center justify-center opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity duration-300 z-20 cursor-pointer hover:scale-105 shadow-md"
+            className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 h-8 w-8 sm:h-11 sm:w-11 rounded-full bg-black/40 hover:bg-black/80 backdrop-blur-xs text-white flex items-center justify-center opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity duration-300 z-20 cursor-pointer hover:scale-105 shadow-md"
           >
-            <CaretRight weight="bold" className="h-5 w-5 sm:h-6 sm:w-6" />
+            <CaretRight weight="bold" className="h-4 w-4 sm:h-6 sm:w-6" />
           </button>
         </>
       )}
 
       {/* Bottom Pagination Dots (Smaller & Sleeker) */}
       {slides.length > 1 && (
-        <div className="absolute bottom-3.5 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-20 bg-black/35 backdrop-blur-xs px-2.5 py-1 rounded-full">
+        <div className="absolute bottom-2 sm:bottom-3.5 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-20 bg-black/35 backdrop-blur-xs px-2.5 py-1 rounded-full">
           {slides.map((_, idx) => (
             <button
               key={idx}
@@ -193,10 +193,10 @@ export function HeroSection({ categoryType, initialSlides }: HeroSectionProps) {
               }}
               aria-label={`Go to slide ${idx + 1}`}
               type="button"
-              className={`h-1.5 rounded-full transition-all duration-300 cursor-pointer ${
+              className={`h-1 sm:h-1.5 rounded-full transition-all duration-300 cursor-pointer ${
                 idx === currentIndex
-                  ? 'w-5 bg-white shadow-xs'
-                  : 'w-1.5 bg-white/50 hover:bg-white/80'
+                  ? 'w-4 sm:w-5 bg-white shadow-xs'
+                  : 'w-1 sm:w-1.5 bg-white/50 hover:bg-white/80'
               }`}
             />
           ))}
