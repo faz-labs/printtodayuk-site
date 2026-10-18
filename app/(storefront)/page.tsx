@@ -3,7 +3,6 @@ import { HeroSection } from '@/components/storefront/HeroSection';
 import { FeatureHighlights } from '@/components/storefront/FeatureHighlights';
 import { DynamicLandingSections } from '@/components/storefront/DynamicLandingSections';
 import { CuratedSolutionsSection } from '@/components/storefront/CuratedSolutionsSection';
-import { PromoCalloutBanner } from '@/components/storefront/PromoCalloutBanner';
 import { CustomerShowcaseSection } from '@/components/storefront/CustomerShowcaseSection';
 import { WhyChooseUsSection } from '@/components/storefront/WhyChooseUsSection';
 import { NewsletterSection } from '@/components/storefront/NewsletterSection';
@@ -37,9 +36,6 @@ export default async function HomePage() {
 
       {/* 5. Curated Industry Solutions */}
       <CuratedSolutionsSection />
-
-      {/* 6. High-Impact Promo Callout Banner with Code */}
-      <PromoCalloutBanner />
 
       {/* 7. Real Customer Showcase & 4.9/5 Trustpilot Reviews */}
       <CustomerShowcaseSection />

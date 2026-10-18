@@ -26,13 +26,15 @@ import {
   Copy,
   Check,
   ArrowRight,
+  UserCircle,
+  ShoppingBag,
+  Bell,
 } from '@phosphor-icons/react';
 import { cn, formatCurrency } from '@/lib/utils';
 import { useCallMe } from './CallMeContext';
 import { useSmoothScroll } from '@/components/providers/SmoothScrollProvider';
 import { CategoryConfig, Product } from '@/lib/types';
 import { getCategories, getProducts, getLocalCategories, getLocalProducts } from '@/lib/db';
-import { INITIAL_CATEGORIES } from '@/lib/data';
 import { AllProductsMegaMenu } from './AllProductsMegaMenu';
 
 interface NavbarProps {
@@ -49,6 +51,7 @@ export function Navbar({ initialCategories = [], initialProducts = [] }: NavbarP
   const [promoModalOpen, setPromoModalOpen] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
   const [noticeModal, setNoticeModal] = useState<string | null>(null);
+
   const [categories, setCategories] = useState<CategoryConfig[]>(() => {
     if (initialCategories && initialCategories.length > 0) return initialCategories;
     return typeof window !== 'undefined' ? getLocalCategories() : [];
@@ -57,11 +60,15 @@ export function Navbar({ initialCategories = [], initialProducts = [] }: NavbarP
     if (initialProducts && initialProducts.length > 0) return initialProducts;
     return typeof window !== 'undefined' ? getLocalProducts() : [];
   });
+
   const [hoveredMenu, setHoveredMenu] = useState<'all-products' | null>(null);
   const [isMenuPinned, setIsMenuPinned] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchFocused, setSearchFocused] = useState(false);
+  const [whatsNewOpen, setWhatsNewOpen] = useState(false);
+
   const searchContainerRef = useRef<HTMLDivElement | null>(null);
+  const whatsNewRef = useRef<HTMLDivElement | null>(null);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const headerRef = useRef<HTMLElement | null>(null);
 
@@ -88,16 +95,20 @@ export function Navbar({ initialCategories = [], initialProducts = [] }: NavbarP
     }
   };
 
-  // Close search dropdown on click outside or Escape
+  // Close search dropdown and What's New dropdown on click outside or Escape
   useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {
       if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
         setSearchFocused(false);
       }
+      if (whatsNewRef.current && !whatsNewRef.current.contains(e.target as Node)) {
+        setWhatsNewOpen(false);
+      }
     };
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setSearchFocused(false);
+        setWhatsNewOpen(false);
       }
     };
     document.addEventListener('mousedown', handleOutsideClick);
@@ -185,6 +196,11 @@ export function Navbar({ initialCategories = [], initialProducts = [] }: NavbarP
     );
   }, [categories]);
 
+  // Max 8 categories for Row 2 category bar
+  const displayCategories = useMemo(() => {
+    return cleanCategories.slice(0, 8);
+  }, [cleanCategories]);
+
   const handleMouseEnter = (menu: 'all-products') => {
     if (hoverTimeoutRef.current) {
       clearTimeout(hoverTimeoutRef.current);
@@ -242,19 +258,13 @@ export function Navbar({ initialCategories = [], initialProducts = [] }: NavbarP
     <>
       <header
         ref={headerRef}
-        className="sticky top-0 z-40 w-full bg-white/10 supports-[backdrop-filter]:bg-white/10 backdrop-blur-xs sm:backdrop-blur-sm border-b border-white/15 shadow-none transition-all duration-300 relative"
+        className="sticky top-0 z-40 w-full bg-white border-b border-slate-200/90 shadow-xs transition-all relative font-sans"
         onMouseLeave={handleMouseLeave}
       >
-        {/* Soft Multi-Color Aurora Glow Behind Center Nav */}
-        <div
-          aria-hidden="true"
-          className="absolute -top-6 left-1/2 -translate-x-1/2 w-80 sm:w-[580px] h-28 bg-gradient-to-r from-indigo-500/20 via-pink-500/25 to-amber-300/20 blur-3xl rounded-full pointer-events-none opacity-75 transition-opacity"
-        />
-
-        {/* FULL-WIDTH NAVBAR INNER CONTAINER */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="flex items-center justify-between gap-3 lg:gap-6 h-16 sm:h-18 lg:h-20">
-            {/* 1. Logo (Left) */}
+        {/* ROW 1: Logo (Left) + Search Box (Center) + Actions (Right) */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between gap-4 lg:gap-6 h-16 sm:h-20">
+            {/* 1. Logo (Left) with YOUR LOCAL DIGITAL PRINTER subtitle */}
             <Link
               href="/"
               className="flex items-center gap-2.5 group focus:outline-hidden shrink-0"
@@ -263,7 +273,7 @@ export function Navbar({ initialCategories = [], initialProducts = [] }: NavbarP
                 <img
                   src="/images/logo.png"
                   alt="Print Today UK"
-                  className="h-9 sm:h-11 w-auto max-w-[190px] object-contain block drop-shadow-2xs"
+                  className="h-10 sm:h-12 w-auto max-w-[210px] object-contain block drop-shadow-2xs"
                   onError={(e) => {
                     e.currentTarget.style.display = 'none';
                     const fallbackEl = document.getElementById('navbar-text-logo');
@@ -282,208 +292,226 @@ export function Navbar({ initialCategories = [], initialProducts = [] }: NavbarP
                       </span>
                     </span>
                     <span className="text-[10px] font-semibold text-slate-500 tracking-wider uppercase mt-1">
-                      Same Day London
+                      Your Local Digital Printer
                     </span>
                   </div>
                 </div>
               </div>
             </Link>
 
-            {/* 2. Center: A to Z Products Mega Menu, Signage & Build Website */}
-            <nav className="hidden lg:flex items-center justify-center gap-1 xl:gap-2 h-full flex-1 relative">
-              {/* Subtle ambient light center anchor */}
-              <div
-                aria-hidden="true"
-                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-12 bg-gradient-to-r from-violet-400/20 via-fuchsia-400/25 to-yellow-300/20 blur-xl rounded-full pointer-events-none"
-              />
+            {/* 2. Center: Search Box with Search Icon inside border */}
+            <div ref={searchContainerRef} className="hidden sm:flex flex-1 max-w-xl mx-2 md:mx-6 relative">
+              <form onSubmit={handleSearch} className="w-full relative flex items-center">
+                <div className="relative w-full flex items-center">
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      if (!searchFocused) setSearchFocused(true);
+                    }}
+                    onFocus={() => setSearchFocused(true)}
+                    placeholder="Search..."
+                    className="w-full h-10 sm:h-11 pl-4 pr-11 rounded-xl bg-slate-100 hover:bg-slate-150 focus:bg-white border border-slate-200/90 focus:border-[#012169] text-xs sm:text-sm text-slate-800 placeholder:text-slate-500 focus:outline-hidden focus:ring-2 focus:ring-[#012169]/15 transition-all shadow-[inset_0_1px_2px_rgba(0,0,0,0.03)]"
+                  />
+                  {/* Search Icon inside the border */}
+                  <button
+                    type="submit"
+                    aria-label="Search"
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-[#012169] transition-colors cursor-pointer"
+                  >
+                    <MagnifyingGlass weight="bold" className="h-5 w-5" />
+                  </button>
 
-              {/* A to Z Products Mega Menu Trigger */}
+                  {/* Clear button if typed */}
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchQuery('');
+                        setSearchFocused(false);
+                      }}
+                      className="absolute right-10 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-700 rounded-full hover:bg-slate-200 transition-colors"
+                      aria-label="Clear search"
+                    >
+                      <X weight="bold" className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+              </form>
+
+              {/* Universal Search Results Dropdown */}
+              <AnimatePresence>
+                {searchFocused && searchQuery.trim().length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 8, scale: 0.98 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute left-0 right-0 top-full mt-2 bg-white rounded-2xl shadow-2xl border border-slate-200/90 overflow-hidden z-50 text-left font-sans"
+                  >
+                    {/* Header */}
+                    <div className="px-3.5 py-2.5 bg-slate-50/80 border-b border-slate-100 flex items-center justify-between text-xs">
+                      <span className="font-bold text-slate-500 uppercase tracking-wider text-[11px]">
+                        Products ({searchResults.length})
+                      </span>
+                      <span className="text-[11px] text-slate-400">
+                        Press Enter to view all
+                      </span>
+                    </div>
+
+                    {/* Results List */}
+                    <div className="max-h-[340px] overflow-y-auto divide-y divide-slate-100 p-1.5">
+                      {searchResults.length > 0 ? (
+                        searchResults.map((prod) => (
+                          <Link
+                            key={prod.id || prod.slug}
+                            href={`/product/${prod.slug || prod.id}`}
+                            onClick={() => {
+                              setSearchFocused(false);
+                              setSearchQuery('');
+                            }}
+                            className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-50 group transition-colors"
+                          >
+                            <div className="w-11 h-11 rounded-lg overflow-hidden bg-slate-100 shrink-0 border border-slate-200/60 flex items-center justify-center">
+                              {prod.imageUrl ? (
+                                <img
+                                  src={prod.imageUrl}
+                                  alt={prod.title}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                />
+                              ) : (
+                                <SquaresFour className="w-5 h-5 text-slate-400" />
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h4 className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-[#012169] transition-colors truncate">
+                                {prod.title}
+                              </h4>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
+                                  {prod.category}
+                                </span>
+                                {prod.isSameDayAvailable && (
+                                  <span className="text-[10px] font-bold text-emerald-600 flex items-center gap-0.5">
+                                    <Lightning weight="fill" className="h-3 w-3" />
+                                    Same Day
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <span className="text-xs sm:text-sm font-black text-[#012169]">
+                                {formatCurrency(prod.discountedPrice || prod.price)}
+                              </span>
+                            </div>
+                          </Link>
+                        ))
+                      ) : (
+                        <div className="py-8 px-4 text-center">
+                          <MagnifyingGlass weight="duotone" className="h-8 w-8 text-slate-300 mx-auto mb-2" />
+                          <p className="text-xs font-bold text-slate-700">
+                            No products found for &ldquo;{searchQuery}&rdquo;
+                          </p>
+                          <p className="text-[11px] text-slate-400 mt-0.5">
+                            Try searching for business cards, flyers, banners, or hoodies
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Footer: View all in catalogue */}
+                    <Link
+                      href={`/all-products?q=${encodeURIComponent(searchQuery.trim())}`}
+                      onClick={() => {
+                        setSearchFocused(false);
+                      }}
+                      className="flex items-center justify-between px-3.5 py-2.5 bg-slate-50 hover:bg-blue-50/80 text-[#012169] text-xs font-bold border-t border-slate-100 transition-colors"
+                    >
+                      <span>View all results for &ldquo;{searchQuery}&rdquo;</span>
+                      <ArrowRight weight="bold" className="h-3.5 w-3.5" />
+                    </Link>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* 3. Right: What's New? + Sign In + Basket (0) */}
+            <div className="flex items-center gap-4 sm:gap-6 shrink-0">
+              {/* What's New? Dropdown (Signage & Build Website) */}
               <div
-                className="relative h-full flex items-center shrink-0 z-10"
-                onMouseEnter={() => handleMouseEnter('all-products')}
+                className="relative hidden md:block"
+                ref={whatsNewRef}
+                onMouseEnter={() => setWhatsNewOpen(true)}
+                onMouseLeave={() => setWhatsNewOpen(false)}
               >
                 <button
                   type="button"
-                  id="navbar-atoz-trigger"
-                  onClick={toggleMenu}
-                  onMouseEnter={() => handleMouseEnter('all-products')}
-                  className={cn(
-                    'h-10 px-4 rounded-full flex items-center gap-2 font-sans text-[15px] xl:text-[16px] font-semibold transition-all cursor-pointer',
-                    hoveredMenu === 'all-products'
-                      ? 'bg-white/90 text-[#012169] shadow-xs backdrop-blur-md'
-                      : 'text-slate-800 hover:text-[#012169] hover:bg-white/50'
-                  )}
+                  onClick={() => setWhatsNewOpen(!whatsNewOpen)}
+                  className="flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-800 hover:text-[#012169] transition-colors cursor-pointer py-2"
                 >
-                  <SquaresFour weight="bold" className="h-4.5 w-4.5 text-[#012169]" />
-                  <span>A to Z Products</span>
+                  <Bell weight="bold" className="h-4 w-4 text-[#012169]" />
+                  <span>What&apos;s New?</span>
                   <CaretDown
                     weight="bold"
                     className={cn(
-                      'h-3.5 w-3.5 transition-transform duration-200',
-                      hoveredMenu === 'all-products' ? 'rotate-180 text-[#012169]' : 'text-slate-400'
+                      'h-3 w-3 text-slate-400 transition-transform duration-200',
+                      whatsNewOpen ? 'rotate-180 text-[#012169]' : ''
                     )}
                   />
                 </button>
-              </div>
 
-              {/* Signage - Redirects to signtoday.co.uk */}
-              <a
-                href="https://signtoday.co.uk"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="h-10 px-4 rounded-full flex items-center transition-all font-sans text-[15px] xl:text-[16px] font-semibold text-slate-700 hover:text-[#012169] hover:bg-white/50 whitespace-nowrap z-10"
-              >
-                <span>Signage</span>
-              </a>
-
-              {/* Build Website - Redirects to todayai.co.uk */}
-              <a
-                href="https://todayai.co.uk"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="h-10 px-4 rounded-full flex items-center transition-all font-sans text-[15px] xl:text-[16px] font-semibold text-slate-700 hover:text-[#012169] hover:bg-white/50 whitespace-nowrap z-10"
-              >
-                <span>Build Website</span>
-              </a>
-            </nav>
-
-            {/* 3. Right: Universal Search Bar + Mobile Menu */}
-            <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
-              <div ref={searchContainerRef} className="relative flex items-center">
-                {/* Search Form with Search Icon and Clear Button */}
-                <form
-                  onSubmit={handleSearch}
-                  className="relative flex items-center group"
-                >
-                  <div className="relative flex items-center">
-                    <input
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => {
-                        setSearchQuery(e.target.value);
-                        if (!searchFocused) setSearchFocused(true);
-                      }}
-                      onFocus={() => setSearchFocused(true)}
-                      placeholder="Search products..."
-                      className="w-32 sm:w-44 md:w-56 focus:w-64 sm:focus:w-72 md:focus:w-80 hover:w-48 sm:hover:w-56 md:hover:w-64 h-10 pl-9.5 pr-8 bg-white/20 hover:bg-white/35 focus:bg-white/95 border border-white/35 hover:border-white/60 focus:border-[#012169]/40 rounded-full text-xs sm:text-sm text-slate-800 placeholder:text-slate-500 focus:outline-hidden focus:ring-2 focus:ring-[#012169]/15 transition-all duration-300 backdrop-blur-xs"
-                    />
-                    <button
-                      type="submit"
-                      aria-label="Search"
-                      className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-hover:text-[#012169] focus:text-[#012169] transition-colors cursor-pointer"
-                    >
-                      <MagnifyingGlass weight="bold" className="h-4.5 w-4.5" />
-                    </button>
-                    {searchQuery && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSearchQuery('');
-                          setSearchFocused(false);
-                        }}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-700 rounded-full hover:bg-slate-200/50 transition-colors"
-                      >
-                        <X weight="bold" className="h-3.5 w-3.5" />
-                      </button>
-                    )}
-                  </div>
-                </form>
-
-                {/* Universal Search Results Dropdown */}
                 <AnimatePresence>
-                  {searchFocused && searchQuery.trim().length > 0 && (
+                  {whatsNewOpen && (
                     <motion.div
-                      initial={{ opacity: 0, y: 8, scale: 0.98 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 8, scale: 0.98 }}
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 6 }}
                       transition={{ duration: 0.15 }}
-                      className="absolute right-0 top-full mt-2 w-80 sm:w-96 max-w-[92vw] bg-white rounded-2xl shadow-2xl border border-slate-200/90 overflow-hidden z-50 text-left font-sans"
+                      className="absolute right-0 top-full mt-1 w-48 bg-white rounded-2xl shadow-xl border border-slate-200/90 py-1.5 z-50 overflow-hidden font-sans"
                     >
-                      {/* Header */}
-                      <div className="px-3.5 py-2.5 bg-slate-50/80 border-b border-slate-100 flex items-center justify-between text-xs">
-                        <span className="font-bold text-slate-500 uppercase tracking-wider text-[11px]">
-                          Products ({searchResults.length})
-                        </span>
-                        <span className="text-[11px] text-slate-400">
-                          Press Enter to view all
-                        </span>
-                      </div>
-
-                      {/* Results List */}
-                      <div className="max-h-[340px] overflow-y-auto divide-y divide-slate-100 p-1.5">
-                        {searchResults.length > 0 ? (
-                          searchResults.map((prod) => (
-                            <Link
-                              key={prod.id || prod.slug}
-                              href={`/product/${prod.slug || prod.id}`}
-                              onClick={() => {
-                                setSearchFocused(false);
-                                setSearchQuery('');
-                              }}
-                              className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-50 group transition-colors"
-                            >
-                              <div className="w-11 h-11 rounded-lg overflow-hidden bg-slate-100 shrink-0 border border-slate-200/60 flex items-center justify-center">
-                                {prod.imageUrl ? (
-                                  <img
-                                    src={prod.imageUrl}
-                                    alt={prod.title}
-                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                                  />
-                                ) : (
-                                  <SquaresFour className="w-5 h-5 text-slate-400" />
-                                )}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <h4 className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-[#012169] transition-colors truncate">
-                                  {prod.title}
-                                </h4>
-                                <div className="flex items-center gap-2 mt-0.5">
-                                  <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
-                                    {prod.category}
-                                  </span>
-                                  {prod.isSameDayAvailable && (
-                                    <span className="text-[10px] font-bold text-emerald-600 flex items-center gap-0.5">
-                                      <Lightning weight="fill" className="h-3 w-3" />
-                                      Same Day
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                              <div className="text-right shrink-0">
-                                <span className="text-xs sm:text-sm font-black text-[#012169]">
-                                  {formatCurrency(prod.discountedPrice || prod.price)}
-                                </span>
-                              </div>
-                            </Link>
-                          ))
-                        ) : (
-                          <div className="py-8 px-4 text-center">
-                            <MagnifyingGlass weight="duotone" className="h-8 w-8 text-slate-300 mx-auto mb-2" />
-                            <p className="text-xs font-bold text-slate-700">
-                              No products found for &ldquo;{searchQuery}&rdquo;
-                            </p>
-                            <p className="text-[11px] text-slate-400 mt-0.5">
-                              Try searching for business cards, flyers, banners, or hoodies
-                            </p>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Footer: View all in catalogue */}
-                      <Link
-                        href={`/all-products?q=${encodeURIComponent(searchQuery.trim())}`}
-                        onClick={() => {
-                          setSearchFocused(false);
-                        }}
-                        className="flex items-center justify-between px-3.5 py-2.5 bg-slate-50 hover:bg-blue-50/80 text-[#012169] text-xs font-bold border-t border-slate-100 transition-colors"
+                      <a
+                        href="https://signtoday.co.uk"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-between px-4 py-2.5 hover:bg-slate-50 text-slate-700 hover:text-[#012169] transition-colors text-xs sm:text-sm font-bold group"
                       >
-                        <span>View all results for &ldquo;{searchQuery}&rdquo;</span>
-                        <ArrowRight weight="bold" className="h-3.5 w-3.5" />
-                      </Link>
+                        <span>Signage</span>
+                        <ArrowSquareOut weight="bold" className="h-3.5 w-3.5 text-slate-400 group-hover:text-[#012169]" />
+                      </a>
+                      <a
+                        href="https://todayai.co.uk"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-between px-4 py-2.5 hover:bg-slate-50 text-slate-700 hover:text-[#012169] transition-colors text-xs sm:text-sm font-bold group border-t border-slate-100"
+                      >
+                        <span>Build Website</span>
+                        <ArrowSquareOut weight="bold" className="h-3.5 w-3.5 text-slate-400 group-hover:text-[#012169]" />
+                      </a>
                     </motion.div>
                   )}
                 </AnimatePresence>
               </div>
+
+              {/* Sign In (Hardcoded for now per user instruction) */}
+              <button
+                type="button"
+                onClick={() => setNoticeModal('Sign In & Customer Portal will be available soon with our order management system rollout.')}
+                className="hidden sm:flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-800 hover:text-[#012169] transition-colors cursor-pointer"
+              >
+                <UserCircle weight="bold" className="h-5 w-5 text-slate-700" />
+                <span>Sign In</span>
+              </button>
+
+              {/* Basket (0) (Hardcoded for now per user instruction) */}
+              <button
+                type="button"
+                onClick={() => setNoticeModal('Online Shopping Basket & Checkout will be active soon! To place an order now, call 0330 010 3521 or WhatsApp us.')}
+                className="flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-800 hover:text-[#012169] transition-colors cursor-pointer"
+              >
+                <ShoppingBag weight="bold" className="h-5 w-5 text-slate-700" />
+                <span>Basket (0)</span>
+              </button>
 
               {/* Mobile Menu Toggle Button */}
               <button
@@ -497,6 +525,75 @@ export function Navbar({ initialCategories = [], initialProducts = [] }: NavbarP
                   <List weight="bold" className="h-6 w-6" />
                 )}
               </button>
+            </div>
+          </div>
+
+          {/* Mobile Search Input in Row 1 on smaller screens */}
+          <div className="sm:hidden pb-3">
+            <form onSubmit={handleSearch} className="w-full relative flex items-center">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search products..."
+                className="w-full h-10 pl-3.5 pr-10 rounded-xl bg-slate-100 border border-slate-200 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:border-[#012169]"
+              />
+              <button
+                type="submit"
+                aria-label="Search"
+                className="absolute right-3 text-slate-400 hover:text-[#012169]"
+              >
+                <MagnifyingGlass weight="bold" className="h-4 w-4" />
+              </button>
+            </form>
+          </div>
+        </div>
+
+        {/* ROW 2: More Products + Up to 8 CMS Categories */}
+        <div className="w-full bg-white border-t border-slate-100 shadow-xs relative z-20 hidden lg:block">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center gap-6 xl:gap-8 h-11 overflow-x-auto no-scrollbar">
+            {/* More Products Button (triggers AllProductsMegaMenu) */}
+            <div
+              className="relative h-full flex items-center shrink-0"
+              onMouseEnter={() => handleMouseEnter('all-products')}
+            >
+              <button
+                type="button"
+                id="navbar-atoz-trigger"
+                onClick={toggleMenu}
+                onMouseEnter={() => handleMouseEnter('all-products')}
+                className={cn(
+                  'flex items-center gap-1.5 font-sans text-[14px] xl:text-[15px] font-bold transition-all cursor-pointer whitespace-nowrap',
+                  hoveredMenu === 'all-products'
+                    ? 'text-[#012169]'
+                    : 'text-slate-900 hover:text-[#012169]'
+                )}
+              >
+                <span>More Products</span>
+                <CaretDown
+                  weight="bold"
+                  className={cn(
+                    'h-3.5 w-3.5 transition-transform duration-200',
+                    hoveredMenu === 'all-products' ? 'rotate-180 text-[#012169]' : 'text-slate-400'
+                  )}
+                />
+              </button>
+            </div>
+
+            {/* Separator */}
+            <div className="h-3.5 w-px bg-slate-200 shrink-0" />
+
+            {/* Up to 8 CMS Categories */}
+            <div className="flex items-center gap-6 xl:gap-8 flex-1 overflow-x-auto no-scrollbar">
+              {displayCategories.map((cat) => (
+                <Link
+                  key={cat.id || cat.name}
+                  href={`/category/${encodeURIComponent(cat.name)}`}
+                  className="text-[14px] xl:text-[15px] font-medium text-slate-700 hover:text-[#012169] transition-colors whitespace-nowrap shrink-0"
+                >
+                  {cat.name}
+                </Link>
+              ))}
             </div>
           </div>
         </div>
@@ -524,10 +621,10 @@ export function Navbar({ initialCategories = [], initialProducts = [] }: NavbarP
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
-              className="lg:hidden border-t border-slate-200/50 bg-white/95 backdrop-blur-2xl px-5 pt-4 pb-6 shadow-xl max-h-[82vh] overflow-y-auto"
+              className="lg:hidden border-t border-slate-200/50 bg-white px-5 pt-4 pb-6 shadow-xl max-h-[82vh] overflow-y-auto"
             >
               <div className="flex flex-col space-y-1">
-                {/* Mobile 10% Off Promo Offer */}
+                {/* Mobile Promo Offer */}
                 <button
                   type="button"
                   onClick={() => {
@@ -547,7 +644,7 @@ export function Navbar({ initialCategories = [], initialProducts = [] }: NavbarP
                   </span>
                 </button>
 
-                {/* Solopress-Style Mobile A-Z Directory Toggle */}
+                {/* Mobile More Products (A-Z Directory) Toggle */}
                 <div className="pb-3 mb-2 border-b border-slate-200/80">
                   <button
                     type="button"
@@ -556,7 +653,7 @@ export function Navbar({ initialCategories = [], initialProducts = [] }: NavbarP
                   >
                     <div className="flex items-center gap-2.5">
                       <SquaresFour weight="bold" className="h-4 w-4 text-white" />
-                      <span>Explore All Products (A–Z)</span>
+                      <span>More Products (All Categories A–Z)</span>
                     </div>
                     <CaretDown
                       weight="bold"
@@ -576,7 +673,13 @@ export function Navbar({ initialCategories = [], initialProducts = [] }: NavbarP
                     >
                       <div className="text-[11px] font-black uppercase tracking-wider text-[#012169] flex items-center justify-between pb-1 border-b border-slate-200">
                         <span>A–Z Directory</span>
-                        <span className="text-[10px] text-slate-500 font-semibold">Alphabetical Index</span>
+                        <Link
+                          href="/all-products"
+                          onClick={() => setMobileMenuOpen(false)}
+                          className="text-[11px] text-[#012169] font-bold hover:underline"
+                        >
+                          View All Page &rarr;
+                        </Link>
                       </div>
                       <div className="grid grid-cols-2 gap-x-4 gap-y-2">
                         {[...categories]
@@ -599,7 +702,7 @@ export function Navbar({ initialCategories = [], initialProducts = [] }: NavbarP
                   )}
                 </div>
 
-                {/* Direct Partner Links in Mobile Drawer */}
+                {/* Direct What's New links in Mobile Drawer */}
                 <div className="grid grid-cols-2 gap-2 pb-2 mb-2 border-b border-slate-100">
                   <a
                     href="https://signtoday.co.uk"
@@ -619,71 +722,41 @@ export function Navbar({ initialCategories = [], initialProducts = [] }: NavbarP
                   </a>
                 </div>
 
+                {/* Popular Categories */}
                 <div className="px-2 py-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                  Product Categories (A–Z)
+                  Popular Categories
                 </div>
                 <div className="space-y-1">
-                  {[...cleanCategories]
-                    .sort((a, b) => a.name.localeCompare(b.name))
-                    .map((cat) => (
-                      <Link
-                        key={cat.name}
-                        href={`/category/${encodeURIComponent(cat.name)}`}
-                        onClick={() => setMobileMenuOpen(false)}
-                        className="flex items-center justify-between px-3.5 py-2.5 rounded-xl font-sans text-[16px] font-medium text-slate-800 hover:text-[#012169] hover:bg-slate-50 transition-colors"
-                      >
-                        <span>{cat.name}</span>
-                        <ArrowSquareOut weight="bold" className="h-4 w-4 text-slate-400" />
-                      </Link>
-                    ))}
+                  {displayCategories.map((cat) => (
+                    <Link
+                      key={cat.name}
+                      href={`/category/${encodeURIComponent(cat.name)}`}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center justify-between px-3.5 py-2.5 rounded-xl font-sans text-[15px] font-medium text-slate-800 hover:text-[#012169] hover:bg-slate-50 transition-colors"
+                    >
+                      <span>{cat.name}</span>
+                      <ArrowRight weight="bold" className="h-3.5 w-3.5 text-slate-400" />
+                    </Link>
+                  ))}
                 </div>
 
-                <div className="pt-3 pb-1 px-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                  Services & External Hubs
-                </div>
-
-                {/* Signs & Banners External link */}
-                <a
-                  href="https://signtodayai.co.uk"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-50 text-left"
-                >
-                  <span>Signs & Banners</span>
-                  <ArrowSquareOut weight="bold" className="h-4 w-4 text-slate-400" />
-                </a>
-
-                {otherServices.map((link) => (
-                  <button
-                    key={link.name}
-                    onClick={() => {
-                      setMobileMenuOpen(false);
-                      link.action();
-                    }}
-                    className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-700 hover:bg-slate-50 text-left"
-                  >
-                    <span>{link.name}</span>
-                    <ArrowSquareOut weight="bold" className="h-4 w-4 text-slate-400" />
-                  </button>
-                ))}
-
-                <div className="pt-4 mt-2 border-t border-slate-100 flex flex-col gap-2">
-                  <button
-                    onClick={() => {
-                      setMobileMenuOpen(false);
-                      openCallMe();
-                    }}
-                    className="w-full flex items-center justify-center gap-2 bg-[#C8102E] hover:bg-[#A80C24] text-white font-bold py-3 rounded-xl shadow-sm text-sm"
-                  >
-                    <Phone weight="fill" className="h-4 w-4" />
-                    <span>Call Me / Instant Quote</span>
-                  </button>
+                {/* Contact Actions in Mobile Drawer */}
+                <div className="pt-4 border-t border-slate-200/80 space-y-2">
                   <a
-                    href="tel:+447969559746"
-                    className="flex items-center justify-center gap-2 text-xs font-semibold text-[#012169] py-2"
+                    href="tel:03300103521"
+                    className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-slate-100 font-bold text-sm text-slate-800"
                   >
-                    Direct Dial: +44 7969 559746
+                    <Phone weight="fill" className="h-4 w-4 text-red-500" />
+                    <span>Call 0330 010 3521</span>
+                  </a>
+                  <a
+                    href="https://wa.me/447969559746"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-emerald-600 font-bold text-sm text-white shadow-sm"
+                  >
+                    <Chats weight="fill" className="h-4 w-4" />
+                    <span>WhatsApp Live Chat</span>
                   </a>
                 </div>
               </div>
@@ -692,41 +765,7 @@ export function Navbar({ initialCategories = [], initialProducts = [] }: NavbarP
         </AnimatePresence>
       </header>
 
-      {/* Notice info modal for secondary services */}
-      {noticeModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl border border-slate-100"
-          >
-            <div className="flex items-center gap-2 text-[#012169] mb-2 font-bold">
-              <Sparkle weight="fill" className="h-5 w-5 text-[#C8102E]" />
-              <span>Studio Information</span>
-            </div>
-            <p className="text-sm text-slate-600 leading-relaxed">{noticeModal}</p>
-            <div className="mt-5 flex gap-2 justify-end">
-              <button
-                onClick={() => {
-                  setNoticeModal(null);
-                  openCallMe();
-                }}
-                className="px-4 py-2 bg-[#012169] text-white text-xs font-bold rounded-xl hover:bg-[#0A358C]"
-              >
-                Inquire Now
-              </button>
-              <button
-                onClick={() => setNoticeModal(null)}
-                className="px-4 py-2 bg-slate-100 text-slate-700 text-xs font-bold rounded-xl hover:bg-slate-200"
-              >
-                Close
-              </button>
-            </div>
-          </motion.div>
-        </div>
-      )}
-
-      {/* 10% Off Promo Offer Modal */}
+      {/* Special Offer Modal Popup */}
       <AnimatePresence>
         {promoModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
@@ -793,20 +832,66 @@ export function Navbar({ initialCategories = [], initialProducts = [] }: NavbarP
                   type="button"
                   onClick={() => {
                     setPromoModalOpen(false);
-                    router.push('/category/Printing');
+                    openCallMe();
                   }}
-                  className="w-full py-3 rounded-xl bg-[#C8102E] hover:bg-[#A80C24] text-white font-bold text-sm shadow-md transition-colors cursor-pointer font-sans"
+                  className="w-full py-3.5 rounded-xl bg-[#C8102E] hover:bg-[#A80C24] text-white font-bold text-sm transition-all shadow-md cursor-pointer font-sans"
                 >
-                  Browse Products & Redeem
+                  Apply to New Quote
                 </button>
-                <a
-                  href="https://wa.me/447969559746?text=Hi%2C%20I%20would%20like%20to%20use%20code%20FIRSTPRINT10%20for%2010%25%20off"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full py-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs border border-emerald-200/80 transition-colors flex items-center justify-center gap-1.5 font-sans"
+                <button
+                  type="button"
+                  onClick={() => setPromoModalOpen(false)}
+                  className="w-full py-2.5 rounded-xl text-slate-500 hover:text-slate-800 font-semibold text-xs transition-colors cursor-pointer font-sans"
                 >
-                  <span>Order via WhatsApp Live Chat</span>
-                </a>
+                  Maybe Later
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Information / Coming Soon Notice Modal */}
+      <AnimatePresence>
+        {noticeModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-md bg-white rounded-2xl p-6 shadow-2xl border border-slate-200 text-center font-sans"
+            >
+              <button
+                onClick={() => setNoticeModal(null)}
+                className="absolute right-3.5 top-3.5 p-1.5 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors cursor-pointer"
+                aria-label="Close"
+              >
+                <X weight="bold" className="h-5 w-5" />
+              </button>
+
+              <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-[#012169]">
+                <Sparkle weight="fill" className="h-6 w-6 text-[#012169]" />
+              </div>
+
+              <h4 className="text-lg font-bold text-slate-900 tracking-tight">Print Today Feature Notice</h4>
+              <p className="mt-2 text-sm text-slate-600 leading-relaxed">{noticeModal}</p>
+
+              <div className="mt-5 flex gap-2.5">
+                <button
+                  onClick={() => {
+                    setNoticeModal(null);
+                    openCallMe();
+                  }}
+                  className="flex-1 py-2.5 rounded-xl bg-[#012169] hover:bg-[#0A358C] text-white text-xs font-bold transition-all shadow-sm cursor-pointer"
+                >
+                  Contact Team
+                </button>
+                <button
+                  onClick={() => setNoticeModal(null)}
+                  className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors cursor-pointer"
+                >
+                  Close
+                </button>
               </div>
             </motion.div>
           </div>

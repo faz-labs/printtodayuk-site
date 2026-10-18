@@ -36,38 +36,6 @@ export function Footer() {
   return (
     <footer className="bg-[#012169] text-white pt-16 pb-12 border-t border-white/10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Top London Callout Banner */}
-        <div className="rounded-3xl bg-white/10 backdrop-blur-md p-8 sm:p-10 mb-16 shadow-xl relative overflow-hidden text-white flex flex-col lg:flex-row items-center justify-between gap-6 border border-white/20">
-          <div className="max-w-2xl text-center lg:text-left">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 text-xs font-bold text-white mb-3 backdrop-blur-md">
-              <Lightning weight="fill" className="h-3.5 w-3.5 text-white" />
-              <span>London Express Print Studio</span>
-            </div>
-            <h3 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
-              Need same-day printing delivered in London today?
-            </h3>
-            <p className="mt-2 text-sm text-white/85 leading-relaxed">
-              Order before 12pm for guaranteed same-day collection at 75 Green St, E7 8JF or express courier delivery anywhere across London.
-            </p>
-          </div>
-
-          <div className="flex flex-col sm:flex-row items-center gap-3 shrink-0">
-            <button
-              onClick={() => openCallMe('Emergency Same-Day Order')}
-              className="inline-flex items-center justify-center gap-2 bg-[#C8102E] hover:bg-[#A80C24] text-white font-bold px-6 py-3.5 rounded-xl text-sm shadow-xl transition-all cursor-pointer border border-[#C8102E]"
-            >
-              <Phone weight="fill" className="h-4 w-4 text-white" />
-              <span>Request Urgent Call Back</span>
-            </button>
-            <a
-              href="tel:03300103521"
-              className="inline-flex items-center justify-center gap-2 bg-white text-[#012169] hover:bg-white/90 font-bold px-5 py-3.5 rounded-xl text-sm transition-all shadow-md"
-            >
-              Direct: 0330 010 3521
-            </a>
-          </div>
-        </div>
-
         {/* Main Footer Columns */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 pb-12 border-b border-white/15">
           {/* Col 1: Brand & Bio */}
