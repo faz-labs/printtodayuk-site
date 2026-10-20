@@ -117,7 +117,7 @@ export function HeroSection({ categoryType, initialSlides }: HeroSectionProps) {
 
   return (
     <div
-      className="relative w-full aspect-[16/7.5] xs:aspect-[16/7.5] sm:aspect-[21/8] md:h-[380px] lg:h-[480px] xl:h-[480px] min-h-[165px] max-h-[480px] overflow-hidden bg-slate-900 select-none group"
+      className="relative z-10 w-full aspect-[16/7.5] xs:aspect-[16/7.5] sm:aspect-[21/8] md:h-[380px] lg:h-[480px] xl:h-[480px] min-h-[165px] max-h-[480px] overflow-hidden bg-slate-900 select-none group"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >
