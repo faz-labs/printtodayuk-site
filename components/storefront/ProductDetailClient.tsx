@@ -1051,7 +1051,13 @@ export function ProductDetailClient({
                 </div>
 
                 {/* 2. CUSTOM QUANTITY INPUT ROW (Matching Image 1) */}
-                <div className="grid grid-cols-4 border-b border-slate-300 bg-slate-50/30 text-xs">
+                <div
+                  className={`grid grid-cols-4 border-b border-slate-300 text-xs transition-all ${
+                    customQuantityNumber > 0
+                      ? 'bg-blue-50/80 border-l-4 border-l-[#102a43]'
+                      : 'bg-slate-50/30'
+                  }`}
+                >
                   <div className="p-1.5 sm:p-2 border-r border-slate-300">
                     <input
                       type="number"
@@ -1128,11 +1134,26 @@ export function ProductDetailClient({
                     return (
                       <div
                         key={row.quantity}
-                        className="grid grid-cols-4 text-xs select-none transition-colors"
+                        className={`grid grid-cols-4 text-xs select-none transition-all ${
+                          isQtyActive
+                            ? 'bg-blue-50/80 border-l-4 border-l-[#102a43]'
+                            : 'hover:bg-slate-50/60'
+                        }`}
                       >
-                        {/* Quantity Number Cell */}
-                        <div className="p-2 sm:p-2.5 bg-slate-100/70 border-r border-slate-300 flex items-center justify-center font-bold text-slate-800 text-xs sm:text-sm">
-                          {row.quantity.toLocaleString()}
+                        {/* Quantity Number Cell (Prominently Highlighted When Selected) */}
+                        <div
+                          onClick={() => handleSelectCell(row.quantity, selectedSpeed)}
+                          className={`p-2 sm:p-2.5 border-r border-slate-300 flex items-center justify-center gap-1.5 font-black text-xs sm:text-sm transition-all cursor-pointer ${
+                            isQtyActive
+                              ? 'bg-[#102a43] text-white shadow-inner'
+                              : 'bg-slate-100/80 text-slate-800 hover:bg-slate-200'
+                          }`}
+                          title={`Select ${row.quantity.toLocaleString()} units`}
+                        >
+                          <span>{row.quantity.toLocaleString()}</span>
+                          {isQtyActive && (
+                            <Check weight="bold" className="h-3 w-3 text-emerald-400" />
+                          )}
                         </div>
 
                         {/* Speed Column 1: Same Day Express */}

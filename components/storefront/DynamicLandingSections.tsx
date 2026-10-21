@@ -15,7 +15,7 @@ import {
   saveLocalCategories,
 } from '@/lib/db';
 import { formatCurrency, calculateDiscount } from '@/lib/utils';
-import { Lightning, ArrowRight, Sparkle, Tag, SquaresFour } from '@phosphor-icons/react';
+import { Lightning, ArrowRight, Sparkle, Tag, SquaresFour, CaretLeft, CaretRight } from '@phosphor-icons/react';
 
 interface DynamicLandingSectionsProps {
   initialSections?: DynamicSection[];
@@ -421,17 +421,30 @@ function CategoryAutoScrollRow({
   products: Product[];
 }) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  const [isHovered, setIsHovered] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const resumeTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const pauseScrolling = () => {
+    setIsPaused(true);
+    if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+  };
+
+  const resumeScrolling = (delayMs = 2500) => {
+    if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+    resumeTimerRef.current = setTimeout(() => {
+      setIsPaused(false);
+    }, delayMs);
+  };
 
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
 
     let animId: number;
-    let step = 1;
+    const step = 0.6; // Silky smooth slow auto-pan
 
     const scroll = () => {
-      if (!isHovered && el) {
+      if (!isPaused && el) {
         el.scrollLeft += step;
         if (el.scrollLeft >= el.scrollWidth - el.clientWidth - 2) {
           el.scrollLeft = 0;
@@ -441,64 +454,102 @@ function CategoryAutoScrollRow({
     };
 
     animId = requestAnimationFrame(scroll);
-    return () => cancelAnimationFrame(animId);
-  }, [isHovered]);
+    return () => {
+      cancelAnimationFrame(animId);
+      if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+    };
+  }, [isPaused]);
+
+  const scrollByAmount = (offset: number) => {
+    pauseScrolling();
+    if (scrollRef.current) {
+      scrollRef.current.scrollBy({ left: offset, behavior: 'smooth' });
+    }
+    resumeScrolling(4000);
+  };
 
   return (
-    <div
-      ref={scrollRef}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      className="flex gap-5 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-slate-200 scroll-smooth"
-    >
-      {categories.map((cat, idx) => {
-        const prodCount = products.filter(
-          (p) => p.category && p.category.toLowerCase().trim() === cat.name.toLowerCase().trim()
-        ).length;
+    <div className="relative group/categoryCarousel">
+      {/* Left Arrow Button */}
+      <button
+        type="button"
+        onClick={() => scrollByAmount(-320)}
+        className="absolute -left-3 sm:-left-4 top-1/2 -translate-y-1/2 z-20 h-9 w-9 sm:h-10 sm:w-10 rounded-full bg-white text-slate-800 shadow-md border border-slate-200 flex items-center justify-center hover:bg-[#012169] hover:text-white transition-all opacity-0 group-hover/categoryCarousel:opacity-100 sm:opacity-90 cursor-pointer"
+        aria-label="Scroll left"
+      >
+        <CaretLeft weight="bold" className="h-4 w-4 sm:h-5 sm:w-5" />
+      </button>
 
-        return (
-          <Link
-            key={cat.id || `${cat.name}-${idx}`}
-            href={`/category/${encodeURIComponent(cat.name)}`}
-            className="group flex-shrink-0 w-64 sm:w-72 bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs hover:shadow-xl hover:border-[#012169]/30 transition-all duration-300 flex flex-col"
-          >
-            {/* Category Cover Image: Full picture display, object-cover, square card, NO white border */}
-            <div className="relative w-full aspect-square bg-slate-100 flex items-center justify-center overflow-hidden">
-              <img
-                src={cat.imageUrl || '/images/category-placeholder.png'}
-                alt={cat.name}
-                className="w-full h-full object-cover p-0 transition-transform duration-500 group-hover:scale-105 block"
-                loading="lazy"
-              />
-              <div className="absolute top-2.5 left-2.5 inline-flex items-center gap-1 bg-[#012169]/90 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-xs backdrop-blur-xs">
-                <SquaresFour weight="bold" className="h-3 w-3" />
-                <span>Category</span>
-              </div>
-            </div>
+      {/* Right Arrow Button */}
+      <button
+        type="button"
+        onClick={() => scrollByAmount(320)}
+        className="absolute -right-3 sm:-right-4 top-1/2 -translate-y-1/2 z-20 h-9 w-9 sm:h-10 sm:w-10 rounded-full bg-white text-slate-800 shadow-md border border-slate-200 flex items-center justify-center hover:bg-[#012169] hover:text-white transition-all opacity-0 group-hover/categoryCarousel:opacity-100 sm:opacity-90 cursor-pointer"
+        aria-label="Scroll right"
+      >
+        <CaretRight weight="bold" className="h-4 w-4 sm:h-5 sm:w-5" />
+      </button>
 
-            {/* Info */}
-            <div className="p-4 flex-1 flex flex-col justify-between">
-              <div>
-                <h3 className="text-base font-black text-slate-900 group-hover:text-[#012169] transition-colors line-clamp-1">
-                  {cat.name}
-                </h3>
-                <p className="text-xs text-slate-500 font-medium line-clamp-1 mt-0.5">
-                  {prodCount > 0 ? `${prodCount} Products Available` : 'Explore Range'}
-                </p>
-              </div>
+      <div
+        ref={scrollRef}
+        onMouseEnter={pauseScrolling}
+        onMouseLeave={() => resumeScrolling(1000)}
+        onTouchStart={pauseScrolling}
+        onTouchEnd={() => resumeScrolling(2500)}
+        onTouchCancel={() => resumeScrolling(1000)}
+        onWheel={pauseScrolling}
+        className="flex gap-5 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-slate-200 touch-pan-x overscroll-x-contain"
+        style={{ WebkitOverflowScrolling: 'touch' }}
+      >
+        {categories.map((cat, idx) => {
+          const prodCount = products.filter(
+            (p) => p.category && p.category.toLowerCase().trim() === cat.name.toLowerCase().trim()
+          ).length;
 
-              <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
-                <span className="text-xs font-bold text-[#012169] group-hover:text-[#C8102E] transition-colors">
-                  Browse Collection
-                </span>
-                <div className="h-8 w-8 rounded-xl bg-slate-100 group-hover:bg-[#012169] text-slate-600 group-hover:text-white flex items-center justify-center transition-colors">
-                  <ArrowRight weight="bold" className="h-4 w-4" />
+          return (
+            <Link
+              key={cat.id || `${cat.name}-${idx}`}
+              href={`/category/${encodeURIComponent(cat.name)}`}
+              className="group flex-shrink-0 w-64 sm:w-72 bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs hover:shadow-xl hover:border-[#012169]/30 transition-all duration-300 flex flex-col"
+            >
+              {/* Category Cover Image: Full picture display, object-cover, square card, NO white border */}
+              <div className="relative w-full aspect-square bg-slate-100 flex items-center justify-center overflow-hidden">
+                <img
+                  src={cat.imageUrl || '/images/category-placeholder.png'}
+                  alt={cat.name}
+                  className="w-full h-full object-cover p-0 transition-transform duration-500 group-hover:scale-105 block"
+                  loading="lazy"
+                />
+                <div className="absolute top-2.5 left-2.5 inline-flex items-center gap-1 bg-[#012169]/90 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-xs backdrop-blur-xs">
+                  <SquaresFour weight="bold" className="h-3 w-3" />
+                  <span>Category</span>
                 </div>
               </div>
-            </div>
-          </Link>
-        );
-      })}
+
+              {/* Info */}
+              <div className="p-4 flex-1 flex flex-col justify-between">
+                <div>
+                  <h3 className="text-base font-black text-slate-900 group-hover:text-[#012169] transition-colors line-clamp-1">
+                    {cat.name}
+                  </h3>
+                  <p className="text-xs text-slate-500 font-medium line-clamp-1 mt-0.5">
+                    {prodCount > 0 ? `${prodCount} Products Available` : 'Explore Range'}
+                  </p>
+                </div>
+
+                <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
+                  <span className="text-xs font-bold text-[#012169] group-hover:text-[#C8102E] transition-colors">
+                    Browse Collection
+                  </span>
+                  <div className="h-8 w-8 rounded-xl bg-slate-100 group-hover:bg-[#012169] text-slate-600 group-hover:text-white flex items-center justify-center transition-colors">
+                    <ArrowRight weight="bold" className="h-4 w-4" />
+                  </div>
+                </div>
+              </div>
+            </Link>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -568,7 +619,20 @@ function CategoryGrid8Tiles({
 // ----------------- COMPONENT: AUTO-SCROLL ROW (PRODUCTS) -----------------
 function AutoScrollRow({ products }: { products: Product[] }) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  const [isHovered, setIsHovered] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const resumeTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const pauseScrolling = () => {
+    setIsPaused(true);
+    if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+  };
+
+  const resumeScrolling = (delayMs = 2500) => {
+    if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+    resumeTimerRef.current = setTimeout(() => {
+      setIsPaused(false);
+    }, delayMs);
+  };
 
   // Auto-scroll loop
   useEffect(() => {
@@ -576,10 +640,10 @@ function AutoScrollRow({ products }: { products: Product[] }) {
     if (!el) return;
 
     let animId: number;
-    let step = 1;
+    const step = 0.6; // Silky smooth slow auto-pan
 
     const scroll = () => {
-      if (!isHovered && el) {
+      if (!isPaused && el) {
         el.scrollLeft += step;
         if (el.scrollLeft >= el.scrollWidth - el.clientWidth - 2) {
           el.scrollLeft = 0;
@@ -589,81 +653,119 @@ function AutoScrollRow({ products }: { products: Product[] }) {
     };
 
     animId = requestAnimationFrame(scroll);
-    return () => cancelAnimationFrame(animId);
-  }, [isHovered]);
+    return () => {
+      cancelAnimationFrame(animId);
+      if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+    };
+  }, [isPaused]);
+
+  const scrollByAmount = (offset: number) => {
+    pauseScrolling();
+    if (scrollRef.current) {
+      scrollRef.current.scrollBy({ left: offset, behavior: 'smooth' });
+    }
+    resumeScrolling(4000);
+  };
 
   return (
-    <div
-      ref={scrollRef}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      className="flex gap-5 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-slate-200 scroll-smooth"
-    >
-      {products.map((product, idx) => {
-        const discount = calculateDiscount(product.price, product.discountedPrice);
-        const activePrice = product.discountedPrice || product.price;
+    <div className="relative group/productCarousel">
+      {/* Left Arrow Button */}
+      <button
+        type="button"
+        onClick={() => scrollByAmount(-320)}
+        className="absolute -left-3 sm:-left-4 top-1/2 -translate-y-1/2 z-20 h-9 w-9 sm:h-10 sm:w-10 rounded-full bg-white text-slate-800 shadow-md border border-slate-200 flex items-center justify-center hover:bg-[#012169] hover:text-white transition-all opacity-0 group-hover/productCarousel:opacity-100 sm:opacity-90 cursor-pointer"
+        aria-label="Scroll left"
+      >
+        <CaretLeft weight="bold" className="h-4 w-4 sm:h-5 sm:w-5" />
+      </button>
 
-        return (
-          <Link
-            key={product.id || `${product.slug}-${idx}`}
-            href={`/product/${product.slug}`}
-            className="group flex-shrink-0 w-64 sm:w-72 bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs hover:shadow-xl hover:border-[#012169]/30 transition-all duration-300 flex flex-col"
-          >
-            {/* Image Box: Full picture display, object-cover, square card, NO white padding border */}
-            <div className="relative w-full aspect-square bg-slate-100 flex items-center justify-center overflow-hidden">
-              <img
-                src={product.imageUrl}
-                alt={product.title}
-                className="w-full h-full object-cover p-0 transition-transform duration-300 group-hover:scale-105 block"
-                loading="lazy"
-              />
-              {product.isSameDayAvailable && (
-                <div className="absolute top-2.5 left-2.5 inline-flex items-center gap-1 bg-emerald-600/95 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-xs backdrop-blur-xs">
-                  <Lightning weight="fill" className="h-3 w-3" />
-                  <span>Same-Day</span>
-                </div>
-              )}
-              {product.discountedPrice && (
-                <div className="absolute top-2.5 right-2.5 bg-[#C8102E] text-white text-[10px] font-black px-2 py-0.5 rounded-full">
-                  -{discount}%
-                </div>
-              )}
-            </div>
+      {/* Right Arrow Button */}
+      <button
+        type="button"
+        onClick={() => scrollByAmount(320)}
+        className="absolute -right-3 sm:-right-4 top-1/2 -translate-y-1/2 z-20 h-9 w-9 sm:h-10 sm:w-10 rounded-full bg-white text-slate-800 shadow-md border border-slate-200 flex items-center justify-center hover:bg-[#012169] hover:text-white transition-all opacity-0 group-hover/productCarousel:opacity-100 sm:opacity-90 cursor-pointer"
+        aria-label="Scroll right"
+      >
+        <CaretRight weight="bold" className="h-4 w-4 sm:h-5 sm:w-5" />
+      </button>
 
-            {/* Info */}
-            <div className="p-4 flex-1 flex flex-col justify-between">
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                  {product.category}
-                </span>
-                <h3 className="text-sm font-black text-slate-900 group-hover:text-[#012169] transition-colors line-clamp-1 mt-0.5">
-                  {product.title}
-                </h3>
+      <div
+        ref={scrollRef}
+        onMouseEnter={pauseScrolling}
+        onMouseLeave={() => resumeScrolling(1000)}
+        onTouchStart={pauseScrolling}
+        onTouchEnd={() => resumeScrolling(2500)}
+        onTouchCancel={() => resumeScrolling(1000)}
+        onWheel={pauseScrolling}
+        className="flex gap-5 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-slate-200 touch-pan-x overscroll-x-contain"
+        style={{ WebkitOverflowScrolling: 'touch' }}
+      >
+        {products.map((product, idx) => {
+          const discount = calculateDiscount(product.price, product.discountedPrice);
+          const activePrice = product.discountedPrice || product.price;
+
+          return (
+            <Link
+              key={product.id || `${product.slug}-${idx}`}
+              href={`/product/${product.slug}`}
+              className="group flex-shrink-0 w-64 sm:w-72 bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs hover:shadow-xl hover:border-[#012169]/30 transition-all duration-300 flex flex-col"
+            >
+              {/* Image Box: Full picture display, object-cover, square card, NO white padding border */}
+              <div className="relative w-full aspect-square bg-slate-100 flex items-center justify-center overflow-hidden">
+                <img
+                  src={product.imageUrl}
+                  alt={product.title}
+                  className="w-full h-full object-cover p-0 transition-transform duration-300 group-hover:scale-105 block"
+                  loading="lazy"
+                />
+                {product.isSameDayAvailable && (
+                  <div className="absolute top-2.5 left-2.5 inline-flex items-center gap-1 bg-emerald-600/95 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-xs backdrop-blur-xs">
+                    <Lightning weight="fill" className="h-3 w-3" />
+                    <span>Same-Day</span>
+                  </div>
+                )}
+                {product.discountedPrice && (
+                  <div className="absolute top-2.5 right-2.5 bg-[#C8102E] text-white text-[10px] font-black px-2 py-0.5 rounded-full">
+                    -{discount}%
+                  </div>
+                )}
               </div>
 
-              <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
+              {/* Info */}
+              <div className="p-4 flex-1 flex flex-col justify-between">
                 <div>
-                  <span className="text-[10px] text-slate-400 block font-medium">Starting from</span>
-                  <div className="flex items-baseline gap-1.5">
-                    <span className="text-base font-black text-slate-900">
-                      {formatCurrency(activePrice)}
-                    </span>
-                    {product.discountedPrice && (
-                      <span className="text-xs text-slate-400 line-through">
-                        {formatCurrency(product.price)}
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    {product.category}
+                  </span>
+                  <h3 className="text-sm font-black text-slate-900 group-hover:text-[#012169] transition-colors line-clamp-1 mt-0.5">
+                    {product.title}
+                  </h3>
+                </div>
+
+                <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] text-slate-400 block font-medium">Starting from</span>
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="text-base font-black text-slate-900">
+                        {formatCurrency(activePrice)}
                       </span>
-                    )}
+                      {product.discountedPrice && (
+                        <span className="text-xs text-slate-400 line-through">
+                          {formatCurrency(product.price)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="h-8 w-8 rounded-xl bg-slate-100 group-hover:bg-[#012169] text-slate-600 group-hover:text-white flex items-center justify-center transition-colors">
+                    <ArrowRight weight="bold" className="h-4 w-4" />
                   </div>
                 </div>
-
-                <div className="h-8 w-8 rounded-xl bg-slate-100 group-hover:bg-[#012169] text-slate-600 group-hover:text-white flex items-center justify-center transition-colors">
-                  <ArrowRight weight="bold" className="h-4 w-4" />
-                </div>
               </div>
-            </div>
-          </Link>
-        );
-      })}
+            </Link>
+          );
+        })}
+      </div>
     </div>
   );
 }

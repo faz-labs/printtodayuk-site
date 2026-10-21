@@ -268,424 +268,431 @@ export function ProductForm({
       onClose={onClose}
       title={initialProduct ? 'Edit Product' : 'Add New Product'}
       description="Update product information, custom dropdown fields, pricing, and category filters."
-      maxWidth="2xl"
+      maxWidth="6xl"
     >
-      <form onSubmit={handleSubmit} className="space-y-5 max-h-[75vh] overflow-y-auto pr-1">
+      <form onSubmit={handleSubmit} className="space-y-6 max-h-[82vh] overflow-y-auto pr-1">
         {error && (
           <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-600 font-semibold">
             {error}
           </div>
         )}
 
-        {/* Title & Slug */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5">
-              Product Title <span className="text-rose-500">*</span>
-            </label>
-            <input
-              type="text"
-              required
-              value={title}
-              onChange={(e) => handleTitleChange(e.target.value)}
-              placeholder="e.g. Luxury Business Cards"
-              className="w-full h-11 px-3.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:outline-hidden focus:border-[#012169] focus:ring-2 focus:ring-[#012169]/15"
-            />
-          </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+          {/* ================= LEFT COLUMN: General Info, Pricing Rules, Description ================= */}
+          <div className="space-y-4">
+            {/* Title & Slug */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Product Title <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={title}
+                  onChange={(e) => handleTitleChange(e.target.value)}
+                  placeholder="e.g. Luxury Business Cards"
+                  className="w-full h-10 px-3.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:outline-hidden focus:border-[#012169] focus:ring-2 focus:ring-[#012169]/15"
+                />
+              </div>
 
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5">
-              URL Slug <span className="text-rose-500">*</span>
-            </label>
-            <input
-              type="text"
-              required
-              value={slug}
-              onChange={(e) => setSlug(e.target.value)}
-              placeholder="e.g. luxury-business-cards"
-              className="w-full h-11 px-3.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:outline-hidden focus:border-[#012169] focus:ring-2 focus:ring-[#012169]/15"
-            />
-          </div>
-        </div>
-
-        {/* Category Selection */}
-        <div>
-          <label className="block text-xs font-bold text-slate-700 mb-1.5">
-            Category <span className="text-rose-500">*</span>
-          </label>
-          <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            className="w-full h-11 px-3 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-900 focus:outline-hidden focus:border-[#012169]"
-          >
-            {categories.map((cat) => (
-              <option key={cat.name} value={cat.name}>
-                {cat.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Multi-Image S3 Uploader */}
-        <MultiImageUploader images={images} onImagesChange={handleImagesChange} />
-
-        {/* Pricing & Quantity Limits */}
-        <div className="space-y-3 p-4 rounded-2xl bg-slate-50 border border-slate-200">
-          <div className="font-bold text-xs uppercase tracking-wider text-slate-800">
-            Pricing & Order Quantity Rules
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                Base Price (£) <span className="text-rose-500">*</span>
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                required
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                placeholder="14.69"
-                className="w-full h-10 px-3.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:outline-hidden focus:border-[#012169]"
-              />
-              <p className="text-[11px] text-slate-500 mt-1">
-                Price for starting baseline spec at <strong>Min Quantity</strong> on Standard Delivery (3-4 days).
-              </p>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                Discounted Price (£) (Optional)
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                value={discountedPrice}
-                onChange={(e) => setDiscountedPrice(e.target.value)}
-                placeholder="12.50"
-                className="w-full h-10 px-3.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:outline-hidden focus:border-[#012169]"
-              />
-              <p className="text-[11px] text-slate-500 mt-1">
-                Promotional discounted price for the base tier (replaces Base Price if filled).
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                Min Quantity (Starting Units)
-              </label>
-              <input
-                type="number"
-                min="1"
-                value={minQuantity}
-                onChange={(e) => setMinQuantity(e.target.value)}
-                placeholder="25"
-                className="w-full h-10 px-3.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:outline-hidden focus:border-[#012169]"
-              />
-              <p className="text-[11px] text-slate-500 mt-1">
-                e.g. <strong>1</strong> for banners/posters/tablecloths, or <strong>25</strong> for flyers.
-              </p>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                Max Quantity (Up to)
-              </label>
-              <input
-                type="number"
-                min="1"
-                value={maxQuantity}
-                onChange={(e) => setMaxQuantity(e.target.value)}
-                placeholder="250000"
-                className="w-full h-10 px-3.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:outline-hidden focus:border-[#012169]"
-              />
-              <p className="text-[11px] text-slate-500 mt-1">
-                Default <strong>250,000</strong> units.
-              </p>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                Max Same-Day Quantity (Cutoff)
-              </label>
-              <input
-                type="number"
-                min="1"
-                value={maxSameDayQuantity}
-                onChange={(e) => setMaxSameDayQuantity(e.target.value)}
-                placeholder="e.g. 1000 or 10000"
-                className="w-full h-10 px-3.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:outline-hidden focus:border-[#012169]"
-              />
-              <p className="text-[11px] text-slate-500 mt-1">
-                Above this quantity, Same Day will not be available.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Same Day Toggle */}
-        <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Lightning weight="fill" className="h-4 w-4 text-emerald-600" />
-            <div>
-              <div className="text-xs font-bold text-slate-900">Same-Day London Dispatch</div>
-              <div className="text-[11px] text-slate-500">
-                Show &ldquo;⚡ Same Day Available&rdquo; badge across storefront
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  URL Slug <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={slug}
+                  onChange={(e) => setSlug(e.target.value)}
+                  placeholder="e.g. luxury-business-cards"
+                  className="w-full h-10 px-3.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:outline-hidden focus:border-[#012169] focus:ring-2 focus:ring-[#012169]/15"
+                />
               </div>
             </div>
-          </div>
-          <input
-            type="checkbox"
-            checked={isSameDayAvailable}
-            onChange={(e) => setIsSameDayAvailable(e.target.checked)}
-            className="h-5 w-5 rounded-md text-[#012169] focus:ring-[#012169] cursor-pointer"
-          />
-        </div>
 
-        {/* Custom Fields & Dropdown Options Section */}
-        <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200 space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            {/* Category Selection */}
             <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Category <span className="text-rose-500">*</span>
+              </label>
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-900 focus:outline-hidden focus:border-[#012169]"
+              >
+                {categories.map((cat) => (
+                  <option key={cat.name} value={cat.name}>
+                    {cat.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Pricing & Quantity Limits */}
+            <div className="space-y-3 p-4 rounded-2xl bg-slate-50 border border-slate-200">
+              <div className="font-bold text-xs uppercase tracking-wider text-slate-800">
+                Pricing & Order Quantity Rules
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Base Price (£) <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    required
+                    value={price}
+                    onChange={(e) => setPrice(e.target.value)}
+                    placeholder="14.69"
+                    className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:outline-hidden focus:border-[#012169]"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    Standard 3-4 days price at Min Quantity.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Discounted Price (£) (Optional)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={discountedPrice}
+                    onChange={(e) => setDiscountedPrice(e.target.value)}
+                    placeholder="12.50"
+                    className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:outline-hidden focus:border-[#012169]"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    Promotional strike-through price.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Min Quantity
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={minQuantity}
+                    onChange={(e) => setMinQuantity(e.target.value)}
+                    placeholder="25"
+                    className="w-full h-9 px-2.5 rounded-xl border border-slate-200 bg-white text-xs text-slate-900 focus:outline-hidden focus:border-[#012169]"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-0.5">e.g. 1 or 25</p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Max Quantity
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={maxQuantity}
+                    onChange={(e) => setMaxQuantity(e.target.value)}
+                    placeholder="250000"
+                    className="w-full h-9 px-2.5 rounded-xl border border-slate-200 bg-white text-xs text-slate-900 focus:outline-hidden focus:border-[#012169]"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-0.5">Up to 250k</p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Same-Day Cutoff
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={maxSameDayQuantity}
+                    onChange={(e) => setMaxSameDayQuantity(e.target.value)}
+                    placeholder="e.g. 1000"
+                    className="w-full h-9 px-2.5 rounded-xl border border-slate-200 bg-white text-xs text-slate-900 focus:outline-hidden focus:border-[#012169]"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-0.5">Cutoff limit</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Same Day Toggle */}
+            <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <SlidersHorizontal weight="bold" className="h-4 w-4 text-[#012169]" />
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900">
-                  Custom Dropdowns & Options (Dynamic Price Matrix)
-                </h4>
-              </div>
-              <p className="text-[11px] text-slate-500 mt-0.5">
-                Add customizable option selectors (e.g. &ldquo;Choose A Size&rdquo;, &ldquo;Choose A Finish&rdquo;) for customers on the product page.
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleAddCustomField}
-              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[#012169] text-white text-xs font-bold hover:bg-[#0A358C] shadow-xs cursor-pointer"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              <span>Add Dropdown</span>
-            </button>
-          </div>
-
-          {/* Dynamic Pricing Engine Tip Banner */}
-          <div className="p-3 bg-blue-50/80 border border-blue-200/80 rounded-xl text-xs text-blue-950 space-y-1">
-            <div className="font-bold flex items-center gap-1.5 text-[#012169]">
-              <Sparkle weight="fill" className="h-3.5 w-3.5 text-amber-500" />
-              <span>Smart Dynamic Pricing Engine Active</span>
-            </div>
-            <p className="text-[11px] text-slate-600 leading-relaxed">
-              No need to configure thousands of combinations! The storefront Price Matrix recalculates automatically from your <strong>Base Price</strong>.
-              To add a surcharge to an option, simply write <code className="bg-white px-1.5 py-0.5 rounded border border-blue-200 font-bold text-[#012169]">(+25%)</code> or <code className="bg-white px-1.5 py-0.5 rounded border border-blue-200 font-bold text-[#012169]">(+£12.00)</code> in the option title (e.g. <em>&ldquo;Double Sided (+25%)&rdquo;</em> or <em>&ldquo;Matt Lamination (+£12.00)&rdquo;</em>).
-            </p>
-          </div>
-
-          {/* Quick 1-Click Presets */}
-          <div className="flex flex-wrap items-center gap-1.5 pt-1">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-1">
-              Quick Presets:
-            </span>
-            <button
-              type="button"
-              onClick={() => handleAddPreset('size')}
-              className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 hover:border-rose-300 hover:text-rose-600 text-[11px] font-semibold text-slate-700 transition-colors cursor-pointer"
-            >
-              + Choose A Size
-            </button>
-            <button
-              type="button"
-              onClick={() => handleAddPreset('finish')}
-              className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 hover:border-rose-300 hover:text-rose-600 text-[11px] font-semibold text-slate-700 transition-colors cursor-pointer"
-            >
-              + Choose A Finish
-            </button>
-            <button
-              type="button"
-              onClick={() => handleAddPreset('paperWeight')}
-              className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 hover:border-rose-300 hover:text-rose-600 text-[11px] font-semibold text-slate-700 transition-colors cursor-pointer"
-            >
-              + Paper Stock
-            </button>
-            <button
-              type="button"
-              onClick={() => handleAddPreset('apparelSize')}
-              className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 hover:border-rose-300 hover:text-rose-600 text-[11px] font-semibold text-slate-700 transition-colors cursor-pointer"
-            >
-              + Apparel Sizes (S-3XL)
-            </button>
-          </div>
-
-          {/* Render Active Custom Fields */}
-          {customFields.length === 0 ? (
-            <div className="p-4 rounded-xl bg-white border border-dashed border-slate-200 text-center text-xs text-slate-400">
-              No custom dropdowns yet. Click &ldquo;Add Dropdown&rdquo; or pick a Quick Preset above.
-            </div>
-          ) : (
-            <div className="space-y-3 pt-2">
-              {customFields.map((field, fIndex) => (
-                <div
-                  key={field.id}
-                  className="p-3.5 rounded-xl bg-white border border-slate-200 shadow-xs space-y-3"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex-1">
-                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                        Dropdown Label / Field Title
-                      </label>
-                      <input
-                        type="text"
-                        value={field.name}
-                        onChange={(e) => handleUpdateFieldName(field.id, e.target.value)}
-                        placeholder="e.g. Choose A Size, Choose A Finish..."
-                        className="w-full h-9 px-3 rounded-lg border border-slate-200 text-xs font-semibold text-slate-900 focus:outline-hidden focus:border-[#012169]"
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteCustomField(field.id)}
-                      className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer self-end mb-0.5"
-                      title="Remove field"
-                    >
-                      <Trash weight="bold" className="h-4 w-4" />
-                    </button>
+                <Lightning weight="fill" className="h-4 w-4 text-emerald-600" />
+                <div>
+                  <div className="text-xs font-bold text-slate-900">Same-Day London Dispatch</div>
+                  <div className="text-[10px] text-slate-500">
+                    Enable express same-day rush turnaround option
                   </div>
+                </div>
+              </div>
+              <input
+                type="checkbox"
+                checked={isSameDayAvailable}
+                onChange={(e) => setIsSameDayAvailable(e.target.checked)}
+                className="h-5 w-5 rounded-md text-[#012169] focus:ring-[#012169] cursor-pointer"
+              />
+            </div>
 
-                  {/* Dropdown Options (Values) list */}
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                      Selectable Dropdown Options (Values)
-                    </label>
+            {/* Description */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Description <span className="text-rose-500">*</span>
+              </label>
+              <textarea
+                rows={3}
+                required
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Detailed description of the product material, finish, dimensions, and turnaround..."
+                className="w-full p-3 rounded-xl border border-slate-200 bg-white text-xs text-slate-900 focus:outline-hidden focus:border-[#012169] resize-none"
+              />
+            </div>
 
-                    {/* Add option input */}
-                    <div className="flex gap-2 mb-2">
-                      <input
-                        type="text"
-                        value={activeNewOptionText[field.id] || ''}
-                        onChange={(e) =>
-                          setActiveNewOptionText({
-                            ...activeNewOptionText,
-                            [field.id]: e.target.value,
-                          })
-                        }
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            handleAddOptionToField(field.id);
-                          }
-                        }}
-                        placeholder={`Add option (e.g. 66x55mm, Matt Laminate)...`}
-                        className="flex-1 h-8 px-2.5 rounded-lg border border-slate-200 text-xs text-slate-900 focus:outline-hidden focus:border-[#012169]"
-                      />
+            {/* Features Checklist */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Key Specifications & Features
+              </label>
+              <div className="flex gap-2 mb-2">
+                <input
+                  type="text"
+                  value={newFeature}
+                  onChange={(e) => setNewFeature(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddFeature();
+                    }
+                  }}
+                  placeholder="e.g. 450gsm Matt Laminated Silk Board"
+                  className="flex-1 h-9 px-3 rounded-xl border border-slate-200 text-xs text-slate-900 focus:outline-hidden focus:border-[#012169]"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddFeature}
+                  className="px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold flex items-center gap-1 cursor-pointer"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  <span>Add</span>
+                </button>
+              </div>
+
+              {features.length > 0 && (
+                <div className="space-y-1 max-h-28 overflow-y-auto pr-1">
+                  {features.map((feat, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800"
+                    >
+                      <span className="truncate">{feat}</span>
                       <button
                         type="button"
-                        onClick={() => handleAddOptionToField(field.id)}
-                        className="px-3 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold flex items-center gap-1 cursor-pointer"
+                        onClick={() => handleRemoveFeature(idx)}
+                        className="p-1 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
                       >
-                        <Plus className="h-3.5 w-3.5" />
-                        <span>Add Option</span>
+                        <X className="h-3.5 w-3.5" />
                       </button>
                     </div>
-
-                    {/* Options list chips */}
-                    {field.options.length > 0 ? (
-                      <div className="flex flex-wrap gap-1.5">
-                        {field.options.map((opt, optIdx) => (
-                          <span
-                            key={optIdx}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#012169]/10 border border-[#012169]/20 text-[#012169] text-xs font-semibold"
-                          >
-                            <span>{opt}</span>
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveOptionFromField(field.id, optIdx)}
-                              className="text-[#012169]/60 hover:text-rose-600 cursor-pointer"
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          </span>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-[11px] text-amber-700 bg-amber-50 p-2 rounded-lg border border-amber-200">
-                        ⚠️ Add at least one option value for this dropdown.
-                      </div>
-                    )}
-                  </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
-          )}
-        </div>
-
-        {/* Description */}
-        <div>
-          <label className="block text-xs font-bold text-slate-700 mb-1.5">
-            Description <span className="text-rose-500">*</span>
-          </label>
-          <textarea
-            rows={3}
-            required
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Detailed description of the product material, finish, dimensions, and turnaround..."
-            className="w-full p-3.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:outline-hidden focus:border-[#012169] resize-none"
-          />
-        </div>
-
-        {/* Features Checklist */}
-        <div>
-          <label className="block text-xs font-bold text-slate-700 mb-1.5">
-            Key Specifications & Features
-          </label>
-          <div className="flex gap-2 mb-2">
-            <input
-              type="text"
-              value={newFeature}
-              onChange={(e) => setNewFeature(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  handleAddFeature();
-                }
-              }}
-              placeholder="e.g. 450gsm Matt Laminated Silk Board"
-              className="flex-1 h-10 px-3.5 rounded-xl border border-slate-200 text-xs text-slate-900 focus:outline-hidden focus:border-[#012169]"
-            />
-            <button
-              type="button"
-              onClick={handleAddFeature}
-              className="px-3.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold flex items-center gap-1 cursor-pointer"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Add</span>
-            </button>
           </div>
 
-          {features.length > 0 && (
-            <div className="space-y-1.5">
-              {features.map((feat, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800"
-                >
-                  <span className="truncate">{feat}</span>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveFeature(idx)}
-                    className="p-1 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              ))}
+          {/* ================= RIGHT COLUMN: Media & Custom Dropdowns ================= */}
+          <div className="space-y-4">
+            {/* Multi-Image S3 Uploader */}
+            <div className="p-3.5 rounded-2xl bg-white border border-slate-200 shadow-2xs">
+              <label className="block text-xs font-bold text-slate-700 mb-2">
+                Product Gallery & Images <span className="text-rose-500">*</span>
+              </label>
+              <MultiImageUploader images={images} onImagesChange={handleImagesChange} />
             </div>
-          )}
+
+            {/* Custom Fields & Dropdown Options Section */}
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <SlidersHorizontal weight="bold" className="h-4 w-4 text-[#012169]" />
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900">
+                      Custom Dropdowns & Options
+                    </h4>
+                  </div>
+                  <p className="text-[10px] text-slate-500 mt-0.5">
+                    Dynamic dropdown options for size, finish, paper, apparel, etc.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleAddCustomField}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[#012169] text-white text-xs font-bold hover:bg-[#0A358C] shadow-xs cursor-pointer"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  <span>Add Dropdown</span>
+                </button>
+              </div>
+
+              {/* Dynamic Pricing Engine Tip Banner */}
+              <div className="p-2.5 bg-blue-50/80 border border-blue-200/80 rounded-xl text-xs text-blue-950 space-y-1">
+                <div className="font-bold flex items-center gap-1.5 text-[#012169] text-[11px]">
+                  <Sparkle weight="fill" className="h-3.5 w-3.5 text-amber-500" />
+                  <span>Smart Dynamic Pricing Engine Active</span>
+                </div>
+                <p className="text-[10px] text-slate-600 leading-relaxed">
+                  To add a surcharge, write <code className="bg-white px-1 py-0.5 rounded border border-blue-200 font-bold text-[#012169]">+50%</code> or <code className="bg-white px-1 py-0.5 rounded border border-blue-200 font-bold text-[#012169]">+£12</code>.
+                  Customers only see clean labels (e.g. <em>A8</em> or <em>Matt Lamination</em>).
+                </p>
+              </div>
+
+              {/* Quick 1-Click Presets */}
+              <div className="flex flex-wrap items-center gap-1 pt-0.5">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-1">
+                  Presets:
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleAddPreset('size')}
+                  className="px-2 py-0.5 rounded-lg bg-white border border-slate-200 hover:border-rose-300 hover:text-rose-600 text-[10px] font-semibold text-slate-700 transition-colors cursor-pointer"
+                >
+                  + Size
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAddPreset('finish')}
+                  className="px-2 py-0.5 rounded-lg bg-white border border-slate-200 hover:border-rose-300 hover:text-rose-600 text-[10px] font-semibold text-slate-700 transition-colors cursor-pointer"
+                >
+                  + Finish
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAddPreset('paperWeight')}
+                  className="px-2 py-0.5 rounded-lg bg-white border border-slate-200 hover:border-rose-300 hover:text-rose-600 text-[10px] font-semibold text-slate-700 transition-colors cursor-pointer"
+                >
+                  + Paper Stock
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAddPreset('apparelSize')}
+                  className="px-2 py-0.5 rounded-lg bg-white border border-slate-200 hover:border-rose-300 hover:text-rose-600 text-[10px] font-semibold text-slate-700 transition-colors cursor-pointer"
+                >
+                  + Apparel
+                </button>
+              </div>
+
+              {/* Render Active Custom Fields */}
+              {customFields.length === 0 ? (
+                <div className="p-4 rounded-xl bg-white border border-dashed border-slate-200 text-center text-xs text-slate-400">
+                  No custom dropdowns yet. Click &ldquo;Add Dropdown&rdquo; or pick a Preset above.
+                </div>
+              ) : (
+                <div className="space-y-3 pt-1 max-h-80 overflow-y-auto pr-1">
+                  {customFields.map((field) => (
+                    <div
+                      key={field.id}
+                      className="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-2.5"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex-1">
+                          <label className="block text-[10px] font-bold text-slate-700 mb-0.5">
+                            Dropdown Label / Field Title
+                          </label>
+                          <input
+                            type="text"
+                            value={field.name}
+                            onChange={(e) => handleUpdateFieldName(field.id, e.target.value)}
+                            placeholder="e.g. Choose A Size, Choose A Finish..."
+                            className="w-full h-8 px-2.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-900 focus:outline-hidden focus:border-[#012169]"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteCustomField(field.id)}
+                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer self-end mb-0.5"
+                          title="Remove field"
+                        >
+                          <Trash weight="bold" className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+
+                      {/* Dropdown Options (Values) list */}
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-600 mb-1">
+                          Selectable Dropdown Options (Values)
+                        </label>
+
+                        {/* Add option input */}
+                        <div className="flex gap-1.5 mb-2">
+                          <input
+                            type="text"
+                            value={activeNewOptionText[field.id] || ''}
+                            onChange={(e) =>
+                              setActiveNewOptionText({
+                                ...activeNewOptionText,
+                                [field.id]: e.target.value,
+                              })
+                            }
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleAddOptionToField(field.id);
+                              }
+                            }}
+                            placeholder="Add option (e.g. A4, Matt Lamination +£12, A8+500%)..."
+                            className="flex-1 h-8 px-2.5 rounded-lg border border-slate-200 text-xs text-slate-900 focus:outline-hidden focus:border-[#012169]"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleAddOptionToField(field.id)}
+                            className="px-2.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold flex items-center gap-1 cursor-pointer"
+                          >
+                            <Plus className="h-3 w-3" />
+                            <span>Add</span>
+                          </button>
+                        </div>
+
+                        {/* Options list chips */}
+                        {field.options.length > 0 ? (
+                          <div className="flex flex-wrap gap-1.5">
+                            {field.options.map((opt, optIdx) => (
+                              <span
+                                key={optIdx}
+                                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-[#012169]/10 border border-[#012169]/20 text-[#012169] text-xs font-semibold"
+                              >
+                                <span>{opt}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveOptionFromField(field.id, optIdx)}
+                                  className="text-[#012169]/60 hover:text-rose-600 cursor-pointer"
+                                >
+                                  <X className="h-3 w-3" />
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-[10px] text-amber-700 bg-amber-50 p-1.5 rounded-lg border border-amber-200">
+                            ⚠️ Add at least one option value for this dropdown.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
-        {/* Form Actions */}
-        <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
+        {/* Sticky Form Actions Bar */}
+        <div className="pt-3 border-t border-slate-200 flex items-center justify-end gap-3 sticky bottom-0 bg-white/95 backdrop-blur-xs py-2 z-20">
           <Button
             type="button"
             variant="outline"
