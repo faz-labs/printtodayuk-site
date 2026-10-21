@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -149,6 +149,29 @@ export function ProductDetailClient({
   const [selectedSpeed, setSelectedSpeed] = useState<'sameDay' | 'nextDay' | 'standard'>('sameDay');
   const [customQuantityInput, setCustomQuantityInput] = useState<string>('');
   const [showAllQuantities, setShowAllQuantities] = useState(false);
+  const tableScrollRef = useRef<HTMLDivElement>(null);
+
+  // Directly capture mouse wheel on price matrix to scroll rows smoothly instead of window
+  useEffect(() => {
+    const el = tableScrollRef.current;
+    if (!el) return;
+
+    const onWheel = (e: WheelEvent) => {
+      e.stopPropagation();
+      const atTop = el.scrollTop <= 0;
+      const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 1;
+
+      if ((e.deltaY > 0 && !atBottom) || (e.deltaY < 0 && !atTop)) {
+        el.scrollTop += e.deltaY;
+        e.preventDefault();
+      }
+    };
+
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => {
+      el.removeEventListener('wheel', onWheel);
+    };
+  }, []);
 
   useEffect(() => {
     if (product?.minQuantity && product.minQuantity > 0) {
@@ -204,9 +227,28 @@ export function ProductDetailClient({
   }, [basePriceAnchor, activeOptions, numberOfSets, product?.minQuantity, product?.maxSameDayQuantity]);
 
   // Custom Quantity dynamic price calculation
-  const customQuantityNumber = parseInt(customQuantityInput, 10);
+  const isCustomQuantityActive = Boolean(
+    customQuantityInput &&
+    customQuantityInput.trim().length > 0 &&
+    !isNaN(parseInt(customQuantityInput.trim(), 10)) &&
+    parseInt(customQuantityInput.trim(), 10) > 0
+  );
+  const customQuantityNumber = isCustomQuantityActive
+    ? parseInt(customQuantityInput.trim(), 10)
+    : 0;
+
+  // Ensure selectedQuantity always matches a valid row in the matrix
+  useEffect(() => {
+    if (priceMatrix.length > 0 && !isCustomQuantityActive) {
+      const exists = priceMatrix.some((r) => r.quantity === selectedQuantity);
+      if (!exists) {
+        setSelectedQuantity(priceMatrix[0].quantity);
+      }
+    }
+  }, [priceMatrix, selectedQuantity, isCustomQuantityActive]);
+
   const customQuantityPrices = useMemo(() => {
-    if (!customQuantityNumber || customQuantityNumber < 1) return null;
+    if (!isCustomQuantityActive || customQuantityNumber < 1) return null;
     return calculateCustomQuantityPrice(
       customQuantityNumber,
       basePriceAnchor,
@@ -215,7 +257,7 @@ export function ProductDetailClient({
       product?.minQuantity,
       product?.maxSameDayQuantity
     );
-  }, [customQuantityNumber, basePriceAnchor, activeOptions, numberOfSets, product?.minQuantity, product?.maxSameDayQuantity]);
+  }, [isCustomQuantityActive, customQuantityNumber, basePriceAnchor, activeOptions, numberOfSets, product?.minQuantity, product?.maxSameDayQuantity]);
 
   // Active Size and Stock names used for Dynamic Weight Calculation
   const activeSizeName = useMemo(() => {
@@ -402,18 +444,18 @@ export function ProductDetailClient({
           {/* ================= LEFT COLUMN: Product Image & Pill Accordion Tabs ================= */}
           <div className="lg:col-span-5 space-y-4 lg:sticky lg:top-24">
             {/* Main Product Showcase Card */}
-            <div className="relative w-full aspect-square bg-white rounded-md overflow-hidden border border-slate-200/90 shadow-xs flex items-center justify-center p-6">
+            <div className="relative w-full aspect-square bg-slate-100 rounded-lg overflow-hidden border border-slate-200 shadow-xs flex items-center justify-center p-0">
               <ImageWithFallback
                 src={currentImage}
                 alt={product.title}
                 fallbackText={product.title}
                 priority
-                className="w-full h-full object-contain"
+                className="w-full h-full object-cover"
               />
 
               {/* Express Same Day Badge */}
               {product.isSameDayAvailable && (
-                <div className="absolute top-3 left-3 flex items-center gap-1.5 px-2.5 py-1 rounded-sm bg-[#102a43] text-white text-[11px] font-bold shadow-xs">
+                <div className="absolute top-3 left-3 z-10 flex items-center gap-1.5 px-2.5 py-1 rounded-sm bg-[#102a43] text-white text-[11px] font-bold shadow-xs">
                   <Lightning weight="fill" className="h-3.5 w-3.5 text-amber-300" />
                   <span>London Express</span>
                 </div>
@@ -428,7 +470,7 @@ export function ProductDetailClient({
                     key={`${imgUrl}-${idx}`}
                     type="button"
                     onClick={() => setSelectedImageIndex(idx)}
-                    className={`relative w-16 h-16 rounded-md overflow-hidden shrink-0 border-2 transition-all cursor-pointer bg-white p-1 ${
+                    className={`relative w-16 h-16 rounded-md overflow-hidden shrink-0 border-2 transition-all cursor-pointer bg-slate-100 p-0 ${
                       idx === selectedImageIndex
                         ? 'border-[#102a43] shadow-xs'
                         : 'border-slate-200 opacity-70 hover:opacity-100'
@@ -438,7 +480,7 @@ export function ProductDetailClient({
                       src={imgUrl}
                       alt={`${product.title} ${idx + 1}`}
                       fallbackText={`${idx + 1}`}
-                      className="object-contain"
+                      className="w-full h-full object-cover"
                     />
                   </button>
                 ))}
@@ -1006,7 +1048,29 @@ export function ProductDetailClient({
 
             {/* ================= THE DYNAMIC PRICE MATRIX TABLE (1:1 Clone of Image 1) ================= */}
             <div className="pt-2">
-              <div className="border border-slate-300 rounded-sm overflow-hidden bg-white shadow-2xs">
+              {/* Header info bar above table showing current selection */}
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-xs font-bold text-slate-800 flex items-center gap-2">
+                  <span>Price Chart & Delivery Schedule:</span>
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#102a43] text-white text-[11px] font-black shadow-xs">
+                    <Check weight="bold" className="h-3 w-3 text-emerald-400" />
+                    <span>
+                      {isCustomQuantityActive
+                        ? `${customQuantityNumber.toLocaleString()} Units`
+                        : `${selectedQuantity.toLocaleString()} Units`}{' '}
+                      Selected
+                    </span>
+                  </span>
+                </div>
+                <div className="text-[11px] text-slate-500 hidden sm:block">
+                  Click any price or quantity to select
+                </div>
+              </div>
+
+              <div
+                data-lenis-prevent
+                className="border border-slate-300 rounded-sm overflow-hidden bg-white shadow-2xs"
+              >
                 {/* 1. TABLE HEADER */}
                 <div className="grid grid-cols-4 bg-white border-b border-slate-300 text-center select-none">
                   {/* Left Column Header: Quantity */}
@@ -1053,8 +1117,8 @@ export function ProductDetailClient({
                 {/* 2. CUSTOM QUANTITY INPUT ROW (Matching Image 1) */}
                 <div
                   className={`grid grid-cols-4 border-b border-slate-300 text-xs transition-all ${
-                    customQuantityNumber > 0
-                      ? 'bg-blue-50/80 border-l-4 border-l-[#102a43]'
+                    isCustomQuantityActive
+                      ? 'bg-blue-50/90 border-l-4 border-l-[#102a43]'
                       : 'bg-slate-50/30'
                   }`}
                 >
@@ -1076,8 +1140,10 @@ export function ProductDetailClient({
                       disabled={!customQuantityPrices}
                       onClick={() => handleSelectCustomSpeed('sameDay')}
                       className={`p-1.5 sm:p-2 border-r border-slate-300 flex items-center justify-center transition-colors cursor-pointer ${
-                        customQuantityNumber > 0 && selectedSpeed === 'sameDay'
-                          ? 'bg-[#102a43] text-white font-bold'
+                        isCustomQuantityActive && selectedSpeed === 'sameDay'
+                          ? 'bg-[#102a43] text-white font-bold shadow-inner'
+                          : isCustomQuantityActive
+                          ? 'bg-blue-50/60 hover:bg-blue-100/70 text-slate-800'
                           : 'hover:bg-slate-100 text-slate-700'
                       }`}
                     >
@@ -1098,8 +1164,10 @@ export function ProductDetailClient({
                     disabled={!customQuantityPrices}
                     onClick={() => handleSelectCustomSpeed('nextDay')}
                     className={`p-1.5 sm:p-2 border-r border-slate-300 flex items-center justify-center transition-colors cursor-pointer ${
-                      customQuantityNumber > 0 && selectedSpeed === 'nextDay'
-                        ? 'bg-[#102a43] text-white font-bold'
+                      isCustomQuantityActive && selectedSpeed === 'nextDay'
+                        ? 'bg-[#102a43] text-white font-bold shadow-inner'
+                        : isCustomQuantityActive
+                        ? 'bg-blue-50/60 hover:bg-blue-100/70 text-slate-800'
                         : 'hover:bg-slate-100 text-slate-700'
                     }`}
                   >
@@ -1112,8 +1180,10 @@ export function ProductDetailClient({
                     disabled={!customQuantityPrices}
                     onClick={() => handleSelectCustomSpeed('standard')}
                     className={`p-1.5 sm:p-2 flex items-center justify-center transition-colors cursor-pointer ${
-                      customQuantityNumber > 0 && selectedSpeed === 'standard'
-                        ? 'bg-[#102a43] text-white font-bold'
+                      isCustomQuantityActive && selectedSpeed === 'standard'
+                        ? 'bg-[#102a43] text-white font-bold shadow-inner'
+                        : isCustomQuantityActive
+                        ? 'bg-blue-50/60 hover:bg-blue-100/70 text-slate-800'
                         : 'hover:bg-slate-100 text-slate-700'
                     }`}
                   >
@@ -1122,10 +1192,19 @@ export function ProductDetailClient({
                 </div>
 
                 {/* 3. SCROLLABLE QUANTITY MATRIX ROWS (Matching Image 1) */}
-                <div className="max-h-[420px] overflow-y-auto divide-y divide-slate-200">
+                <div
+                  ref={tableScrollRef}
+                  data-lenis-prevent
+                  onWheel={(e) => {
+                    // Prevent Lenis smooth scroll on window from intercepting mouse wheel
+                    e.stopPropagation();
+                  }}
+                  className="max-h-[420px] overflow-y-auto overscroll-contain divide-y divide-slate-200 touch-pan-y"
+                  style={{ overscrollBehavior: 'contain' }}
+                >
                   {visibleMatrixRows.map((row) => {
                     const isQtyActive =
-                      customQuantityNumber <= 0 && selectedQuantity === row.quantity;
+                      !isCustomQuantityActive && selectedQuantity === row.quantity;
 
                     const isSameDayActive = isQtyActive && selectedSpeed === 'sameDay';
                     const isNextDayActive = isQtyActive && selectedSpeed === 'nextDay';
@@ -1136,7 +1215,7 @@ export function ProductDetailClient({
                         key={row.quantity}
                         className={`grid grid-cols-4 text-xs select-none transition-all ${
                           isQtyActive
-                            ? 'bg-blue-50/80 border-l-4 border-l-[#102a43]'
+                            ? 'bg-blue-50/90 border-l-4 border-l-[#102a43]'
                             : 'hover:bg-slate-50/60'
                         }`}
                       >
@@ -1152,7 +1231,7 @@ export function ProductDetailClient({
                         >
                           <span>{row.quantity.toLocaleString()}</span>
                           {isQtyActive && (
-                            <Check weight="bold" className="h-3 w-3 text-emerald-400" />
+                            <Check weight="bold" className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
                           )}
                         </div>
 
@@ -1164,6 +1243,8 @@ export function ProductDetailClient({
                             className={`p-2 sm:p-2.5 border-r border-slate-300 flex items-center justify-between px-3 transition-all cursor-pointer ${
                               isSameDayActive
                                 ? 'bg-[#102a43] text-white font-bold shadow-inner'
+                                : isQtyActive
+                                ? 'bg-blue-50/60 hover:bg-blue-100/70 text-slate-800 font-medium'
                                 : 'bg-white hover:bg-slate-50 text-slate-800'
                             }`}
                           >
@@ -1182,21 +1263,25 @@ export function ProductDetailClient({
                               )}
                             </div>
                             <span
-                              className={`h-3 w-3 rounded-full border flex items-center justify-center ml-1 ${
+                              className={`h-3.5 w-3.5 rounded-full border flex items-center justify-center ml-1 ${
                                 isSameDayActive
                                   ? 'border-white bg-white'
-                                  : 'border-slate-400 bg-transparent'
+                                  : isQtyActive
+                                  ? 'border-slate-400 bg-white/70'
+                                  : 'border-slate-300 bg-transparent'
                               }`}
                             >
                               {isSameDayActive && (
-                                <span className="h-1.5 w-1.5 rounded-full bg-[#102a43]" />
+                                <span className="h-2 w-2 rounded-full bg-[#102a43]" />
                               )}
                             </span>
                           </button>
                         ) : (
                           <div
                             title="Order exceeds same-day print capacity"
-                            className="p-2 sm:p-2.5 border-r border-slate-300 flex items-center justify-center bg-slate-50 text-slate-400 text-xs font-semibold cursor-not-allowed select-none"
+                            className={`p-2 sm:p-2.5 border-r border-slate-300 flex items-center justify-center text-slate-400 text-xs font-semibold cursor-not-allowed select-none ${
+                              isQtyActive ? 'bg-slate-100/80' : 'bg-slate-50'
+                            }`}
                           >
                             <span>—</span>
                           </div>
@@ -1209,6 +1294,8 @@ export function ProductDetailClient({
                           className={`p-2 sm:p-2.5 border-r border-slate-300 flex items-center justify-between px-3 transition-all cursor-pointer ${
                             isNextDayActive
                               ? 'bg-[#102a43] text-white font-bold shadow-inner'
+                              : isQtyActive
+                              ? 'bg-blue-50/60 hover:bg-blue-100/70 text-slate-800 font-medium'
                               : 'bg-white hover:bg-slate-50 text-slate-800'
                           }`}
                         >
@@ -1227,14 +1314,16 @@ export function ProductDetailClient({
                             )}
                           </div>
                           <span
-                            className={`h-3 w-3 rounded-full border flex items-center justify-center ml-1 ${
+                            className={`h-3.5 w-3.5 rounded-full border flex items-center justify-center ml-1 ${
                               isNextDayActive
                                 ? 'border-white bg-white'
-                                : 'border-slate-400 bg-transparent'
+                                : isQtyActive
+                                ? 'border-slate-400 bg-white/70'
+                                : 'border-slate-300 bg-transparent'
                             }`}
                           >
                             {isNextDayActive && (
-                              <span className="h-1.5 w-1.5 rounded-full bg-[#102a43]" />
+                              <span className="h-2 w-2 rounded-full bg-[#102a43]" />
                             )}
                           </span>
                         </button>
@@ -1246,6 +1335,8 @@ export function ProductDetailClient({
                           className={`p-2 sm:p-2.5 flex items-center justify-between px-3 transition-all cursor-pointer ${
                             isStandardActive
                               ? 'bg-[#102a43] text-white font-bold shadow-inner'
+                              : isQtyActive
+                              ? 'bg-blue-50/60 hover:bg-blue-100/70 text-slate-800 font-medium'
                               : 'bg-white hover:bg-slate-50 text-slate-800'
                           }`}
                         >
@@ -1264,14 +1355,16 @@ export function ProductDetailClient({
                             )}
                           </div>
                           <span
-                            className={`h-3 w-3 rounded-full border flex items-center justify-center ml-1 ${
+                            className={`h-3.5 w-3.5 rounded-full border flex items-center justify-center ml-1 ${
                               isStandardActive
                                 ? 'border-white bg-white'
-                                : 'border-slate-400 bg-transparent'
+                                : isQtyActive
+                                ? 'border-slate-400 bg-white/70'
+                                : 'border-slate-300 bg-transparent'
                             }`}
                           >
                             {isStandardActive && (
-                              <span className="h-1.5 w-1.5 rounded-full bg-[#102a43]" />
+                              <span className="h-2 w-2 rounded-full bg-[#102a43]" />
                             )}
                           </span>
                         </button>
