@@ -35,6 +35,7 @@ import {
   generateDynamicPriceMatrix,
   calculateCustomQuantityPrice,
   cleanOptionDisplayName,
+  parseOptionModifier,
 } from '@/lib/pricingEngine';
 
 interface ProductDetailClientProps {
@@ -146,7 +147,7 @@ export function ProductDetailClient({
       ? initialProduct.minQuantity
       : 25;
   });
-  const [selectedSpeed, setSelectedSpeed] = useState<'sameDay' | 'nextDay' | 'standard'>('sameDay');
+  const [selectedSpeed, setSelectedSpeed] = useState<'sameDay' | 'nextDay' | 'standard'>('standard');
   const [customQuantityInput, setCustomQuantityInput] = useState<string>('');
   const [showAllQuantities, setShowAllQuantities] = useState(false);
   const tableScrollRef = useRef<HTMLDivElement>(null);
@@ -211,20 +212,57 @@ export function ProductDetailClient({
     fileCopies,
   ]);
 
-  // Base price anchor from CMS
+  // Base price anchor from CMS: set for minimum quantity on 3-5 working days (Standard delivery)
   const basePriceAnchor = product?.discountedPrice || product?.price || 14.69;
+
+  // Has CMS Custom Fields defined?
+  const hasCMSFields = Boolean(product?.customFields && product.customFields.length > 0);
+
+  // Dynamic Physical Number of Sets: parsed from CMS dropdown if defined, otherwise 1
+  const physicalNumberOfSets = useMemo(() => {
+    if (hasCMSFields && product?.customFields) {
+      const setKey = Object.keys(customFieldValues).find((k) => k.toLowerCase().includes('set'));
+      if (setKey) {
+        const val = customFieldValues[setKey] || '';
+        const numMatch = val.match(/(\d+)/);
+        if (numMatch) {
+          return Math.max(1, parseInt(numMatch[1], 10));
+        }
+      }
+      return 1;
+    }
+    return numberOfSets;
+  }, [hasCMSFields, product?.customFields, customFieldValues, numberOfSets]);
+
+  // Pricing sets multiplier: if the option already specifies a percentage (e.g. +100%), the percentage handles the price
+  const pricingNumberOfSets = useMemo(() => {
+    if (hasCMSFields && product?.customFields) {
+      const setKey = Object.keys(customFieldValues).find((k) => k.toLowerCase().includes('set'));
+      if (setKey) {
+        const val = customFieldValues[setKey] || '';
+        const explicitMod = parseOptionModifier(val);
+        if (explicitMod.multiplier !== 1.0) {
+          return 1;
+        }
+        return physicalNumberOfSets;
+      }
+      return 1;
+    }
+    return numberOfSets;
+  }, [hasCMSFields, product?.customFields, customFieldValues, physicalNumberOfSets, numberOfSets]);
 
   // DYNAMIC PRICE MATRIX (Fully reactive to all dropdown options and sets)
   const priceMatrix = useMemo(() => {
     return generateDynamicPriceMatrix(
       basePriceAnchor,
       activeOptions,
-      numberOfSets,
+      pricingNumberOfSets,
       undefined,
       product?.minQuantity,
-      product?.maxSameDayQuantity
+      product?.maxSameDayQuantity,
+      hasCMSFields
     );
-  }, [basePriceAnchor, activeOptions, numberOfSets, product?.minQuantity, product?.maxSameDayQuantity]);
+  }, [basePriceAnchor, activeOptions, pricingNumberOfSets, product?.minQuantity, product?.maxSameDayQuantity, hasCMSFields]);
 
   // Custom Quantity dynamic price calculation
   const isCustomQuantityActive = Boolean(
@@ -253,11 +291,12 @@ export function ProductDetailClient({
       customQuantityNumber,
       basePriceAnchor,
       activeOptions,
-      numberOfSets,
+      pricingNumberOfSets,
       product?.minQuantity,
-      product?.maxSameDayQuantity
+      product?.maxSameDayQuantity,
+      hasCMSFields
     );
-  }, [isCustomQuantityActive, customQuantityNumber, basePriceAnchor, activeOptions, numberOfSets, product?.minQuantity, product?.maxSameDayQuantity]);
+  }, [isCustomQuantityActive, customQuantityNumber, basePriceAnchor, activeOptions, pricingNumberOfSets, product?.minQuantity, product?.maxSameDayQuantity, hasCMSFields]);
 
   // Active Size and Stock names used for Dynamic Weight Calculation
   const activeSizeName = useMemo(() => {
@@ -289,8 +328,8 @@ export function ProductDetailClient({
   // DYNAMIC WEIGHT CALCULATION (Weight per item in grams & Total weight in kg)
   const printWeight = useMemo(() => {
     const qty = customQuantityNumber > 0 ? customQuantityNumber : selectedQuantity;
-    return calculatePrintWeight(activeSizeName, activeStockName, qty, numberOfSets);
-  }, [activeSizeName, activeStockName, selectedQuantity, customQuantityNumber, numberOfSets]);
+    return calculatePrintWeight(activeSizeName, activeStockName, qty, physicalNumberOfSets);
+  }, [activeSizeName, activeStockName, selectedQuantity, customQuantityNumber, physicalNumberOfSets]);
 
   // ACTIVE SELECTED CELL PRICE
   const currentSelectedPrice = useMemo(() => {
@@ -362,11 +401,11 @@ export function ProductDetailClient({
       dueDate: dueDates.sameDay,
     },
     nextDay: {
-      title: '1 Working day',
+      title: '1 Working Day',
       dueDate: dueDates.nextDay,
     },
     standard: {
-      title: '3-4 Working Days',
+      title: '3-5 Working Days',
       dueDate: dueDates.standard,
     },
   };
@@ -397,13 +436,15 @@ export function ProductDetailClient({
     const finalSpeedTitle = speedLabels[selectedSpeed].title;
     const context = `${product.title} - ${finalQty} units (${finalSpeedTitle}, £${currentSelectedPrice.toFixed(
       2
-    )}, ${numberOfSets} set${numberOfSets > 1 ? 's' : ''})`;
+    )}${physicalNumberOfSets > 1 ? `, ${physicalNumberOfSets} sets` : ''})`;
 
-    openCallMe(context, activeOptions);
+    const cleanedActiveOptions: Record<string, string> = {};
+    for (const [k, v] of Object.entries(activeOptions)) {
+      cleanedActiveOptions[k] = cleanOptionDisplayName(v);
+    }
+
+    openCallMe(context, cleanedActiveOptions);
   };
-
-  // Has CMS Custom Fields defined?
-  const hasCMSFields = Boolean(product.customFields && product.customFields.length > 0);
 
   // Sliced matrix rows for clean UI height with "See More Quantities" expansion
   const visibleMatrixRows = showAllQuantities ? priceMatrix : priceMatrix.slice(0, 10);
@@ -793,36 +834,6 @@ export function ProductDetailClient({
                       </div>
                     </div>
                   </div>
-
-                  {/* Number of Sets Selector (if not explicitly in customFields) */}
-                  {!Object.keys(customFieldValues).some((k) => k.toLowerCase().includes('set')) && (
-                    <div>
-                      <label className="flex items-center gap-1 text-xs font-bold text-slate-800 mb-1">
-                        <span>Number of Sets:</span>
-                        <span title="Quantity sets" className="inline-flex">
-                          <Question weight="fill" className="h-3.5 w-3.5 text-slate-400 cursor-pointer" />
-                        </span>
-                      </label>
-                      <div className="relative">
-                        <select
-                          value={numberOfSets}
-                          onChange={(e) => setNumberOfSets(Math.max(1, parseInt(e.target.value, 10)))}
-                          className="w-full h-10 px-3 bg-white border border-slate-300 rounded-sm text-xs font-medium text-slate-900 focus:outline-hidden focus:border-[#102a43] focus:ring-1 focus:ring-[#102a43] cursor-pointer appearance-none pr-8 shadow-2xs"
-                        >
-                          <option value={1}>1</option>
-                          <option value={2}>2</option>
-                          <option value={3}>3</option>
-                          <option value={4}>4</option>
-                          <option value={5}>5</option>
-                          <option value={10}>10</option>
-                        </select>
-                        <CaretDown
-                          weight="bold"
-                          className="h-3.5 w-3.5 text-slate-500 absolute right-3 top-3.5 pointer-events-none"
-                        />
-                      </div>
-                    </div>
-                  )}
                 </>
               ) : (
                 // B. PRODUCT HAS NO CMS CUSTOM FIELDS -> RENDER DEFAULT STANDARD PRINT CONTROLS
@@ -1103,9 +1114,9 @@ export function ProductDetailClient({
                     </div>
                   </div>
 
-                  {/* Column 3: 3-4 Working Days */}
+                  {/* Column 3: 3-5 Working Days */}
                   <div className="p-2 sm:p-3 flex flex-col items-center justify-center bg-slate-50/50">
-                    <div className="font-bold text-xs sm:text-sm text-slate-900">3-4 Working Days</div>
+                    <div className="font-bold text-xs sm:text-sm text-slate-900">3-5 Working Days</div>
                     <div className="text-[10px] text-slate-500 font-medium mt-1">
                       Due Date:
                       <br />
@@ -1426,7 +1437,7 @@ export function ProductDetailClient({
                     {(
                       currentSelectedPrice /
                       ((customQuantityNumber > 0 ? customQuantityNumber : selectedQuantity) *
-                        numberOfSets)
+                        physicalNumberOfSets)
                     ).toFixed(2)}{' '}
                     each
                   </div>
@@ -1457,14 +1468,18 @@ export function ProductDetailClient({
 
                 <button
                   type="button"
-                  onClick={() =>
+                  onClick={() => {
+                    const cleanedActiveOptions: Record<string, string> = {};
+                    for (const [k, v] of Object.entries(activeOptions)) {
+                      cleanedActiveOptions[k] = cleanOptionDisplayName(v);
+                    }
                     openCallMe(
                       `Free Artwork Proof for ${product.title} (${
                         customQuantityNumber > 0 ? customQuantityNumber : selectedQuantity
                       } units)`,
-                      activeOptions
-                    )
-                  }
+                      cleanedActiveOptions
+                    );
+                  }}
                   className="flex items-center justify-center gap-2 h-10 rounded-md bg-white hover:bg-slate-50 text-slate-800 font-bold text-xs border border-slate-300 transition-colors cursor-pointer shadow-2xs"
                 >
                   <Sparkle weight="fill" className="h-3.5 w-3.5 text-[#012169]" />

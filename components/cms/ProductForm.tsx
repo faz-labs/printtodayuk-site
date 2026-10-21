@@ -166,7 +166,7 @@ export function ProductForm({
     setCustomFields(customFields.filter((f) => f.id !== fieldId));
   };
 
-  const handleAddPreset = (type: 'size' | 'finish' | 'apparelSize' | 'paperWeight') => {
+  const handleAddPreset = (type: 'size' | 'finish' | 'apparelSize' | 'paperWeight' | 'sets') => {
     let newField: CustomField;
     const uniqueId = `fld-${Date.now()}`;
     if (type === 'size') {
@@ -188,6 +188,13 @@ export function ProductForm({
         id: uniqueId,
         name: 'Select Size',
         options: ['Small (S)', 'Medium (M)', 'Large (L)', 'XL', '2XL', '3XL'],
+        required: true,
+      };
+    } else if (type === 'sets') {
+      newField = {
+        id: uniqueId,
+        name: 'Number of Sets',
+        options: ['1 Set', '2 Sets (+100%)', '3 Sets (+200%)', '4 Sets (+300%)', '5 Sets (+400%)'],
         required: true,
       };
     } else {
@@ -350,7 +357,7 @@ export function ProductForm({
                     className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:outline-hidden focus:border-[#012169]"
                   />
                   <p className="text-[10px] text-slate-500 mt-1">
-                    Standard 3-4 days price at Min Quantity.
+                    Standard 3-5 working days price at Min Quantity.
                   </p>
                 </div>
 
@@ -541,19 +548,26 @@ export function ProductForm({
               </div>
 
               {/* Dynamic Pricing Engine Tip Banner */}
-              <div className="p-2.5 bg-blue-50/80 border border-blue-200/80 rounded-xl text-xs text-blue-950 space-y-1">
-                <div className="font-bold flex items-center gap-1.5 text-[#012169] text-[11px]">
-                  <Sparkle weight="fill" className="h-3.5 w-3.5 text-amber-500" />
-                  <span>Smart Dynamic Pricing Engine Active</span>
+              <div className="p-3 bg-blue-50/90 border border-blue-200/90 rounded-xl text-xs text-blue-950 space-y-1.5">
+                <div className="font-bold flex items-center gap-1.5 text-[#012169] text-xs">
+                  <Sparkle weight="fill" className="h-4 w-4 text-amber-500" />
+                  <span>Dynamic Pricing Engine & Custom Dropdowns</span>
                 </div>
-                <p className="text-[10px] text-slate-600 leading-relaxed">
-                  To add a surcharge, write <code className="bg-white px-1 py-0.5 rounded border border-blue-200 font-bold text-[#012169]">+50%</code> or <code className="bg-white px-1 py-0.5 rounded border border-blue-200 font-bold text-[#012169]">+£12</code>.
-                  Customers only see clean labels (e.g. <em>A8</em> or <em>Matt Lamination</em>).
-                </p>
+                <div className="text-[11px] text-slate-600 leading-relaxed space-y-1">
+                  <p>
+                    • <strong>Base Price Anchor:</strong> The product price above is set for the <strong>Minimum Quantity on 3-5 Working Days</strong> (Standard Turnaround).
+                  </p>
+                  <p>
+                    • <strong>Dropdown Price Modifiers:</strong> Add percentage adjustments such as <code className="bg-white px-1.5 py-0.5 rounded border border-blue-200 font-bold text-[#012169]">+30%</code>, <code className="bg-white px-1.5 py-0.5 rounded border border-blue-200 font-bold text-[#012169]">-30%</code>, or <code className="bg-white px-1.5 py-0.5 rounded border border-blue-200 font-bold text-[#012169]">+£12</code> to any option (e.g. <em>A4 +30%</em>, <em>A6 -30%</em>).
+                  </p>
+                  <p>
+                    • <strong>Customer View:</strong> The percentage/surcharge text is <strong>never visible</strong> to storefront customers — they only see clean labels (e.g. <em>A4</em>, <em>Matt Lamination</em>).
+                  </p>
+                </div>
               </div>
 
               {/* Quick 1-Click Presets */}
-              <div className="flex flex-wrap items-center gap-1 pt-0.5">
+              <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-1">
                   Presets:
                 </span>
@@ -577,6 +591,13 @@ export function ProductForm({
                   className="px-2 py-0.5 rounded-lg bg-white border border-slate-200 hover:border-rose-300 hover:text-rose-600 text-[10px] font-semibold text-slate-700 transition-colors cursor-pointer"
                 >
                   + Paper Stock
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAddPreset('sets')}
+                  className="px-2 py-0.5 rounded-lg bg-white border border-slate-200 hover:border-rose-300 hover:text-rose-600 text-[10px] font-semibold text-slate-700 transition-colors cursor-pointer"
+                >
+                  + Number of Sets
                 </button>
                 <button
                   type="button"

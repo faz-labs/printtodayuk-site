@@ -75,8 +75,9 @@ export function ProductManager({
 
   // Bulk Price Adjustment state
   const [isBulkPriceModalOpen, setIsBulkPriceModalOpen] = useState(false);
-  const [bulkScope, setBulkScope] = useState<'all' | 'category'>('all');
+  const [bulkScope, setBulkScope] = useState<'all' | 'category' | 'product'>('all');
   const [bulkCategory, setBulkCategory] = useState<string>(categories?.[0]?.name || 'Printing');
+  const [bulkProductId, setBulkProductId] = useState<string>('');
   const [bulkDirection, setBulkDirection] = useState<'increase' | 'decrease'>('increase');
   const [bulkPercent, setBulkPercent] = useState<string>('10');
   const [isApplyingBulk, setIsApplyingBulk] = useState(false);
@@ -87,9 +88,19 @@ export function ProductManager({
     }
   }, [categories, bulkCategory]);
 
+  React.useEffect(() => {
+    if (products?.length && !bulkProductId) {
+      setBulkProductId(products[0].id || products[0].slug || '');
+    }
+  }, [products, bulkProductId]);
+
   const targetBulkProducts = useMemo(() => {
     if (bulkScope === 'all') {
       return products;
+    }
+    if (bulkScope === 'product') {
+      const match = products.find((p) => (p.id || p.slug) === bulkProductId);
+      return match ? [match] : (products.length > 0 ? [products[0]] : []);
     }
     return products.filter((p) => {
       const cat = p.category?.toLowerCase() || '';
@@ -97,7 +108,7 @@ export function ProductManager({
       const target = bulkCategory.toLowerCase();
       return cat === target || sub === target;
     });
-  }, [products, bulkScope, bulkCategory]);
+  }, [products, bulkScope, bulkCategory, bulkProductId]);
 
   const parsedPercent = Math.max(0, parseFloat(bulkPercent) || 0);
   const effectivePct = bulkDirection === 'decrease' ? Math.min(95, parsedPercent) : parsedPercent;
@@ -141,7 +152,12 @@ export function ProductManager({
     }
 
     const actionText = bulkDirection === 'increase' ? 'increase' : 'decrease';
-    const scopeText = bulkScope === 'all' ? 'ALL products' : `category "${bulkCategory}"`;
+    const scopeText =
+      bulkScope === 'all'
+        ? 'ALL products'
+        : bulkScope === 'product'
+        ? `product "${bulkPreviewItems[0]?.product.title || 'Selected'}"`
+        : `category "${bulkCategory}"`;
     const confirmPrompt = `Are you sure you want to ${actionText} prices by ${parsedPercent}% for ${bulkPreviewItems.length} product(s) in ${scopeText}?`;
     if (!window.confirm(confirmPrompt)) return;
 
@@ -517,7 +533,8 @@ export function ProductManager({
             <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
               1. Select Target Scope
             </label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* Target Scope */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
               <button
                 type="button"
                 onClick={() => setBulkScope('all')}
@@ -529,9 +546,9 @@ export function ProductManager({
               >
                 <div>
                   <div className="text-xs font-bold">All Products</div>
-                  <div className="text-[11px] text-slate-500">Apply to entire store catalog</div>
+                  <div className="text-[10px] text-slate-500">Entire catalog</div>
                 </div>
-                <span className="text-xs font-black px-2.5 py-1 rounded-full bg-white border border-slate-200 shadow-xs">
+                <span className="text-xs font-black px-2 py-0.5 rounded-full bg-white border border-slate-200 shadow-xs">
                   {products.length}
                 </span>
               </button>
@@ -547,10 +564,32 @@ export function ProductManager({
               >
                 <div>
                   <div className="text-xs font-bold">Category-wise</div>
-                  <div className="text-[11px] text-slate-500">Target a single category only</div>
+                  <div className="text-[10px] text-slate-500">Category only</div>
                 </div>
-                <span className="text-xs font-black px-2.5 py-1 rounded-full bg-white border border-slate-200 shadow-xs">
-                  {targetBulkProducts.length}
+                <span className="text-xs font-black px-2 py-0.5 rounded-full bg-white border border-slate-200 shadow-xs">
+                  {products.filter(
+                    (p) =>
+                      p.category?.toLowerCase() === bulkCategory.toLowerCase() ||
+                      p.subcategory?.toLowerCase() === bulkCategory.toLowerCase()
+                  ).length}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setBulkScope('product')}
+                className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between ${
+                  bulkScope === 'product'
+                    ? 'bg-blue-50/80 border-[#012169] text-[#012169] ring-2 ring-[#012169]/20'
+                    : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300'
+                }`}
+              >
+                <div>
+                  <div className="text-xs font-bold">Single Product</div>
+                  <div className="text-[10px] text-slate-500">Specific item</div>
+                </div>
+                <span className="text-xs font-black px-2 py-0.5 rounded-full bg-white border border-slate-200 shadow-xs">
+                  1
                 </span>
               </button>
             </div>
@@ -575,6 +614,30 @@ export function ProductManager({
                     return (
                       <option key={c.name} value={c.name}>
                         {c.name} ({count} product{count === 1 ? '' : 's'})
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+            )}
+
+            {/* Product Dropdown if Scope is Single Product */}
+            {bulkScope === 'product' && (
+              <div className="mt-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <label className="block text-[11px] font-bold text-slate-600 mb-1.5">
+                  Choose Specific Product:
+                </label>
+                <select
+                  value={bulkProductId || (products[0]?.id || products[0]?.slug || '')}
+                  onChange={(e) => setBulkProductId(e.target.value)}
+                  className="w-full h-10 px-3.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-800 focus:outline-hidden focus:border-[#012169] cursor-pointer"
+                >
+                  {products.map((p) => {
+                    const pKey = p.id || p.slug;
+                    const activePrice = p.discountedPrice || p.price;
+                    return (
+                      <option key={pKey} value={pKey}>
+                        {p.title} ({p.category}) — £{activePrice.toFixed(2)}
                       </option>
                     );
                   })}

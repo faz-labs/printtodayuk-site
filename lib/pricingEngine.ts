@@ -113,11 +113,11 @@ export function calculatePrintWeight(
 /**
  * Extracts price modifiers (percentage or flat fee) from option text.
  * Supports:
- *   "A8+500%" -> multiplier 6.0 (+500%)
- *   "A8 (+500%)" -> multiplier 6.0 (+500%)
- *   "Double Sided (+25%)" or "Double Sided +25%" -> multiplier 1.25
- *   "Matt Lamination (+£12.00)" or "Matt Lamination +£12" -> flatAddon 12
- *   "A6 (-15%)" or "A6 -15%" -> multiplier 0.85
+ *   "+30%", "-30%", "+ 30%", "- 30%"
+ *   "(+30%)", "(-30%)", "(+ 30%)", "(- 30%)"
+ *   "A4 +30%", "A4 -30%", "A4 (+30%)", "A4 (-30%)", "A4 + 30%", "A4 - 30%"
+ *   "Matt Lamination +£12.00", "Matt Lamination (+£12)", "Matt Lamination +£12"
+ *   "2 Sets (+100%)", "3 Sets (+200%)"
  */
 export function parseOptionModifier(optionText: string): { multiplier: number; flatAddon: number } {
   let multiplier = 1.0;
@@ -125,75 +125,113 @@ export function parseOptionModifier(optionText: string): { multiplier: number; f
 
   if (!optionText) return { multiplier, flatAddon };
 
-  // 1. Percentage match: e.g. (+500%), +500%, A8+500%, (+25%), -15%, (500%)
-  const percentMatch =
-    optionText.match(/\(([+-]?\d+(?:\.\d+)?)%\)/) ||
-    optionText.match(/([+-]\d+(?:\.\d+)?)%/) ||
-    optionText.match(/\((\d+(?:\.\d+)?)%\)/);
-
-  if (percentMatch) {
-    const percent = parseFloat(percentMatch[1]);
-    multiplier = 1 + percent / 100;
+  // 1. Percentage match (Parenthesized e.g. "(+30%)", "(-20%)", "(+ 30%)")
+  const parenPercentMatch = optionText.match(/\(\s*([+-]?)\s*(\d+(?:\.\d+)?)\s*%\s*\)/);
+  if (parenPercentMatch) {
+    const sign = parenPercentMatch[1] === '-' ? -1 : 1;
+    const num = parseFloat(parenPercentMatch[2]);
+    if (!isNaN(num)) {
+      multiplier = Math.max(0.01, 1 + (sign * num) / 100);
+    }
+  } else {
+    // Unparenthesized e.g. "+30%", "-30%", "+ 30%", "- 30%", "A4 +30%", "A4 -30%"
+    const unparenPercentMatch = optionText.match(/([+-])\s*(\d+(?:\.\d+)?)\s*%/);
+    if (unparenPercentMatch) {
+      const sign = unparenPercentMatch[1] === '-' ? -1 : 1;
+      const num = parseFloat(unparenPercentMatch[2]);
+      if (!isNaN(num)) {
+        multiplier = Math.max(0.01, 1 + (sign * num) / 100);
+      }
+    }
   }
 
-  // 2. Flat fee match: e.g. (+£12.50), +£12.50, +£12, (+12.50)
-  const flatMatch =
-    optionText.match(/\(\+[£$](\d+(?:\.\d+)?)\)/) ||
-    optionText.match(/\+[£$](\d+(?:\.\d+)?)/) ||
-    optionText.match(/\(\+(\d+(?:\.\d+)?)\)/);
-
-  if (flatMatch) {
-    flatAddon = parseFloat(flatMatch[1]);
+  // 2. Flat fee match (e.g. "(+£12.50)", "(+£12)", "+£12", "+ £12", "(-£5)")
+  const parenFlatMatch = optionText.match(/\(\s*([+-]?)\s*[£$]\s*(\d+(?:\.\d+)?)\s*\)/);
+  if (parenFlatMatch) {
+    const sign = parenFlatMatch[1] === '-' ? -1 : 1;
+    const num = parseFloat(parenFlatMatch[2]);
+    if (!isNaN(num)) {
+      flatAddon = sign * num;
+    }
+  } else {
+    const unparenFlatMatch = optionText.match(/([+-])\s*[£$]\s*(\d+(?:\.\d+)?)/);
+    if (unparenFlatMatch) {
+      const sign = unparenFlatMatch[1] === '-' ? -1 : 1;
+      const num = parseFloat(unparenFlatMatch[2]);
+      if (!isNaN(num)) {
+        flatAddon = sign * num;
+      }
+    }
   }
 
   return { multiplier, flatAddon };
 }
 
 /**
- * Strips pricing modifiers (+50%, +500%, (+25%), +£12, etc.) from option names
- * so the customer on the storefront only sees the clean title (e.g. "A8" or "Matt Lamination").
+ * Strips pricing modifiers (+30%, -30%, (+30%), +£12, etc.) from option names
+ * so the customer on the storefront NEVER sees pricing adjustment text (e.g. they see "A4" or "Matt Lamination").
  * The background pricing engine still uses the raw option value to compute the correct multiplier/add-on.
  */
 export function cleanOptionDisplayName(optionText: string): string {
   if (!optionText) return '';
   let cleaned = optionText.trim();
 
-  // Strip parenthesized modifiers e.g. "(+50%)", "(-15%)", "(+£12.00)", "(+12.00)", "(500%)"
-  cleaned = cleaned.replace(/\s*\([+-]?\d+(?:\.\d+)?%\)/gi, '');
-  cleaned = cleaned.replace(/\s*\(\+[£$]?\d+(?:\.\d+)?\)/gi, '');
-  cleaned = cleaned.replace(/\s*\([£$]\d+(?:\.\d+)?\)/gi, '');
+  // Strip parenthesized percentage modifiers e.g. "(+30%)", "(-30%)", "(+ 30%)", "(30%)"
+  cleaned = cleaned.replace(/\s*\(\s*[+-]?\s*\d+(?:\.\d+)?\s*%\s*\)/gi, '');
 
-  // Strip unparenthesized suffix modifiers e.g. "+500%", "+50%", "-15%", "+£12", "+£12.00", "+$15"
-  cleaned = cleaned.replace(/\s*[+-]\d+(?:\.\d+)?%$/gi, '');
-  cleaned = cleaned.replace(/\s*\+[£$]\d+(?:\.\d+)?$/gi, '');
-  cleaned = cleaned.replace(/\s*-[£$]\d+(?:\.\d+)?$/gi, '');
+  // Strip parenthesized flat fee modifiers e.g. "(+£12)", "(+£12.00)", "(+12)", "(-£5)"
+  cleaned = cleaned.replace(/\s*\(\s*[+-]?\s*[£$]\s*\d+(?:\.\d+)?\s*\)/gi, '');
+  cleaned = cleaned.replace(/\s*\(\s*\+\s*\d+(?:\.\d+)?\s*\)/gi, '');
 
-  return cleaned.trim() || optionText.trim();
+  // Strip unparenthesized percentage modifiers e.g. "+30%", "-30%", "+ 30%", "- 30%"
+  cleaned = cleaned.replace(/\s*[+-]\s*\d+(?:\.\d+)?\s*%/gi, '');
+
+  // Strip unparenthesized flat fee modifiers e.g. "+£12", "+£12.00", "+ £12", "-£5"
+  cleaned = cleaned.replace(/\s*[+-]\s*[£$]\s*\d+(?:\.\d+)?/gi, '');
+
+  cleaned = cleaned.trim();
+
+  // If the option was literally just "+30%" or "-30%" and cleaning made it blank,
+  // return the original string so the dropdown option is not blank:
+  if (!cleaned) {
+    return optionText.trim();
+  }
+
+  return cleaned;
 }
 
 /**
- * Computes default industry printing multipliers if not explicitly written into option labels.
+ * Computes option modifiers.
+ * For CMS configured custom fields, ONLY explicit modifiers (+30%, -30%, etc.) written by the admin apply.
+ * Generic fallbacks are only applied for legacy products with no CMS fields.
  */
 export function getIndustryDefaultModifier(
   fieldName: string,
-  optionValue: string
+  optionValue: string,
+  isCMSCustomField: boolean = false
 ): { multiplier: number; flatAddon: number } {
-  const f = fieldName.toLowerCase();
-  const opt = optionValue.toLowerCase();
-
-  // 1. Explicit modifier written in option text takes precedence
+  // 1. Explicit modifier written in option text (+30%, -30%, +£12) always takes precedence
   const explicit = parseOptionModifier(optionValue);
   if (explicit.multiplier !== 1 || explicit.flatAddon !== 0) {
     return explicit;
   }
 
-  // 2. Printed Sides
+  // If this product uses CMS custom fields, do NOT inject hardcoded industry multipliers!
+  // Options only affect price if the admin explicitly specified +X% or -X% or +£X.
+  if (isCMSCustomField) {
+    return { multiplier: 1.0, flatAddon: 0 };
+  }
+
+  const f = fieldName.toLowerCase();
+  const opt = optionValue.toLowerCase();
+
+  // 2. Printed Sides (Fallback only)
   if (f.includes('side') || opt.includes('single sided') || opt.includes('double sided')) {
     if (opt.includes('double')) return { multiplier: 1.25, flatAddon: 0 };
     return { multiplier: 1.0, flatAddon: 0 };
   }
 
-  // 3. Finished Size
+  // 3. Finished Size (Fallback only)
   if (f.includes('size')) {
     if (opt.includes('a6') || opt.includes('dl')) return { multiplier: 0.85, flatAddon: 0 };
     if (opt.includes('a5')) return { multiplier: 1.0, flatAddon: 0 };
@@ -201,7 +239,7 @@ export function getIndustryDefaultModifier(
     if (opt.includes('a3')) return { multiplier: 1.95, flatAddon: 0 };
   }
 
-  // 4. Stock / Paper GSM
+  // 4. Stock / Paper GSM (Fallback only)
   if (f.includes('stock') || f.includes('paper')) {
     if (opt.includes('130gsm')) return { multiplier: 0.95, flatAddon: 0 };
     if (opt.includes('150gsm') || opt.includes('170gsm')) return { multiplier: 1.0, flatAddon: 0 };
@@ -211,7 +249,7 @@ export function getIndustryDefaultModifier(
     }
   }
 
-  // 5. Lamination
+  // 5. Lamination (Fallback only)
   if (f.includes('lamination') || f.includes('finish')) {
     if (opt.includes('no lamination') || opt.includes('none') || opt.includes('uncoated')) {
       return { multiplier: 1.0, flatAddon: 0 };
@@ -220,7 +258,7 @@ export function getIndustryDefaultModifier(
     if (opt.includes('soft touch') || opt.includes('velvet')) return { multiplier: 1.22, flatAddon: 16.0 };
   }
 
-  // 6. Embellishment
+  // 6. Embellishment (Fallback only)
   if (f.includes('embellish') || f.includes('foil') || f.includes('spot uv')) {
     if (opt.includes('no embellish') || opt.includes('none')) return { multiplier: 1.0, flatAddon: 0 };
     if (opt.includes('foil') || opt.includes('spot uv')) return { multiplier: 1.25, flatAddon: 24.0 };
@@ -289,7 +327,8 @@ export function generateDynamicPriceMatrix(
   numberOfSets: number = 1,
   quantityTiers?: number[],
   minQuantity: number = 25,
-  maxSameDayQuantity?: number
+  maxSameDayQuantity?: number,
+  isCMSCustomFieldProduct: boolean = false
 ): MatrixRow[] {
   const safeMin = Math.max(1, minQuantity || 25);
   const tiers =
@@ -302,15 +341,16 @@ export function generateDynamicPriceMatrix(
   let combinedFlatAddon = 0.0;
 
   for (const [field, val] of Object.entries(selectedOptions)) {
-    const mod = getIndustryDefaultModifier(field, val);
+    const mod = getIndustryDefaultModifier(field, val, isCMSCustomFieldProduct);
     combinedMultiplier *= mod.multiplier;
     combinedFlatAddon += mod.flatAddon;
   }
 
   // Turnaround speed multipliers
-  const SPEED_SAME_DAY = 1.354; // +35.4% (e.g. £14.69 -> £19.89 in reference)
-  const SPEED_NEXT_DAY = 1.074; // +7.4% (e.g. £14.69 -> £15.77 in reference)
-  const SPEED_STANDARD = 1.0;   // Base 3-4 working days
+  // Base price in CMS is anchored at 3-5 working days (Standard delivery)
+  const SPEED_SAME_DAY = 1.354; // Same Day express (+35.4%)
+  const SPEED_NEXT_DAY = 1.074; // 1 Working day (+7.4%)
+  const SPEED_STANDARD = 1.0;   // 3-5 Working days (Standard = 100% of base price)
 
   // Reference base anchor: product price set in CMS at minQuantity on standard delivery
   const baseAnchorPrice = basePrice && basePrice > 0 ? basePrice : 14.69;
@@ -318,6 +358,7 @@ export function generateDynamicPriceMatrix(
   return tiers.map((qty) => {
     // Commercial bulk economies of scale logarithmic curve:
     // P(q) = Base * (q / safeMin)^0.42
+    // At qty = safeMin (e.g. 25), scalingFactor = 1.0
     const scalingFactor = Math.pow(qty / safeMin, 0.42);
     const rawBasePrice = baseAnchorPrice * scalingFactor;
 
@@ -375,7 +416,8 @@ export function calculateCustomQuantityPrice(
   selectedOptions: Record<string, string>,
   numberOfSets: number = 1,
   minQuantity: number = 25,
-  maxSameDayQuantity?: number
+  maxSameDayQuantity?: number,
+  isCMSCustomFieldProduct: boolean = false
 ): { sameDay: number; nextDay: number; standard: number; isSameDayAvailable: boolean } | null {
   if (!customQty || customQty < 1 || isNaN(customQty)) return null;
 
@@ -385,7 +427,8 @@ export function calculateCustomQuantityPrice(
     numberOfSets,
     [customQty],
     minQuantity,
-    maxSameDayQuantity
+    maxSameDayQuantity,
+    isCMSCustomFieldProduct
   );
   if (matrix.length === 0) return null;
 
