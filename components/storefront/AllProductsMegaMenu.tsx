@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
@@ -38,12 +38,17 @@ export function AllProductsMegaMenu({
 }: AllProductsMegaMenuProps) {
   const [filterQuery, setFilterQuery] = useState('');
 
+  const [localCats, setLocalCats] = useState<CategoryConfig[]>([]);
+
+  useEffect(() => {
+    if (!categories || categories.length === 0) {
+      setLocalCats(getLocalCategories());
+    }
+  }, [categories]);
+
   // 1. Strictly CMS Categories (ignoring legacy container names)
   const cleanCategories = useMemo(() => {
-    let list = categories && categories.length > 0 ? categories : [];
-    if (list.length === 0 && typeof window !== 'undefined') {
-      list = getLocalCategories();
-    }
+    const list = categories && categories.length > 0 ? categories : localCats;
     return list.filter(
       (c) =>
         c &&
@@ -51,7 +56,7 @@ export function AllProductsMegaMenu({
         c.name.toLowerCase() !== 'printing' &&
         c.name.toLowerCase() !== 'clothing'
     );
-  }, [categories]);
+  }, [categories, localCats]);
 
   // 2. Filter by search query if user searches
   const filteredCategories = useMemo(() => {

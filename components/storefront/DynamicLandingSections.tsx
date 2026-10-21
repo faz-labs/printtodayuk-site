@@ -28,12 +28,8 @@ export function DynamicLandingSections({
   initialProducts,
   initialCategories,
 }: DynamicLandingSectionsProps = {}) {
-  // 1. Initialize synchronously: prioritize fresh browser cache if available, else server props
+  // 1. Initialize strictly with server props to guarantee perfect SSR hydration match
   const [sections, setSections] = useState<DynamicSection[]>(() => {
-    if (typeof window !== 'undefined') {
-      const local = getLocalLandingSections().filter((s) => s.isActive);
-      if (local && local.length > 0) return local;
-    }
     if (initialSections && initialSections.length > 0) {
       return initialSections.filter((s) => s.isActive);
     }
@@ -41,10 +37,6 @@ export function DynamicLandingSections({
   });
 
   const [products, setProducts] = useState<Product[]>(() => {
-    if (typeof window !== 'undefined') {
-      const localProds = getLocalProducts();
-      if (localProds && localProds.length > 0) return localProds;
-    }
     if (initialProducts && initialProducts.length > 0) {
       return initialProducts;
     }
@@ -52,10 +44,6 @@ export function DynamicLandingSections({
   });
 
   const [categories, setCategories] = useState<CategoryConfig[]>(() => {
-    if (typeof window !== 'undefined') {
-      const localCats = getLocalCategories();
-      if (localCats && localCats.length > 0) return localCats;
-    }
     if (initialCategories && initialCategories.length > 0) {
       return initialCategories;
     }
@@ -63,6 +51,20 @@ export function DynamicLandingSections({
   });
 
   useEffect(() => {
+    // If server had empty data, fall back to local storage on client mount
+    if (!initialSections || initialSections.length === 0) {
+      const local = getLocalLandingSections().filter((s) => s.isActive);
+      if (local && local.length > 0) setSections(local);
+    }
+    if (!initialProducts || initialProducts.length === 0) {
+      const localProds = getLocalProducts();
+      if (localProds && localProds.length > 0) setProducts(localProds);
+    }
+    if (!initialCategories || initialCategories.length === 0) {
+      const localCats = getLocalCategories();
+      if (localCats && localCats.length > 0) setCategories(localCats);
+    }
+
     // 2. Fetch fresh data through server API with cache-busting
     async function loadData() {
       try {

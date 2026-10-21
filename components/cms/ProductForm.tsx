@@ -390,7 +390,7 @@ export function ProductForm({
               <div className="flex items-center gap-2">
                 <SlidersHorizontal weight="bold" className="h-4 w-4 text-[#012169]" />
                 <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900">
-                  Custom Dropdowns & Options
+                  Custom Dropdowns & Options (Dynamic Price Matrix)
                 </h4>
               </div>
               <p className="text-[11px] text-slate-500 mt-0.5">
@@ -406,6 +406,18 @@ export function ProductForm({
               <Plus className="h-3.5 w-3.5" />
               <span>Add Dropdown</span>
             </button>
+          </div>
+
+          {/* Dynamic Pricing Engine Tip Banner */}
+          <div className="p-3 bg-blue-50/80 border border-blue-200/80 rounded-xl text-xs text-blue-950 space-y-1">
+            <div className="font-bold flex items-center gap-1.5 text-[#012169]">
+              <Sparkle weight="fill" className="h-3.5 w-3.5 text-amber-500" />
+              <span>Smart Dynamic Pricing Engine Active</span>
+            </div>
+            <p className="text-[11px] text-slate-600 leading-relaxed">
+              No need to configure thousands of combinations! The storefront Price Matrix recalculates automatically from your <strong>Base Price</strong>.
+              To add a surcharge to an option, simply write <code className="bg-white px-1.5 py-0.5 rounded border border-blue-200 font-bold text-[#012169]">(+25%)</code> or <code className="bg-white px-1.5 py-0.5 rounded border border-blue-200 font-bold text-[#012169]">(+£12.00)</code> in the option title (e.g. <em>&ldquo;Double Sided (+25%)&rdquo;</em> or <em>&ldquo;Matt Lamination (+£12.00)&rdquo;</em>).
+            </p>
           </div>
 
           {/* Quick 1-Click Presets */}

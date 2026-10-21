@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Lightning,
   Phone,
@@ -16,15 +16,28 @@ import {
   ShareNetwork,
   CheckCircle,
   CaretDown,
-  Star,
+  CaretUp,
+  Info,
+  Question,
+  FileArrowDown,
+  Printer,
+  Package,
+  FileText,
+  ChatCircleDots,
 } from '@phosphor-icons/react';
 import { Product } from '@/lib/types';
-import { formatCurrency, calculateDiscount } from '@/lib/utils';
+import { formatCurrency } from '@/lib/utils';
 import { ImageWithFallback } from '@/components/storefront/ImageWithFallback';
 import { ProductCard } from '@/components/storefront/ProductCard';
-import { ProductDetailTabs } from '@/components/storefront/ProductDetailTabs';
 import { useCallMe } from '@/components/storefront/CallMeContext';
 import { getLocalProducts } from '@/lib/db';
+import {
+  getWorkingDueDates,
+  calculatePrintWeight,
+  generateDynamicPriceMatrix,
+  calculateCustomQuantityPrice,
+  DEFAULT_QUANTITY_TIERS,
+} from '@/lib/pricingEngine';
 
 interface ProductDetailClientProps {
   productIdOrSlug?: string;
@@ -39,61 +52,132 @@ export function ProductDetailClient({
 }: ProductDetailClientProps) {
   const { openCallMe } = useCallMe();
 
-  const [product, setProduct] = useState<Product | null>(() => {
-    if (initialProduct) return initialProduct;
-    if (productIdOrSlug && typeof window !== 'undefined') {
-      const local = getLocalProducts();
-      const decoded = decodeURIComponent(productIdOrSlug).trim().toLowerCase();
-      return (
-        local.find(
-          (p) =>
-            (p.slug && p.slug.toLowerCase() === decoded) ||
-            (p.id && p.id.toLowerCase() === decoded)
-        ) || null
-      );
-    }
-    return null;
-  });
+  const [product, setProduct] = useState<Product | null>(initialProduct);
   const [relatedProducts, setRelatedProducts] = useState<Product[]>(initialRelatedProducts);
   const [selectedImageIndex, setSelectedImageIndex] = useState<number>(0);
-  const [quantity, setQuantity] = useState<number>(initialProduct?.minQuantity || 100);
   const [copied, setCopied] = useState(false);
 
-  // Initialize selected options from customFields
-  const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>(() => {
-    if (initialProduct?.customFields && initialProduct.customFields.length > 0) {
-      const initialOpts: Record<string, string> = {};
-      initialProduct.customFields.forEach((field) => {
-        if (field.options && field.options.length > 0) {
-          initialOpts[field.name] = field.defaultValue || field.options[0];
-        }
-      });
-      return initialOpts;
+  // Client fallback for local products if initialProduct is null
+  useEffect(() => {
+    if (!initialProduct && productIdOrSlug) {
+      const local = getLocalProducts();
+      const decoded = decodeURIComponent(productIdOrSlug).trim().toLowerCase();
+      const found = local.find(
+        (p) =>
+          (p.slug && p.slug.toLowerCase() === decoded) ||
+          (p.id && p.id.toLowerCase() === decoded)
+      );
+      if (found) {
+        setProduct(found);
+      }
     }
-    return {};
-  });
+  }, [initialProduct, productIdOrSlug]);
 
-  // Sync if initialProduct changes (e.g. client-side route navigation)
   useEffect(() => {
     if (initialProduct) {
       setProduct(initialProduct);
-      setQuantity(initialProduct.minQuantity || 100);
       setSelectedImageIndex(0);
-      if (initialProduct.customFields && initialProduct.customFields.length > 0) {
-        const initialOpts: Record<string, string> = {};
-        initialProduct.customFields.forEach((field) => {
-          if (field.options && field.options.length > 0) {
-            initialOpts[field.name] = field.defaultValue || field.options[0];
-          }
-        });
-        setSelectedOptions(initialOpts);
-      }
     }
   }, [initialProduct]);
 
   useEffect(() => {
     setRelatedProducts(initialRelatedProducts);
   }, [initialRelatedProducts]);
+
+  // SPECIFICATION CONTROLS STATE (matching Image 1 exactly)
+  const [finishedSize, setFinishedSize] = useState<string>('A5');
+  const [printedSides, setPrintedSides] = useState<'Single Sided' | 'Double Sided'>('Single Sided');
+  const [stock, setStock] = useState<string>('150gsm Silk');
+  const [lamination, setLamination] = useState<string>('No Lamination');
+  const [embellishment, setEmbellishment] = useState<string>('No Embellishment');
+  const [numberOfSets, setNumberOfSets] = useState<number>(1);
+  const [fileCopies, setFileCopies] = useState<string>('No');
+
+  // Custom Fields from CMS (if any additional product-specific fields exist)
+  const [customFieldValues, setCustomFieldValues] = useState<Record<string, string>>(() => {
+    if (initialProduct?.customFields && initialProduct.customFields.length > 0) {
+      const init: Record<string, string> = {};
+      initialProduct.customFields.forEach((cf) => {
+        if (cf.options && cf.options.length > 0) {
+          init[cf.name] = cf.defaultValue || cf.options[0];
+        }
+      });
+      return init;
+    }
+    return {};
+  });
+
+  // MATRIX SELECTION STATE
+  // Selected Quantity and Selected Delivery Speed
+  const [selectedQuantity, setSelectedQuantity] = useState<number>(25);
+  const [selectedSpeed, setSelectedSpeed] = useState<'sameDay' | 'nextDay' | 'standard'>('sameDay');
+  const [customQuantityInput, setCustomQuantityInput] = useState<string>('');
+
+  // Accordion state for Left Column Pill Buttons
+  const [activeAccordion, setActiveAccordion] = useState<string | null>(null);
+
+  // Dynamic Due Dates (skips weekends)
+  const dueDates = useMemo(() => getWorkingDueDates(), []);
+
+  // Aggregated options map for the pricing engine
+  const activeOptions = useMemo(() => {
+    return {
+      'Finished Size': finishedSize,
+      'Printed Sides': printedSides,
+      Stock: stock,
+      Lamination: lamination,
+      Embellishment: embellishment,
+      'File Copies': fileCopies,
+      ...customFieldValues,
+    };
+  }, [finishedSize, printedSides, stock, lamination, embellishment, fileCopies, customFieldValues]);
+
+  // Base price anchor
+  const basePriceAnchor = product?.discountedPrice || product?.price || 14.69;
+
+  // DYNAMIC PRICE MATRIX (Fully reactive to all dropdown options and sets)
+  const priceMatrix = useMemo(() => {
+    return generateDynamicPriceMatrix(basePriceAnchor, activeOptions, numberOfSets);
+  }, [basePriceAnchor, activeOptions, numberOfSets]);
+
+  // Custom Quantity dynamic price calculation
+  const customQuantityNumber = parseInt(customQuantityInput, 10);
+  const customQuantityPrices = useMemo(() => {
+    if (!customQuantityNumber || customQuantityNumber < 1) return null;
+    return calculateCustomQuantityPrice(
+      customQuantityNumber,
+      basePriceAnchor,
+      activeOptions,
+      numberOfSets
+    );
+  }, [customQuantityNumber, basePriceAnchor, activeOptions, numberOfSets]);
+
+  // DYNAMIC WEIGHT CALCULATION (Weight per item in grams & Total weight in kg)
+  const printWeight = useMemo(() => {
+    const qty = customQuantityNumber > 0 ? customQuantityNumber : selectedQuantity;
+    return calculatePrintWeight(finishedSize, stock, qty, numberOfSets);
+  }, [finishedSize, stock, selectedQuantity, customQuantityNumber, numberOfSets]);
+
+  // ACTIVE SELECTED CELL PRICE
+  const currentSelectedPrice = useMemo(() => {
+    if (customQuantityNumber > 0 && customQuantityPrices) {
+      return customQuantityPrices[selectedSpeed];
+    }
+    const row = priceMatrix.find((r) => r.quantity === selectedQuantity) || priceMatrix[0];
+    return row ? row[selectedSpeed].price : 19.89;
+  }, [priceMatrix, selectedQuantity, selectedSpeed, customQuantityNumber, customQuantityPrices]);
+
+  const handleShare = () => {
+    if (typeof window !== 'undefined') {
+      navigator.clipboard.writeText(window.location.href);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    }
+  };
+
+  const toggleAccordion = (key: string) => {
+    setActiveAccordion((prev) => (prev === key ? null : key));
+  };
 
   if (!product) {
     return (
@@ -123,17 +207,6 @@ export function ProductDetailClient({
     );
   }
 
-  const basePrice = product.discountedPrice || product.price;
-  const discount = calculateDiscount(product.price, product.discountedPrice);
-
-  const handleShare = () => {
-    if (typeof window !== 'undefined') {
-      navigator.clipboard.writeText(window.location.href);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
-    }
-  };
-
   const productImages =
     product.images && product.images.length > 0
       ? product.images
@@ -142,22 +215,59 @@ export function ProductDetailClient({
       : [];
   const currentImage = productImages[selectedImageIndex] || product.imageUrl;
 
+  const speedLabels = {
+    sameDay: {
+      title: 'Same Day Express',
+      dueDate: dueDates.sameDay,
+    },
+    nextDay: {
+      title: '1 Working day',
+      dueDate: dueDates.nextDay,
+    },
+    standard: {
+      title: '3-4 Working Days',
+      dueDate: dueDates.standard,
+    },
+  };
+
+  const handleSelectCell = (qty: number, speed: 'sameDay' | 'nextDay' | 'standard') => {
+    setSelectedQuantity(qty);
+    setSelectedSpeed(speed);
+    setCustomQuantityInput(''); // Reset custom quantity if picking standard tier
+  };
+
+  const handleSelectCustomSpeed = (speed: 'sameDay' | 'nextDay' | 'standard') => {
+    if (customQuantityNumber > 0) {
+      setSelectedSpeed(speed);
+    }
+  };
+
+  const handleConfirmOrder = () => {
+    const finalQty = customQuantityNumber > 0 ? customQuantityNumber : selectedQuantity;
+    const finalSpeedTitle = speedLabels[selectedSpeed].title;
+    const context = `${product.title} - ${finalQty} units (${finalSpeedTitle}, £${currentSelectedPrice.toFixed(
+      2
+    )}, ${numberOfSets} set${numberOfSets > 1 ? 's' : ''})`;
+
+    openCallMe(context, activeOptions);
+  };
+
   return (
-    <div className="py-8 sm:py-12 space-y-16">
+    <div className="bg-[#fbfcfd] min-h-screen py-8 sm:py-12 font-sans text-slate-900">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Navigation Breadcrumb */}
+        {/* Top Navigation Breadcrumbs & Share */}
         <div className="flex items-center justify-between gap-4 mb-6">
           <Link
             href={product.category === 'Clothing' ? '/clothing' : '/'}
             className="inline-flex items-center gap-2 text-xs font-bold text-slate-600 hover:text-[#012169] transition-colors"
           >
-            <ArrowLeft className="h-4 w-4" />
+            <ArrowLeft className="h-3.5 w-3.5" />
             <span>Back to {product.category} Catalog</span>
           </Link>
 
           <button
             onClick={handleShare}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-white transition-colors cursor-pointer"
           >
             {copied ? (
               <>
@@ -173,283 +283,829 @@ export function ProductDetailClient({
           </button>
         </div>
 
-        {/* Main Product Details View */}
+        {/* 1:1 CLONE TWO-COLUMN GRID (Matching Image 1) */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-start">
-          {/* Left Column: Image Gallery & Studio Guarantees */}
-          <div className="lg:col-span-6 space-y-4 lg:sticky lg:top-24">
-            <div className="relative w-full aspect-square bg-white rounded-3xl overflow-hidden shadow-lg border border-slate-200/80">
+          {/* ================= LEFT COLUMN: Product Image & Pill Accordion Tabs ================= */}
+          <div className="lg:col-span-5 space-y-4 lg:sticky lg:top-24">
+            {/* Main Product Showcase Card */}
+            <div className="relative w-full aspect-square bg-white rounded-md overflow-hidden border border-slate-200/90 shadow-xs flex items-center justify-center p-6">
               <ImageWithFallback
                 src={currentImage}
                 alt={product.title}
                 fallbackText={product.title}
                 priority
-                className="object-cover"
+                className="w-full h-full object-contain"
               />
 
-              {/* Badges Overlay */}
-              <div className="absolute top-4 left-4 flex flex-col gap-2 z-10">
-                {product.isSameDayAvailable && (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#012169] text-white font-bold text-xs shadow-lg">
-                    <Lightning weight="fill" className="h-3.5 w-3.5 text-amber-300" />
-                    <span>Same-Day London Dispatch</span>
-                  </span>
-                )}
-                {discount && (
-                  <span className="inline-flex items-center px-3 py-1 rounded-lg bg-[#C8102E] text-white font-black text-xs shadow-lg">
-                    Special Offer: {discount}% OFF
-                  </span>
-                )}
-              </div>
+              {/* Express Same Day Badge */}
+              {product.isSameDayAvailable && (
+                <div className="absolute top-3 left-3 flex items-center gap-1.5 px-2.5 py-1 rounded-sm bg-[#102a43] text-white text-[11px] font-bold shadow-xs">
+                  <Lightning weight="fill" className="h-3.5 w-3.5 text-amber-300" />
+                  <span>London Express</span>
+                </div>
+              )}
             </div>
 
-            {/* Thumbnail Gallery for Multiple Pictures */}
+            {/* Thumbnail Gallery (if multiple images exist) */}
             {productImages.length > 1 && (
-              <div className="flex items-center gap-2.5 overflow-x-auto pb-1 pt-0.5">
-                {productImages.map((imgUrl, idx) => {
-                  const isSelected = idx === selectedImageIndex;
-                  return (
-                    <button
-                      key={`${imgUrl}-${idx}`}
-                      type="button"
-                      onClick={() => setSelectedImageIndex(idx)}
-                      className={`relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden shrink-0 border-2 transition-all cursor-pointer bg-slate-100 ${
-                        isSelected
-                          ? 'border-[#012169] ring-2 ring-[#012169]/30 shadow-md scale-105'
-                          : 'border-slate-200 opacity-70 hover:opacity-100 hover:border-slate-300'
-                      }`}
-                    >
-                      <ImageWithFallback
-                        src={imgUrl}
-                        alt={`${product.title} view ${idx + 1}`}
-                        fallbackText={`${idx + 1}`}
-                        className="object-cover"
-                      />
-                    </button>
-                  );
-                })}
+              <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                {productImages.map((imgUrl, idx) => (
+                  <button
+                    key={`${imgUrl}-${idx}`}
+                    type="button"
+                    onClick={() => setSelectedImageIndex(idx)}
+                    className={`relative w-16 h-16 rounded-md overflow-hidden shrink-0 border-2 transition-all cursor-pointer bg-white p-1 ${
+                      idx === selectedImageIndex
+                        ? 'border-[#102a43] shadow-xs'
+                        : 'border-slate-200 opacity-70 hover:opacity-100'
+                    }`}
+                  >
+                    <ImageWithFallback
+                      src={imgUrl}
+                      alt={`${product.title} ${idx + 1}`}
+                      fallbackText={`${idx + 1}`}
+                      className="object-contain"
+                    />
+                  </button>
+                ))}
               </div>
             )}
 
-            {/* Studio Guarantee Cards */}
-            <div className="grid grid-cols-3 gap-3">
-              <div className="p-3.5 rounded-2xl bg-white border border-slate-200/80 text-center shadow-xs">
-                <Clock weight="duotone" className="h-5 w-5 text-[#C8102E] mx-auto mb-1" />
-                <div className="text-xs font-bold text-slate-900">Same Day Pickup</div>
-                <div className="text-[10px] text-slate-500">Ready in 2-4 hours</div>
+            {/* STACKED PILL ACCORDION BUTTONS (Matching Image 1) */}
+            <div className="space-y-2 pt-2">
+              {/* 1. Artwork Set Up */}
+              <div className="border border-slate-200 rounded-md bg-white overflow-hidden shadow-xs">
+                <button
+                  type="button"
+                  onClick={() => toggleAccordion('artwork')}
+                  className="w-full flex items-center justify-between px-4 py-2.5 text-xs font-bold text-slate-800 hover:bg-slate-50 transition-colors cursor-pointer"
+                >
+                  <span className="flex items-center gap-2">
+                    <FileText weight="bold" className="h-4 w-4 text-slate-600" />
+                    <span>Artwork Set Up</span>
+                  </span>
+                  {activeAccordion === 'artwork' ? (
+                    <CaretUp weight="bold" className="h-3.5 w-3.5 text-slate-500" />
+                  ) : (
+                    <CaretDown weight="bold" className="h-3.5 w-3.5 text-slate-500" />
+                  )}
+                </button>
+                <AnimatePresence>
+                  {activeAccordion === 'artwork' && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="px-4 pb-4 pt-1 text-xs text-slate-600 border-t border-slate-100 space-y-2 bg-slate-50/50"
+                    >
+                      <p>
+                        Please supply your artwork in <strong>CMYK format</strong> at{' '}
+                        <strong>300 DPI</strong> with a minimum of <strong>3mm bleed</strong> on all
+                        edges.
+                      </p>
+                      <div className="grid grid-cols-2 gap-2 text-[11px] pt-1">
+                        <div className="p-2 bg-white rounded-sm border border-slate-200">
+                          <strong>Accepted Formats:</strong>
+                          <div className="text-slate-500">PDF, AI, PSD, High-Res JPEG, Canva</div>
+                        </div>
+                        <div className="p-2 bg-white rounded-sm border border-slate-200">
+                          <strong>Free Pre-Flight:</strong>
+                          <div className="text-slate-500">Our studio checks every file free</div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
 
-              <div className="p-3.5 rounded-2xl bg-white border border-slate-200/80 text-center shadow-xs">
-                <MapPin weight="fill" className="h-5 w-5 text-[#012169] mx-auto mb-1" />
-                <div className="text-xs font-bold text-slate-900">London Studio</div>
-                <div className="text-[10px] text-slate-500">75 Green St, E7 8JF</div>
+              {/* 2. Sell This Product (Solid Navy Pill Button from Image 1) */}
+              <div className="border border-[#102a43] rounded-md bg-[#102a43] text-white overflow-hidden shadow-xs">
+                <button
+                  type="button"
+                  onClick={() => toggleAccordion('reseller')}
+                  className="w-full flex items-center justify-between px-4 py-2.5 text-xs font-bold text-white hover:bg-[#0c2033] transition-colors cursor-pointer"
+                >
+                  <span className="flex items-center gap-2">
+                    <Package weight="bold" className="h-4 w-4 text-amber-300" />
+                    <span>Sell This Product</span>
+                  </span>
+                  {activeAccordion === 'reseller' ? (
+                    <CaretUp weight="bold" className="h-3.5 w-3.5 text-white/80" />
+                  ) : (
+                    <CaretDown weight="bold" className="h-3.5 w-3.5 text-white/80" />
+                  )}
+                </button>
+                <AnimatePresence>
+                  {activeAccordion === 'reseller' && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="px-4 pb-4 pt-1 text-xs text-slate-200 border-t border-white/10 space-y-2 bg-[#0d2338]"
+                    >
+                      <p>
+                        Are you a designer, agency, or trade reseller? We offer plain, unbranded
+                        white-label packaging and direct-to-client dispatch anywhere across London
+                        and the UK.
+                      </p>
+                      <div className="text-[11px] text-amber-300 font-semibold">
+                        ✓ 100% Blind White-Label Shipping • Trade Invoicing Available
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
 
-              <div className="p-3.5 rounded-2xl bg-white border border-slate-200/80 text-center shadow-xs">
-                <ShieldCheck weight="duotone" className="h-5 w-5 text-[#012169] mx-auto mb-1" />
-                <div className="text-xs font-bold text-slate-900">100% Quality</div>
-                <div className="text-[10px] text-slate-500">Free Artwork Check</div>
+              {/* 3. Technical Specification */}
+              <div className="border border-slate-200 rounded-md bg-white overflow-hidden shadow-xs">
+                <button
+                  type="button"
+                  onClick={() => toggleAccordion('tech')}
+                  className="w-full flex items-center justify-between px-4 py-2.5 text-xs font-bold text-slate-800 hover:bg-slate-50 transition-colors cursor-pointer"
+                >
+                  <span className="flex items-center gap-2">
+                    <Printer weight="bold" className="h-4 w-4 text-slate-600" />
+                    <span>Technical Specification</span>
+                  </span>
+                  {activeAccordion === 'tech' ? (
+                    <CaretUp weight="bold" className="h-3.5 w-3.5 text-slate-500" />
+                  ) : (
+                    <CaretDown weight="bold" className="h-3.5 w-3.5 text-slate-500" />
+                  )}
+                </button>
+                <AnimatePresence>
+                  {activeAccordion === 'tech' && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="px-4 pb-4 pt-1 text-xs text-slate-600 border-t border-slate-100 space-y-1.5 bg-slate-50/50"
+                    >
+                      <div className="flex justify-between py-1 border-b border-slate-200">
+                        <span className="text-slate-500">Printing Technology:</span>
+                        <span className="font-semibold text-slate-800">
+                          High Definition Digital &amp; Litho
+                        </span>
+                      </div>
+                      <div className="flex justify-between py-1 border-b border-slate-200">
+                        <span className="text-slate-500">Paper Range:</span>
+                        <span className="font-semibold text-slate-800">130gsm - 450gsm Premium</span>
+                      </div>
+                      <div className="flex justify-between py-1">
+                        <span className="text-slate-500">Finishes:</span>
+                        <span className="font-semibold text-slate-800">
+                          Matt, Gloss, Velvet Soft-Touch, Spot UV
+                        </span>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* 4. Key Information */}
+              <div className="border border-slate-200 rounded-md bg-white overflow-hidden shadow-xs">
+                <button
+                  type="button"
+                  onClick={() => toggleAccordion('keyinfo')}
+                  className="w-full flex items-center justify-between px-4 py-2.5 text-xs font-bold text-slate-800 hover:bg-slate-50 transition-colors cursor-pointer"
+                >
+                  <span className="flex items-center gap-2">
+                    <MapPin weight="bold" className="h-4 w-4 text-slate-600" />
+                    <span>Key Information</span>
+                  </span>
+                  {activeAccordion === 'keyinfo' ? (
+                    <CaretUp weight="bold" className="h-3.5 w-3.5 text-slate-500" />
+                  ) : (
+                    <CaretDown weight="bold" className="h-3.5 w-3.5 text-slate-500" />
+                  )}
+                </button>
+                <AnimatePresence>
+                  {activeAccordion === 'keyinfo' && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="px-4 pb-4 pt-1 text-xs text-slate-600 border-t border-slate-100 space-y-2 bg-slate-50/50"
+                    >
+                      <p>
+                        <strong>London Production Hub:</strong> 75 Green St, E7 8JF. Walk-ins and
+                        same-day collections welcome Mon-Sat 8am - 8pm.
+                      </p>
+                      <p className="text-[11px] text-slate-500">
+                        Express London courier delivery dispatched daily directly to your office or
+                        event venue.
+                      </p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </div>
           </div>
 
-          {/* Right Column: Information, Options & Pricing */}
-          <div className="lg:col-span-6 space-y-6">
+          {/* ================= RIGHT COLUMN: Title, Descriptions, Specifications & Dynamic Matrix ================= */}
+          <div className="lg:col-span-7 space-y-6">
+            {/* Header Titles & Marketing Copy */}
             <div>
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-[#012169]">
-                  {product.category}
-                </span>
-                <span className="text-slate-300">•</span>
-                <span className="text-xs font-semibold text-slate-500">
-                  {product.subcategory}
-                </span>
-                <span className="text-slate-300">•</span>
-                <span className="text-xs font-bold text-amber-600 flex items-center gap-1">
-                  <Star weight="fill" className="h-3.5 w-3.5" />
-                  <span>4.9 (1,240+ reviews)</span>
-                </span>
-              </div>
-
-              <h1 className="text-2xl sm:text-3xl font-black text-slate-900 leading-tight">
+              <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
                 {product.title}
               </h1>
 
-              {/* Dynamic Price Breakdown */}
-              <div className="mt-4 p-4 rounded-2xl bg-slate-50 border border-slate-200/90 flex flex-col sm:flex-row sm:items-baseline justify-between gap-2">
-                <div>
-                  <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                    Total Estimated Price
-                  </div>
-                  <div className="flex items-baseline gap-3 mt-0.5">
-                    <span className="text-3xl font-black text-[#012169]">
-                      {formatCurrency(basePrice * (quantity === product.minQuantity ? 1 : Math.max(1, (quantity / (product.minQuantity || 100)) * 0.85)))}
-                    </span>
-                    {product.discountedPrice && (
-                      <span className="text-base text-slate-400 line-through">
-                        {formatCurrency(product.price * (quantity === product.minQuantity ? 1 : Math.max(1, (quantity / (product.minQuantity || 100)) * 0.85)))}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="sm:text-right">
-                  <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                    Unit Price
-                  </div>
-                  <div className="text-sm font-bold text-slate-700 mt-0.5">
-                    £{((basePrice * (quantity === product.minQuantity ? 1 : Math.max(1, (quantity / (product.minQuantity || 100)) * 0.85))) / quantity).toFixed(2)} each
-                  </div>
-                </div>
+              <div className="mt-3 space-y-2 text-xs sm:text-sm text-slate-600 leading-relaxed">
+                <p>
+                  {product.description ||
+                    `${product.title} are a quick, cost-effective way to grab attention and spread your client's message far and wide. Whether it's for promotions, events, or new launches, their lightweight design and vibrant print options make them perfect for handouts, mailers, or display. Easy to distribute and hard to ignore.`}
+                </p>
+                <p>
+                  Expertly printed on a choice of quality paper stocks with a range of laminations and
+                  finishes, they can be tailored to suit everything from short-term campaigns to
+                  polished promotional materials.
+                </p>
+                <p className="pt-1">
+                  Looking for custom shape options? Check out our{' '}
+                  <Link
+                    href="/all-products"
+                    className="text-[#012169] font-bold underline hover:text-[#0A358C]"
+                  >
+                    Custom Shape {product.title}
+                  </Link>
+                  .
+                </p>
               </div>
             </div>
 
-            {/* Quantity Selection Pills */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                  Select Quantity
+            {/* SPECIFICATION DROPDOWNS & CONTROLS (2-Column Grid matching Image 1) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3.5 pt-1">
+              {/* ROW 1 LEFT: Finished Size */}
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1">
+                  Finished Size:
                 </label>
-                <span className="text-xs font-bold text-[#012169]">
-                  {quantity} units selected
-                </span>
+                <div className="relative">
+                  <select
+                    value={finishedSize}
+                    onChange={(e) => setFinishedSize(e.target.value)}
+                    className="w-full h-10 px-3 bg-white border border-slate-300 rounded-sm text-xs font-medium text-slate-900 focus:outline-hidden focus:border-[#102a43] focus:ring-1 focus:ring-[#102a43] cursor-pointer appearance-none pr-8 shadow-2xs"
+                  >
+                    <option value="A6">A6 (105 × 148 mm)</option>
+                    <option value="A5">A5 (148 × 210 mm)</option>
+                    <option value="A4">A4 (210 × 297 mm)</option>
+                    <option value="A3">A3 (297 × 420 mm)</option>
+                    <option value="DL">DL (99 × 210 mm)</option>
+                    <option value="Square">Square (148 × 148 mm)</option>
+                  </select>
+                  <CaretDown
+                    weight="bold"
+                    className="h-3.5 w-3.5 text-slate-500 absolute right-3 top-3.5 pointer-events-none"
+                  />
+                </div>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {[
-                  { qty: product.minQuantity || 100, label: 'Standard' },
-                  { qty: (product.minQuantity || 100) * 2, label: 'Popular' },
-                  { qty: (product.minQuantity || 100) * 5, label: 'Best Value' },
-                  { qty: (product.minQuantity || 100) * 10, label: 'Bulk Savings' },
-                ].map((tier) => {
-                  const isSelected = quantity === tier.qty;
-                  return (
-                    <button
-                      key={tier.qty}
-                      type="button"
-                      onClick={() => setQuantity(tier.qty)}
-                      className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer relative ${
-                        isSelected
-                          ? 'border-[#012169] bg-[#012169]/8 ring-2 ring-[#012169]/20 text-[#012169] font-bold'
-                          : 'border-slate-200 hover:border-slate-300 bg-white text-slate-700'
-                      }`}
-                    >
-                      <div className="text-xs font-black">{tier.qty} units</div>
-                      <div className="text-[10px] text-slate-500 font-medium mt-0.5">
-                        {tier.label}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+              {/* ROW 1 RIGHT: Printed Sides (Segmented Button Pills matching Image 1) */}
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1">
+                  Printed Sides:
+                </label>
+                <div className="grid grid-cols-2 gap-1.5 h-10">
+                  <button
+                    type="button"
+                    onClick={() => setPrintedSides('Single Sided')}
+                    className={`flex items-center justify-center gap-1.5 px-3 rounded-sm text-xs font-bold transition-all cursor-pointer border ${
+                      printedSides === 'Single Sided'
+                        ? 'bg-[#102a43] text-white border-[#102a43]'
+                        : 'bg-white text-slate-800 border-slate-300 hover:bg-slate-50'
+                    }`}
+                  >
+                    <span>Single Sided</span>
+                    {printedSides === 'Single Sided' && (
+                      <Check weight="bold" className="h-3.5 w-3.5" />
+                    )}
+                  </button>
 
-            {/* London Studio Delivery & Collection Speed Box */}
-            <div className="rounded-2xl border border-slate-200/90 bg-white p-4 space-y-2.5">
-              <div className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
-                <Clock weight="bold" className="h-4 w-4 text-[#C8102E]" />
-                <span>London Dispatch &amp; Collection Options</span>
+                  <button
+                    type="button"
+                    onClick={() => setPrintedSides('Double Sided')}
+                    className={`flex items-center justify-center gap-1.5 px-3 rounded-sm text-xs font-bold transition-all cursor-pointer border ${
+                      printedSides === 'Double Sided'
+                        ? 'bg-[#102a43] text-white border-[#102a43]'
+                        : 'bg-white text-slate-800 border-slate-300 hover:bg-slate-50'
+                    }`}
+                  >
+                    <span>Double Sided</span>
+                    {printedSides === 'Double Sided' && (
+                      <Check weight="bold" className="h-3.5 w-3.5" />
+                    )}
+                  </button>
+                </div>
               </div>
 
-              <div className="space-y-2 text-xs">
-                <div className="flex items-start gap-2.5 p-2 rounded-xl bg-slate-50">
-                  <Lightning weight="fill" className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
-                  <div className="flex-1">
-                    <div className="font-bold text-slate-900">Same-Day Studio Pickup (Free)</div>
-                    <div className="text-slate-500 text-[11px]">Ready today from 2:00 PM at 75 Green St, E7 8JF if ordered before 12pm.</div>
+              {/* ROW 2 LEFT: Stock */}
+              <div>
+                <label className="flex items-center gap-1 text-xs font-bold text-slate-800 mb-1">
+                  <span>Stock:</span>
+                  <span title="Paper stock density & finish" className="inline-flex">
+                    <Question weight="fill" className="h-3.5 w-3.5 text-slate-400 cursor-pointer" />
+                  </span>
+                </label>
+                <div className="relative">
+                  <select
+                    value={stock}
+                    onChange={(e) => setStock(e.target.value)}
+                    className="w-full h-10 px-3 bg-white border border-slate-300 rounded-sm text-xs font-medium text-slate-900 focus:outline-hidden focus:border-[#102a43] focus:ring-1 focus:ring-[#102a43] cursor-pointer appearance-none pr-8 shadow-2xs"
+                  >
+                    <option value="130gsm Gloss">130gsm Gloss</option>
+                    <option value="150gsm Silk">150gsm Silk</option>
+                    <option value="170gsm Silk">170gsm Silk</option>
+                    <option value="250gsm Silk">250gsm Silk</option>
+                    <option value="350gsm Silk">350gsm Silk (Card Stock)</option>
+                    <option value="400gsm Matt">400gsm Matt Premium</option>
+                  </select>
+                  <CaretDown
+                    weight="bold"
+                    className="h-3.5 w-3.5 text-slate-500 absolute right-3 top-3.5 pointer-events-none"
+                  />
+                </div>
+              </div>
+
+              {/* ROW 2 RIGHT: Weight Per Item & Total Weight (Auto-calculated!) */}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-bold text-slate-800 mb-1 truncate">
+                    Weight Per Item:
+                  </label>
+                  <div className="h-10 px-3 flex items-center bg-white border border-slate-300 rounded-sm text-xs font-medium text-slate-800 select-none shadow-2xs">
+                    {printWeight.weightPerItemGrams}g
                   </div>
                 </div>
-
-                <div className="flex items-start gap-2.5 p-2 rounded-xl bg-slate-50">
-                  <Truck weight="bold" className="h-4 w-4 text-[#012169] shrink-0 mt-0.5" />
-                  <div className="flex-1">
-                    <div className="font-bold text-slate-900">London Express Courier</div>
-                    <div className="text-slate-500 text-[11px]">Same-day evening door delivery anywhere in Greater London.</div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-800 mb-1 truncate">
+                    Total Weight:
+                  </label>
+                  <div className="h-10 px-3 flex items-center bg-white border border-slate-300 rounded-sm text-xs font-medium text-slate-800 select-none shadow-2xs">
+                    {printWeight.totalWeightKg}kg
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* Custom Product Options & Dropdowns */}
-            {product.customFields && product.customFields.length > 0 && (
-              <div className="space-y-4 p-5 rounded-2xl bg-white border border-slate-200/90 shadow-xs">
-                <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-slate-900 border-b border-slate-100 pb-3">
-                  <Sparkle weight="fill" className="h-4 w-4 text-[#C8102E]" />
-                  <span>Choose Your Specifications</span>
+              {/* ROW 3 LEFT: Lamination */}
+              <div>
+                <label className="flex items-center gap-1 text-xs font-bold text-slate-800 mb-1">
+                  <span>Lamination:</span>
+                  <span title="Protective surface coating" className="inline-flex">
+                    <Question weight="fill" className="h-3.5 w-3.5 text-slate-400 cursor-pointer" />
+                  </span>
+                </label>
+                <div className="relative">
+                  <select
+                    value={lamination}
+                    onChange={(e) => setLamination(e.target.value)}
+                    className="w-full h-10 px-3 bg-white border border-slate-300 rounded-sm text-xs font-medium text-slate-900 focus:outline-hidden focus:border-[#102a43] focus:ring-1 focus:ring-[#102a43] cursor-pointer appearance-none pr-8 shadow-2xs"
+                  >
+                    <option value="No Lamination">No Lamination</option>
+                    <option value="Matt Lamination">Matt Lamination (+£12.00)</option>
+                    <option value="Gloss Lamination">Gloss Lamination (+£12.00)</option>
+                    <option value="Soft Touch Lamination">Soft Touch Velvet (+£16.00)</option>
+                  </select>
+                  <CaretDown
+                    weight="bold"
+                    className="h-3.5 w-3.5 text-slate-500 absolute right-3 top-3.5 pointer-events-none"
+                  />
                 </div>
+              </div>
 
-                <div className="space-y-4">
-                  {product.customFields.map((field) => (
-                    <div key={field.id || field.name} className="space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <label className="text-xs font-bold text-slate-800">
-                          {field.name}
-                        </label>
-                        {selectedOptions[field.name] && (
-                          <span className="text-[11px] font-semibold text-[#012169] bg-[#012169]/8 px-2 py-0.5 rounded-md">
-                            Selected: {selectedOptions[field.name]}
-                          </span>
-                        )}
-                      </div>
+              {/* ROW 3 RIGHT: Embellishment */}
+              <div>
+                <label className="flex items-center gap-1 text-xs font-bold text-slate-800 mb-1">
+                  <span>Embellishment:</span>
+                  <span title="Specialty foils & Spot UV highlights" className="inline-flex">
+                    <Question weight="fill" className="h-3.5 w-3.5 text-slate-400 cursor-pointer" />
+                  </span>
+                </label>
+                <div className="relative">
+                  <select
+                    value={embellishment}
+                    onChange={(e) => setEmbellishment(e.target.value)}
+                    className="w-full h-10 px-3 bg-white border border-slate-300 rounded-sm text-xs font-medium text-slate-900 focus:outline-hidden focus:border-[#102a43] focus:ring-1 focus:ring-[#102a43] cursor-pointer appearance-none pr-8 shadow-2xs"
+                  >
+                    <option value="No Embellishment">No Embellishment</option>
+                    <option value="Gold Foil">Metallic Gold Foil (+£24.00)</option>
+                    <option value="Silver Foil">Metallic Silver Foil (+£24.00)</option>
+                    <option value="Spot UV">Raised Spot UV Gloss (+£24.00)</option>
+                  </select>
+                  <CaretDown
+                    weight="bold"
+                    className="h-3.5 w-3.5 text-slate-500 absolute right-3 top-3.5 pointer-events-none"
+                  />
+                </div>
+              </div>
 
-                      {/* Dropdown Selector */}
-                      <div className="relative">
-                        <select
-                          value={selectedOptions[field.name] || field.options[0]}
-                          onChange={(e) =>
-                            setSelectedOptions((prev) => ({
-                              ...prev,
-                              [field.name]: e.target.value,
-                            }))
-                          }
-                          className="w-full h-11 px-3.5 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 text-xs sm:text-sm font-semibold text-slate-900 focus:outline-hidden focus:border-[#012169] focus:ring-2 focus:ring-[#012169]/15 focus:bg-white cursor-pointer appearance-none pr-10 transition-all"
-                        >
-                          {field.options.map((opt) => (
-                            <option key={opt} value={opt}>
-                              {opt}
-                            </option>
-                          ))}
-                        </select>
-                        <CaretDown weight="bold" className="h-4 w-4 text-slate-400 absolute right-3.5 top-3.5 pointer-events-none" />
-                      </div>
+              {/* ROW 4 LEFT: Number of Sets */}
+              <div>
+                <label className="flex items-center gap-1 text-xs font-bold text-slate-800 mb-1">
+                  <span>Number of Sets:</span>
+                  <span title="Different artwork sets / variations of this run" className="inline-flex">
+                    <Question weight="fill" className="h-3.5 w-3.5 text-slate-400 cursor-pointer" />
+                  </span>
+                </label>
+                <div className="relative">
+                  <select
+                    value={numberOfSets}
+                    onChange={(e) => setNumberOfSets(Math.max(1, parseInt(e.target.value, 10)))}
+                    className="w-full h-10 px-3 bg-white border border-slate-300 rounded-sm text-xs font-medium text-slate-900 focus:outline-hidden focus:border-[#102a43] focus:ring-1 focus:ring-[#102a43] cursor-pointer appearance-none pr-8 shadow-2xs"
+                  >
+                    <option value={1}>1</option>
+                    <option value={2}>2</option>
+                    <option value={3}>3</option>
+                    <option value={4}>4</option>
+                    <option value={5}>5</option>
+                    <option value={10}>10</option>
+                  </select>
+                  <CaretDown
+                    weight="bold"
+                    className="h-3.5 w-3.5 text-slate-500 absolute right-3 top-3.5 pointer-events-none"
+                  />
+                </div>
+              </div>
+
+              {/* ROW 4 RIGHT: File Copies */}
+              <div>
+                <label className="flex items-center gap-1 text-xs font-bold text-slate-800 mb-1">
+                  <span>File Copies:</span>
+                  <span title="Physical printed hardcopy proof posted in advance" className="inline-flex">
+                    <Question weight="fill" className="h-3.5 w-3.5 text-slate-400 cursor-pointer" />
+                  </span>
+                </label>
+                <div className="relative">
+                  <select
+                    value={fileCopies}
+                    onChange={(e) => setFileCopies(e.target.value)}
+                    className="w-full h-10 px-3 bg-white border border-slate-300 rounded-sm text-xs font-medium text-slate-900 focus:outline-hidden focus:border-[#102a43] focus:ring-1 focus:ring-[#102a43] cursor-pointer appearance-none pr-8 shadow-2xs"
+                  >
+                    <option value="No">No</option>
+                    <option value="Yes (1 Proof Copy)">Yes (1 Physical Hardcopy Proof)</option>
+                    <option value="Yes (Multiple Copies)">Yes (Multiple Hardcopy Proofs)</option>
+                  </select>
+                  <CaretDown
+                    weight="bold"
+                    className="h-3.5 w-3.5 text-slate-500 absolute right-3 top-3.5 pointer-events-none"
+                  />
+                </div>
+              </div>
+
+              {/* ADDITIONAL CMS CUSTOM FIELDS (Only unique product-specific fields) */}
+              {product.customFields &&
+                product.customFields.length > 0 &&
+                product.customFields
+                  .filter((field) => {
+                    const fn = field.name.toLowerCase().trim();
+                    const standardKeys = [
+                      'finished size',
+                      'choose a size',
+                      'size',
+                      'printed sides',
+                      'sides',
+                      'stock',
+                      'paper stock',
+                      'lamination',
+                      'embellishment',
+                      'number of sets',
+                      'file copies',
+                    ];
+                    return !standardKeys.includes(fn);
+                  })
+                  .map((field) => (
+                  <div key={field.id || field.name}>
+                    <label className="block text-xs font-bold text-slate-800 mb-1">
+                      {field.name}:
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={customFieldValues[field.name] || field.options[0]}
+                        onChange={(e) =>
+                          setCustomFieldValues((prev) => ({
+                            ...prev,
+                            [field.name]: e.target.value,
+                          }))
+                        }
+                        className="w-full h-10 px-3 bg-white border border-slate-300 rounded-sm text-xs font-medium text-slate-900 focus:outline-hidden focus:border-[#102a43] focus:ring-1 focus:ring-[#102a43] cursor-pointer appearance-none pr-8 shadow-2xs"
+                      >
+                        {field.options.map((opt) => (
+                          <option key={opt} value={opt}>
+                            {opt}
+                          </option>
+                        ))}
+                      </select>
+                      <CaretDown
+                        weight="bold"
+                        className="h-3.5 w-3.5 text-slate-500 absolute right-3 top-3.5 pointer-events-none"
+                      />
                     </div>
-                  ))}
+                  </div>
+                ))}
+            </div>
+
+            {/* ================= THE DYNAMIC PRICE MATRIX TABLE (1:1 Clone of Image 1) ================= */}
+            <div className="pt-2">
+              <div className="border border-slate-300 rounded-sm overflow-hidden bg-white shadow-2xs">
+                {/* 1. TABLE HEADER */}
+                <div className="grid grid-cols-4 bg-white border-b border-slate-300 text-center select-none">
+                  {/* Left Column Header: Quantity */}
+                  <div className="p-3 sm:p-4 flex items-center justify-center font-bold text-xs sm:text-sm text-slate-900 border-r border-slate-300">
+                    Quantity:
+                  </div>
+
+                  {/* Column 1: Same Day Express */}
+                  <div className="p-2 sm:p-3 border-r border-slate-300 flex flex-col items-center justify-center bg-slate-50/50">
+                    <div className="font-bold text-xs sm:text-sm text-slate-900 flex items-center gap-1">
+                      <span>Same Day Express</span>
+                    </div>
+                    <div className="my-0.5">
+                      <span className="text-sm">🏃</span>
+                    </div>
+                    <div className="text-[10px] text-slate-500 font-medium">
+                      Due Date:
+                      <br />
+                      <span className="font-bold text-slate-700">{dueDates.sameDay}</span>
+                    </div>
+                  </div>
+
+                  {/* Column 2: 1 Working Day */}
+                  <div className="p-2 sm:p-3 border-r border-slate-300 flex flex-col items-center justify-center bg-slate-50/50">
+                    <div className="font-bold text-xs sm:text-sm text-slate-900">1 Working day</div>
+                    <div className="text-[10px] text-slate-500 font-medium mt-1">
+                      Due Date:
+                      <br />
+                      <span className="font-bold text-slate-700">{dueDates.nextDay}</span>
+                    </div>
+                  </div>
+
+                  {/* Column 3: 3-4 Working Days */}
+                  <div className="p-2 sm:p-3 flex flex-col items-center justify-center bg-slate-50/50">
+                    <div className="font-bold text-xs sm:text-sm text-slate-900">3-4 Working Days</div>
+                    <div className="text-[10px] text-slate-500 font-medium mt-1">
+                      Due Date:
+                      <br />
+                      <span className="font-bold text-slate-700">{dueDates.standard}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. CUSTOM QUANTITY INPUT ROW (Matching Image 1) */}
+                <div className="grid grid-cols-4 border-b border-slate-300 bg-slate-50/30 text-xs">
+                  <div className="p-1.5 sm:p-2 border-r border-slate-300">
+                    <input
+                      type="number"
+                      min="1"
+                      placeholder="Enter Custom Quantity..."
+                      value={customQuantityInput}
+                      onChange={(e) => setCustomQuantityInput(e.target.value)}
+                      className="w-full h-8 px-2 bg-white border border-slate-300 rounded-sm text-[11px] sm:text-xs text-slate-900 placeholder:text-slate-500 focus:outline-hidden focus:border-[#102a43]"
+                    />
+                  </div>
+
+                  {/* Same Day Custom Cell */}
+                  <button
+                    type="button"
+                    disabled={!customQuantityPrices}
+                    onClick={() => handleSelectCustomSpeed('sameDay')}
+                    className={`p-1.5 sm:p-2 border-r border-slate-300 flex items-center justify-center transition-colors cursor-pointer ${
+                      customQuantityNumber > 0 && selectedSpeed === 'sameDay'
+                        ? 'bg-[#102a43] text-white font-bold'
+                        : 'hover:bg-slate-100 text-slate-700'
+                    }`}
+                  >
+                    {customQuantityPrices ? `£${customQuantityPrices.sameDay.toFixed(2)}` : '—'}
+                  </button>
+
+                  {/* 1 Working Day Custom Cell */}
+                  <button
+                    type="button"
+                    disabled={!customQuantityPrices}
+                    onClick={() => handleSelectCustomSpeed('nextDay')}
+                    className={`p-1.5 sm:p-2 border-r border-slate-300 flex items-center justify-center transition-colors cursor-pointer ${
+                      customQuantityNumber > 0 && selectedSpeed === 'nextDay'
+                        ? 'bg-[#102a43] text-white font-bold'
+                        : 'hover:bg-slate-100 text-slate-700'
+                    }`}
+                  >
+                    {customQuantityPrices ? `£${customQuantityPrices.nextDay.toFixed(2)}` : '—'}
+                  </button>
+
+                  {/* 3-4 Working Days Custom Cell */}
+                  <button
+                    type="button"
+                    disabled={!customQuantityPrices}
+                    onClick={() => handleSelectCustomSpeed('standard')}
+                    className={`p-1.5 sm:p-2 flex items-center justify-center transition-colors cursor-pointer ${
+                      customQuantityNumber > 0 && selectedSpeed === 'standard'
+                        ? 'bg-[#102a43] text-white font-bold'
+                        : 'hover:bg-slate-100 text-slate-700'
+                    }`}
+                  >
+                    {customQuantityPrices ? `£${customQuantityPrices.standard.toFixed(2)}` : '—'}
+                  </button>
+                </div>
+
+                {/* 3. SCROLLABLE QUANTITY MATRIX ROWS (Matching Image 1) */}
+                <div className="max-h-[380px] overflow-y-auto divide-y divide-slate-200">
+                  {priceMatrix.map((row) => {
+                    const isQtyActive =
+                      customQuantityNumber <= 0 && selectedQuantity === row.quantity;
+
+                    const isSameDayActive = isQtyActive && selectedSpeed === 'sameDay';
+                    const isNextDayActive = isQtyActive && selectedSpeed === 'nextDay';
+                    const isStandardActive = isQtyActive && selectedSpeed === 'standard';
+
+                    return (
+                      <div
+                        key={row.quantity}
+                        className="grid grid-cols-4 text-xs select-none transition-colors"
+                      >
+                        {/* Quantity Number Cell */}
+                        <div className="p-2 sm:p-2.5 bg-slate-100/70 border-r border-slate-300 flex items-center justify-center font-bold text-slate-800 text-xs sm:text-sm">
+                          {row.quantity}
+                        </div>
+
+                        {/* Speed Column 1: Same Day Express */}
+                        <button
+                          type="button"
+                          onClick={() => handleSelectCell(row.quantity, 'sameDay')}
+                          className={`p-2 sm:p-2.5 border-r border-slate-300 flex items-center justify-between px-3 transition-all cursor-pointer ${
+                            isSameDayActive
+                              ? 'bg-[#102a43] text-white font-bold shadow-inner'
+                              : 'bg-white hover:bg-slate-50 text-slate-800'
+                          }`}
+                        >
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-xs sm:text-sm">
+                              £{row.sameDay.price.toFixed(2)}
+                            </span>
+                            {row.sameDay.rrpPrice && (
+                              <span
+                                className={`text-[10px] line-through ${
+                                  isSameDayActive ? 'text-slate-300' : 'text-slate-400'
+                                }`}
+                              >
+                                £{row.sameDay.rrpPrice.toFixed(2)}
+                              </span>
+                            )}
+                          </div>
+                          <span
+                            className={`h-3 w-3 rounded-full border flex items-center justify-center ml-1 ${
+                              isSameDayActive
+                                ? 'border-white bg-white'
+                                : 'border-slate-400 bg-transparent'
+                            }`}
+                          >
+                            {isSameDayActive && (
+                              <span className="h-1.5 w-1.5 rounded-full bg-[#102a43]" />
+                            )}
+                          </span>
+                        </button>
+
+                        {/* Speed Column 2: 1 Working Day */}
+                        <button
+                          type="button"
+                          onClick={() => handleSelectCell(row.quantity, 'nextDay')}
+                          className={`p-2 sm:p-2.5 border-r border-slate-300 flex items-center justify-between px-3 transition-all cursor-pointer ${
+                            isNextDayActive
+                              ? 'bg-[#102a43] text-white font-bold shadow-inner'
+                              : 'bg-white hover:bg-slate-50 text-slate-800'
+                          }`}
+                        >
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-xs sm:text-sm">
+                              £{row.nextDay.price.toFixed(2)}
+                            </span>
+                            {row.nextDay.rrpPrice && (
+                              <span
+                                className={`text-[10px] line-through ${
+                                  isNextDayActive ? 'text-slate-300' : 'text-slate-400'
+                                }`}
+                              >
+                                £{row.nextDay.rrpPrice.toFixed(2)}
+                              </span>
+                            )}
+                          </div>
+                          <span
+                            className={`h-3 w-3 rounded-full border flex items-center justify-center ml-1 ${
+                              isNextDayActive
+                                ? 'border-white bg-white'
+                                : 'border-slate-400 bg-transparent'
+                            }`}
+                          >
+                            {isNextDayActive && (
+                              <span className="h-1.5 w-1.5 rounded-full bg-[#102a43]" />
+                            )}
+                          </span>
+                        </button>
+
+                        {/* Speed Column 3: 3-4 Working Days */}
+                        <button
+                          type="button"
+                          onClick={() => handleSelectCell(row.quantity, 'standard')}
+                          className={`p-2 sm:p-2.5 flex items-center justify-between px-3 transition-all cursor-pointer ${
+                            isStandardActive
+                              ? 'bg-[#102a43] text-white font-bold shadow-inner'
+                              : 'bg-white hover:bg-slate-50 text-slate-800'
+                          }`}
+                        >
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-xs sm:text-sm">
+                              £{row.standard.price.toFixed(2)}
+                            </span>
+                            {row.standard.rrpPrice && (
+                              <span
+                                className={`text-[10px] line-through ${
+                                  isStandardActive ? 'text-slate-300' : 'text-slate-400'
+                                }`}
+                              >
+                                £{row.standard.rrpPrice.toFixed(2)}
+                              </span>
+                            )}
+                          </div>
+                          <span
+                            className={`h-3 w-3 rounded-full border flex items-center justify-center ml-1 ${
+                              isStandardActive
+                                ? 'border-white bg-white'
+                                : 'border-slate-400 bg-transparent'
+                            }`}
+                          >
+                            {isStandardActive && (
+                              <span className="h-1.5 w-1.5 rounded-full bg-[#102a43]" />
+                            )}
+                          </span>
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
-            )}
+            </div>
 
-            {/* CTAs */}
+            {/* ORDER SELECTION SUMMARY & ACTION BUTTONS */}
             <div className="pt-2 space-y-3">
+              {/* Active Selection Summary Card */}
+              <div className="p-3.5 rounded-md bg-slate-100 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                <div>
+                  <div className="font-bold text-slate-900 text-sm">
+                    {customQuantityNumber > 0 ? customQuantityNumber : selectedQuantity} ×{' '}
+                    {product.title}
+                  </div>
+                  <div className="text-slate-600 text-[11px] mt-0.5">
+                    {finishedSize} • {printedSides} • {stock} • {speedLabels[selectedSpeed].title}{' '}
+                    (Due {speedLabels[selectedSpeed].dueDate})
+                  </div>
+                </div>
+
+                <div className="sm:text-right shrink-0">
+                  <div className="text-2xl font-black text-[#102a43]">
+                    £{currentSelectedPrice.toFixed(2)}
+                  </div>
+                  <div className="text-[10px] text-slate-500 font-semibold">
+                    £
+                    {(
+                      currentSelectedPrice /
+                      ((customQuantityNumber > 0 ? customQuantityNumber : selectedQuantity) *
+                        numberOfSets)
+                    ).toFixed(2)}{' '}
+                    each
+                  </div>
+                </div>
+              </div>
+
+              {/* Primary Action Button */}
               <button
-                onClick={() =>
-                  openCallMe(
-                    `${product.title} (${quantity} units)`,
-                    selectedOptions
-                  )
-                }
-                className="w-full h-13 rounded-2xl bg-gradient-to-r from-[#C8102E] to-[#A80C24] hover:from-[#A80C24] hover:to-[#85081C] text-white font-black text-sm flex items-center justify-center gap-2.5 shadow-xl shadow-red-900/20 transition-all transform hover:scale-102 cursor-pointer border border-red-700/40"
+                type="button"
+                onClick={handleConfirmOrder}
+                className="w-full h-12 rounded-md bg-[#C8102E] hover:bg-[#A80C24] text-white font-black text-sm flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer"
               >
-                <Phone weight="fill" className="h-4 w-4 text-white" />
+                <Phone weight="fill" className="h-4 w-4" />
                 <span>Confirm Order / Request Same-Day Quote</span>
               </button>
 
-              <div className="grid grid-cols-2 gap-3">
+              {/* Secondary Action Grid */}
+              <div className="grid grid-cols-2 gap-2.5">
                 <a
                   href="https://wa.me/447969559746"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 h-11 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold text-xs shadow-sm transition-colors text-center"
+                  className="flex items-center justify-center gap-2 h-10 rounded-md bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold text-xs shadow-xs transition-colors"
                 >
+                  <ChatCircleDots weight="bold" className="h-4 w-4" />
                   <span>Chat on WhatsApp</span>
                 </a>
 
                 <button
+                  type="button"
                   onClick={() =>
                     openCallMe(
-                      `Artwork Proof Check for ${product.title}`,
-                      selectedOptions
+                      `Free Artwork Proof for ${product.title} (${
+                        customQuantityNumber > 0 ? customQuantityNumber : selectedQuantity
+                      } units)`,
+                      activeOptions
                     )
                   }
-                  className="flex items-center justify-center gap-2 h-11 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs border border-slate-200 transition-colors cursor-pointer"
+                  className="flex items-center justify-center gap-2 h-10 rounded-md bg-white hover:bg-slate-50 text-slate-800 font-bold text-xs border border-slate-300 transition-colors cursor-pointer shadow-2xs"
                 >
                   <Sparkle weight="fill" className="h-3.5 w-3.5 text-[#012169]" />
                   <span>Free Artwork Proof</span>
@@ -459,21 +1115,16 @@ export function ProductDetailClient({
           </div>
         </div>
 
-        {/* Lower Tabs: Overview, Specs, Finishes, Reviews & FAQs */}
-        <ProductDetailTabs product={product} />
-      </div>
-
-      {/* Related Products */}
-      {relatedProducts.length > 0 && (
-        <section className="bg-slate-100/60 py-16 border-t border-slate-200">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between mb-8">
+        {/* RELATED PRODUCTS SECTION */}
+        {relatedProducts.length > 0 && (
+          <section className="mt-20 pt-12 border-t border-slate-200">
+            <div className="flex items-center justify-between mb-6">
               <div>
-                <h3 className="text-2xl font-black text-slate-900">
+                <h3 className="text-xl sm:text-2xl font-black text-slate-900">
                   Related {product.category} Products
                 </h3>
                 <p className="text-xs text-slate-500 mt-1">
-                  Explore other popular same-day items in this category.
+                  Explore other express same-day printed materials in London.
                 </p>
               </div>
               <Link
@@ -489,9 +1140,9 @@ export function ProductDetailClient({
                 <ProductCard key={p.id || p.slug} product={p} />
               ))}
             </div>
-          </div>
-        </section>
-      )}
+          </section>
+        )}
+      </div>
     </div>
   );
 }

@@ -54,11 +54,11 @@ export function Navbar({ initialCategories = [], initialProducts = [] }: NavbarP
 
   const [categories, setCategories] = useState<CategoryConfig[]>(() => {
     if (initialCategories && initialCategories.length > 0) return initialCategories;
-    return typeof window !== 'undefined' ? getLocalCategories() : [];
+    return [];
   });
   const [products, setProducts] = useState<Product[]>(() => {
     if (initialProducts && initialProducts.length > 0) return initialProducts;
-    return typeof window !== 'undefined' ? getLocalProducts() : [];
+    return [];
   });
 
   const [hoveredMenu, setHoveredMenu] = useState<'all-products' | null>(null);

@@ -16,10 +16,6 @@ interface HeroSectionProps {
 export function HeroSection({ categoryType, initialSlides }: HeroSectionProps) {
   const [slides, setSlides] = useState<HeroSlide[]>(() => {
     if (initialSlides && initialSlides.length > 0) return initialSlides;
-    if (typeof window !== 'undefined') {
-      const local = getLocalHeroSlides();
-      if (local && local.length > 0) return local;
-    }
     return DEFAULT_HERO_SLIDES;
   });
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -28,6 +24,11 @@ export function HeroSection({ categoryType, initialSlides }: HeroSectionProps) {
 
   // Load hero slides from CMS/database and listen for live updates
   useEffect(() => {
+    if (!initialSlides || initialSlides.length === 0) {
+      const local = getLocalHeroSlides();
+      if (local && local.length > 0) setSlides(local);
+    }
+
     async function load() {
       try {
         const data = await getHeroSlides();
