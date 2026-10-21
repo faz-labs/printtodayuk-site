@@ -166,21 +166,43 @@ export function ProductForm({
     setCustomFields(customFields.filter((f) => f.id !== fieldId));
   };
 
-  const handleAddPreset = (type: 'size' | 'finish' | 'apparelSize' | 'paperWeight' | 'sets') => {
+  const handleAddPreset = (
+    type: 'size' | 'flyerSize' | 'sides' | 'finish' | 'apparelSize' | 'paperWeight' | 'sets'
+  ) => {
     let newField: CustomField;
     const uniqueId = `fld-${Date.now()}`;
-    if (type === 'size') {
+    if (type === 'flyerSize') {
       newField = {
         id: uniqueId,
-        name: 'Choose A Size',
-        options: ['85x55mm (Standard UK)', '66x55mm (Mini)', 'Custom Dimensions'],
+        name: 'Finished Size',
+        options: [
+          'A5 (148 × 210 mm)',
+          'A6 (105 × 148 mm) -20%',
+          'DL (99 × 210 mm) -10%',
+          'A4 (210 × 297 mm) +35%',
+          'A3 (297 × 420 mm) +80%',
+        ],
+        required: true,
+      };
+    } else if (type === 'sides') {
+      newField = {
+        id: uniqueId,
+        name: 'Printed Sides',
+        options: ['Single Sided', 'Double Sided (+10%)'],
+        required: true,
+      };
+    } else if (type === 'size') {
+      newField = {
+        id: uniqueId,
+        name: 'Card Size',
+        options: ['85x55mm (Standard UK)', '66x55mm (Mini)', '55x55mm (Square)'],
         required: true,
       };
     } else if (type === 'finish') {
       newField = {
         id: uniqueId,
-        name: 'Choose A Finish',
-        options: ['Velvet Soft-Touch Matt', 'High Gloss Lamination', 'Uncoated Natural', 'Spot UV Finish'],
+        name: 'Lamination Finish',
+        options: ['No Lamination', 'Matt Lamination +15%', 'High Gloss Lamination +15%', 'Velvet Soft-Touch +25%'],
         required: true,
       };
     } else if (type === 'apparelSize') {
@@ -194,14 +216,20 @@ export function ProductForm({
       newField = {
         id: uniqueId,
         name: 'Number of Sets',
-        options: ['1 Set', '2 Sets (+100%)', '3 Sets (+200%)', '4 Sets (+300%)', '5 Sets (+400%)'],
+        options: ['1 Set', '2 Sets', '3 Sets', '4 Sets', '5 Sets', '10 Sets'],
         required: true,
       };
     } else {
       newField = {
         id: uniqueId,
         name: 'Paper Weight / Stock',
-        options: ['450gsm Premium Silk Board', '350gsm Classic Silk', '170gsm Gloss Paper', '220gsm Photo Satin'],
+        options: [
+          '130gsm Gloss (Economy)',
+          '170gsm Silk (Standard) +10%',
+          '250gsm Silk (Premium) +20%',
+          '350gsm Silk (Card Stock) +35%',
+          '400gsm Matt (Luxury) +50%',
+        ],
         required: true,
       };
     }
@@ -569,40 +597,54 @@ export function ProductForm({
               {/* Quick 1-Click Presets */}
               <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-1">
-                  Presets:
+                  Solopress Presets:
                 </span>
                 <button
                   type="button"
-                  onClick={() => handleAddPreset('size')}
-                  className="px-2 py-0.5 rounded-lg bg-white border border-slate-200 hover:border-rose-300 hover:text-rose-600 text-[10px] font-semibold text-slate-700 transition-colors cursor-pointer"
+                  onClick={() => handleAddPreset('flyerSize')}
+                  className="px-2 py-0.5 rounded-lg bg-white border border-slate-200 hover:border-[#012169] hover:text-[#012169] text-[10px] font-semibold text-slate-700 transition-colors cursor-pointer"
                 >
-                  + Size
+                  + Flyer Sizes (A5/A6/DL/A4/A3)
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleAddPreset('finish')}
-                  className="px-2 py-0.5 rounded-lg bg-white border border-slate-200 hover:border-rose-300 hover:text-rose-600 text-[10px] font-semibold text-slate-700 transition-colors cursor-pointer"
+                  onClick={() => handleAddPreset('sides')}
+                  className="px-2 py-0.5 rounded-lg bg-white border border-slate-200 hover:border-[#012169] hover:text-[#012169] text-[10px] font-semibold text-slate-700 transition-colors cursor-pointer"
                 >
-                  + Finish
+                  + Printed Sides (Single/Double)
                 </button>
                 <button
                   type="button"
                   onClick={() => handleAddPreset('paperWeight')}
-                  className="px-2 py-0.5 rounded-lg bg-white border border-slate-200 hover:border-rose-300 hover:text-rose-600 text-[10px] font-semibold text-slate-700 transition-colors cursor-pointer"
+                  className="px-2 py-0.5 rounded-lg bg-white border border-slate-200 hover:border-[#012169] hover:text-[#012169] text-[10px] font-semibold text-slate-700 transition-colors cursor-pointer"
                 >
-                  + Paper Stock
+                  + Paper Stock (130-400gsm)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAddPreset('finish')}
+                  className="px-2 py-0.5 rounded-lg bg-white border border-slate-200 hover:border-[#012169] hover:text-[#012169] text-[10px] font-semibold text-slate-700 transition-colors cursor-pointer"
+                >
+                  + Lamination (Matt/Gloss/Velvet)
                 </button>
                 <button
                   type="button"
                   onClick={() => handleAddPreset('sets')}
-                  className="px-2 py-0.5 rounded-lg bg-white border border-slate-200 hover:border-rose-300 hover:text-rose-600 text-[10px] font-semibold text-slate-700 transition-colors cursor-pointer"
+                  className="px-2 py-0.5 rounded-lg bg-white border border-slate-200 hover:border-[#012169] hover:text-[#012169] text-[10px] font-semibold text-slate-700 transition-colors cursor-pointer"
                 >
                   + Number of Sets
                 </button>
                 <button
                   type="button"
+                  onClick={() => handleAddPreset('size')}
+                  className="px-2 py-0.5 rounded-lg bg-white border border-slate-200 hover:border-[#012169] hover:text-[#012169] text-[10px] font-semibold text-slate-700 transition-colors cursor-pointer"
+                >
+                  + Card Sizes
+                </button>
+                <button
+                  type="button"
                   onClick={() => handleAddPreset('apparelSize')}
-                  className="px-2 py-0.5 rounded-lg bg-white border border-slate-200 hover:border-rose-300 hover:text-rose-600 text-[10px] font-semibold text-slate-700 transition-colors cursor-pointer"
+                  className="px-2 py-0.5 rounded-lg bg-white border border-slate-200 hover:border-[#012169] hover:text-[#012169] text-[10px] font-semibold text-slate-700 transition-colors cursor-pointer"
                 >
                   + Apparel
                 </button>

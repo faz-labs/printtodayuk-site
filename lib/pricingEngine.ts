@@ -336,7 +336,16 @@ export function generateDynamicPriceMatrix(
       ? quantityTiers
       : getProductQuantityTiers(safeMin, 250000);
 
-  // Aggregate total option percentage delta and total flat fee (additive model)
+  // Turnaround speed multipliers
+  // Base price in CMS is anchored at 3-5 working days (Standard delivery)
+  const SPEED_SAME_DAY = 1.354; // Same Day express (+35.4%)
+  const SPEED_NEXT_DAY = 1.074; // 1 Working day (+7.4%)
+  const SPEED_STANDARD = 1.0;   // 3-5 Working days (Standard = 100% of base price)
+
+  // Reference base anchor: product price set in CMS at minQuantity on standard delivery
+  const baseAnchorPrice = basePrice && basePrice > 0 ? basePrice : 14.69;
+
+  // Aggregate total option percentage delta and total flat fee (Solopress additive model)
   // e.g. Base £100 + Option A (+20%) + Option B (+30%) = 100% + 20% + 30% = 150% -> £150 total
   let totalPercentDelta = 0.0;
   let combinedFlatAddon = 0.0;
@@ -348,21 +357,22 @@ export function generateDynamicPriceMatrix(
     }
     const mod = getIndustryDefaultModifier(field, val, isCMSCustomFieldProduct);
     totalPercentDelta += (mod.multiplier - 1.0);
-    combinedFlatAddon += mod.flatAddon;
+
+    // Solopress proportional scaling: If an admin specifies a flat amount (+£1 or +£2),
+    // convert it to a proportional delta against the base anchor at minQuantity.
+    // This ensures at minQuantity it adds EXACTLY £1.00 or £2.00, and scales naturally with higher volumes.
+    if (mod.flatAddon !== 0) {
+      if (baseAnchorPrice > 0) {
+        totalPercentDelta += mod.flatAddon / baseAnchorPrice;
+      } else {
+        combinedFlatAddon += mod.flatAddon;
+      }
+    }
   }
 
   // Additive combined multiplier: Base (1.0) + sum of all option percentage deltas
   // e.g. Base £100 + 20% + 30% = 1.0 + 0.20 + 0.30 = 1.50
   const combinedMultiplier = Math.max(0.05, 1.0 + totalPercentDelta);
-
-  // Turnaround speed multipliers
-  // Base price in CMS is anchored at 3-5 working days (Standard delivery)
-  const SPEED_SAME_DAY = 1.354; // Same Day express (+35.4%)
-  const SPEED_NEXT_DAY = 1.074; // 1 Working day (+7.4%)
-  const SPEED_STANDARD = 1.0;   // 3-5 Working days (Standard = 100% of base price)
-
-  // Reference base anchor: product price set in CMS at minQuantity on standard delivery
-  const baseAnchorPrice = basePrice && basePrice > 0 ? basePrice : 14.69;
 
   return tiers.map((qty) => {
     // Commercial bulk economies of scale logarithmic curve:
