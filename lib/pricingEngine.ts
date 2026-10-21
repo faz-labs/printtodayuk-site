@@ -336,15 +336,24 @@ export function generateDynamicPriceMatrix(
       ? quantityTiers
       : getProductQuantityTiers(safeMin, 250000);
 
-  // Aggregate total option multiplier and total flat fee
-  let combinedMultiplier = 1.0;
+  // Aggregate total option percentage delta and total flat fee (additive model)
+  // e.g. Base £100 + Option A (+20%) + Option B (+30%) = 100% + 20% + 30% = 150% -> £150 total
+  let totalPercentDelta = 0.0;
   let combinedFlatAddon = 0.0;
 
   for (const [field, val] of Object.entries(selectedOptions)) {
+    // If the field is "Number of Sets", sets are multiplied separately via numberOfSets parameter
+    if (field.toLowerCase().includes('set')) {
+      continue;
+    }
     const mod = getIndustryDefaultModifier(field, val, isCMSCustomFieldProduct);
-    combinedMultiplier *= mod.multiplier;
+    totalPercentDelta += (mod.multiplier - 1.0);
     combinedFlatAddon += mod.flatAddon;
   }
+
+  // Additive combined multiplier: Base (1.0) + sum of all option percentage deltas
+  // e.g. Base £100 + 20% + 30% = 1.0 + 0.20 + 0.30 = 1.50
+  const combinedMultiplier = Math.max(0.05, 1.0 + totalPercentDelta);
 
   // Turnaround speed multipliers
   // Base price in CMS is anchored at 3-5 working days (Standard delivery)

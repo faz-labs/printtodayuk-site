@@ -234,35 +234,20 @@ export function ProductDetailClient({
     return numberOfSets;
   }, [hasCMSFields, product?.customFields, customFieldValues, numberOfSets]);
 
-  // Pricing sets multiplier: if the option already specifies a percentage (e.g. +100%), the percentage handles the price
-  const pricingNumberOfSets = useMemo(() => {
-    if (hasCMSFields && product?.customFields) {
-      const setKey = Object.keys(customFieldValues).find((k) => k.toLowerCase().includes('set'));
-      if (setKey) {
-        const val = customFieldValues[setKey] || '';
-        const explicitMod = parseOptionModifier(val);
-        if (explicitMod.multiplier !== 1.0) {
-          return 1;
-        }
-        return physicalNumberOfSets;
-      }
-      return 1;
-    }
-    return numberOfSets;
-  }, [hasCMSFields, product?.customFields, customFieldValues, physicalNumberOfSets, numberOfSets]);
+
 
   // DYNAMIC PRICE MATRIX (Fully reactive to all dropdown options and sets)
   const priceMatrix = useMemo(() => {
     return generateDynamicPriceMatrix(
       basePriceAnchor,
       activeOptions,
-      pricingNumberOfSets,
+      physicalNumberOfSets,
       undefined,
       product?.minQuantity,
       product?.maxSameDayQuantity,
       hasCMSFields
     );
-  }, [basePriceAnchor, activeOptions, pricingNumberOfSets, product?.minQuantity, product?.maxSameDayQuantity, hasCMSFields]);
+  }, [basePriceAnchor, activeOptions, physicalNumberOfSets, product?.minQuantity, product?.maxSameDayQuantity, hasCMSFields]);
 
   // Custom Quantity dynamic price calculation
   const isCustomQuantityActive = Boolean(
@@ -291,12 +276,12 @@ export function ProductDetailClient({
       customQuantityNumber,
       basePriceAnchor,
       activeOptions,
-      pricingNumberOfSets,
+      physicalNumberOfSets,
       product?.minQuantity,
       product?.maxSameDayQuantity,
       hasCMSFields
     );
-  }, [isCustomQuantityActive, customQuantityNumber, basePriceAnchor, activeOptions, pricingNumberOfSets, product?.minQuantity, product?.maxSameDayQuantity, hasCMSFields]);
+  }, [isCustomQuantityActive, customQuantityNumber, basePriceAnchor, activeOptions, physicalNumberOfSets, product?.minQuantity, product?.maxSameDayQuantity, hasCMSFields]);
 
   // Active Size and Stock names used for Dynamic Weight Calculation
   const activeSizeName = useMemo(() => {
