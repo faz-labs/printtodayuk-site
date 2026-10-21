@@ -111,10 +111,12 @@ export function calculatePrintWeight(
 
 /**
  * Extracts price modifiers (percentage or flat fee) from option text.
- * Examples:
- *   "Double Sided (+25%)" -> multiplier 1.25
- *   "Matt Lamination (+£12.00)" -> flatAddon 12
- *   "A6 (-15%)" -> multiplier 0.85
+ * Supports:
+ *   "A8+500%" -> multiplier 6.0 (+500%)
+ *   "A8 (+500%)" -> multiplier 6.0 (+500%)
+ *   "Double Sided (+25%)" or "Double Sided +25%" -> multiplier 1.25
+ *   "Matt Lamination (+£12.00)" or "Matt Lamination +£12" -> flatAddon 12
+ *   "A6 (-15%)" or "A6 -15%" -> multiplier 0.85
  */
 export function parseOptionModifier(optionText: string): { multiplier: number; flatAddon: number } {
   let multiplier = 1.0;
@@ -122,20 +124,60 @@ export function parseOptionModifier(optionText: string): { multiplier: number; f
 
   if (!optionText) return { multiplier, flatAddon };
 
-  // Check for percentage e.g. (+25%) or (-10%)
-  const percentMatch = optionText.match(/\(([+-]?\d+(?:\.\d+)?)%\)/);
+  // 1. Percentage match: e.g. (+500%), +500%, A8+500%, (+25%), -15%, (500%)
+  const percentMatch =
+    optionText.match(/\(([+-]?\d+(?:\.\d+)?)%\)/) ||
+    optionText.match(/([+-]\d+(?:\.\d+)?)%/) ||
+    optionText.match(/\((\d+(?:\.\d+)?)%\)/);
+
   if (percentMatch) {
     const percent = parseFloat(percentMatch[1]);
     multiplier = 1 + percent / 100;
   }
 
-  // Check for flat fee e.g. (+£12.50)
-  const flatMatch = optionText.match(/\(\+[£$](\d+(?:\.\d+)?)\)/);
+  // 2. Flat fee match: e.g. (+£12.50), +£12.50, +£12, (+12.50)
+  const flatMatch =
+    optionText.match(/\(\+[£$](\d+(?:\.\d+)?)\)/) ||
+    optionText.match(/\+[£$](\d+(?:\.\d+)?)/) ||
+    optionText.match(/\(\+(\d+(?:\.\d+)?)\)/);
+
   if (flatMatch) {
     flatAddon = parseFloat(flatMatch[1]);
   }
 
   return { multiplier, flatAddon };
+}
+
+/**
+ * Formats option names cleanly for the storefront dropdowns.
+ * e.g. "A8+500%" -> "A8 (+500%)"
+ */
+export function cleanOptionDisplayName(optionText: string): string {
+  if (!optionText) return '';
+  const trimmed = optionText.trim();
+
+  // If already has parentheses e.g. "A8 (+500%)", leave as is
+  if (/\([+-]/.test(trimmed)) return trimmed;
+
+  // Format "A8+500%" -> "A8 (+500%)"
+  const plusPercent = trimmed.match(/^(.+?)\s*\+([0-9.]+)%$/);
+  if (plusPercent) {
+    return `${plusPercent[1].trim()} (+${plusPercent[2]}%)`;
+  }
+
+  // Format "A8-15%" -> "A8 (-15%)"
+  const minusPercent = trimmed.match(/^(.+?)\s*\-([0-9.]+)%$/);
+  if (minusPercent) {
+    return `${minusPercent[1].trim()} (-${minusPercent[2]}%)`;
+  }
+
+  // Format "Finish +£12" -> "Finish (+£12)"
+  const plusFlat = trimmed.match(/^(.+?)\s*\+([£$][0-9.]+)$/);
+  if (plusFlat) {
+    return `${plusFlat[1].trim()} (+${plusFlat[2]})`;
+  }
+
+  return trimmed;
 }
 
 /**
@@ -225,8 +267,8 @@ export function generateDynamicPriceMatrix(
   const SPEED_NEXT_DAY = 1.074; // +7.4% (e.g. £14.69 -> £15.77 in reference)
   const SPEED_STANDARD = 1.0;   // Base 3-4 working days
 
-  // Reference base anchor: standard flyer baseline at 25 units is around £14.69
-  const baseAnchorPrice = Math.max(14.69, basePrice);
+  // Reference base anchor: product price set in CMS at 25 units standard delivery
+  const baseAnchorPrice = basePrice && basePrice > 0 ? basePrice : 14.69;
 
   return quantityTiers.map((qty) => {
     // Commercial bulk economies of scale logarithmic curve:

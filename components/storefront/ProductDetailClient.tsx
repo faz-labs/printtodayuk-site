@@ -17,15 +17,13 @@ import {
   CheckCircle,
   CaretDown,
   CaretUp,
-  Info,
-  Question,
-  FileArrowDown,
   Printer,
   Package,
   FileText,
   ChatCircleDots,
+  Question,
 } from '@phosphor-icons/react';
-import { Product } from '@/lib/types';
+import { Product, CustomField } from '@/lib/types';
 import { formatCurrency } from '@/lib/utils';
 import { ImageWithFallback } from '@/components/storefront/ImageWithFallback';
 import { ProductCard } from '@/components/storefront/ProductCard';
@@ -36,7 +34,7 @@ import {
   calculatePrintWeight,
   generateDynamicPriceMatrix,
   calculateCustomQuantityPrice,
-  DEFAULT_QUANTITY_TIERS,
+  cleanOptionDisplayName,
 } from '@/lib/pricingEngine';
 
 interface ProductDetailClientProps {
@@ -57,25 +55,42 @@ export function ProductDetailClient({
   const [selectedImageIndex, setSelectedImageIndex] = useState<number>(0);
   const [copied, setCopied] = useState(false);
 
-  // Client fallback for local products if initialProduct is null
+  // Real-time synchronization when CMS edits a product
   useEffect(() => {
-    if (!initialProduct && productIdOrSlug) {
+    const syncFromLocal = () => {
       const local = getLocalProducts();
-      const decoded = decodeURIComponent(productIdOrSlug).trim().toLowerCase();
+      const target = (productIdOrSlug || product?.id || product?.slug || '').toLowerCase().trim();
+      if (!target) return;
       const found = local.find(
         (p) =>
-          (p.slug && p.slug.toLowerCase() === decoded) ||
-          (p.id && p.id.toLowerCase() === decoded)
+          (p.slug && p.slug.toLowerCase() === target) ||
+          (p.id && p.id.toLowerCase() === target)
       );
       if (found) {
         setProduct(found);
       }
-    }
-  }, [initialProduct, productIdOrSlug]);
+    };
+
+    window.addEventListener('print_today_products_updated', syncFromLocal);
+    window.addEventListener('storage', syncFromLocal);
+
+    // Initial check on mount in case localStorage has newer CMS edits than SSR
+    syncFromLocal();
+
+    return () => {
+      window.removeEventListener('print_today_products_updated', syncFromLocal);
+      window.removeEventListener('storage', syncFromLocal);
+    };
+  }, [productIdOrSlug, product?.id, product?.slug]);
 
   useEffect(() => {
     if (initialProduct) {
-      setProduct(initialProduct);
+      setProduct((prev) => {
+        if (prev?.updatedAt && initialProduct.updatedAt && prev.updatedAt > initialProduct.updatedAt) {
+          return prev;
+        }
+        return initialProduct;
+      });
       setSelectedImageIndex(0);
     }
   }, [initialProduct]);
@@ -84,7 +99,7 @@ export function ProductDetailClient({
     setRelatedProducts(initialRelatedProducts);
   }, [initialRelatedProducts]);
 
-  // SPECIFICATION CONTROLS STATE (matching Image 1 exactly)
+  // FALLBACK DEFAULT SPECIFICATION STATE (used if product has no custom fields in CMS)
   const [finishedSize, setFinishedSize] = useState<string>('A5');
   const [printedSides, setPrintedSides] = useState<'Single Sided' | 'Double Sided'>('Single Sided');
   const [stock, setStock] = useState<string>('150gsm Silk');
@@ -93,7 +108,7 @@ export function ProductDetailClient({
   const [numberOfSets, setNumberOfSets] = useState<number>(1);
   const [fileCopies, setFileCopies] = useState<string>('No');
 
-  // Custom Fields from CMS (if any additional product-specific fields exist)
+  // CMS CUSTOM FIELD SELECTIONS (Driven 100% by CMS product configuration)
   const [customFieldValues, setCustomFieldValues] = useState<Record<string, string>>(() => {
     if (initialProduct?.customFields && initialProduct.customFields.length > 0) {
       const init: Record<string, string> = {};
@@ -107,8 +122,25 @@ export function ProductDetailClient({
     return {};
   });
 
+  // Keep customFieldValues in sync whenever the product's customFields change
+  useEffect(() => {
+    if (product?.customFields && product.customFields.length > 0) {
+      setCustomFieldValues((prev) => {
+        const next = { ...prev };
+        product.customFields?.forEach((cf) => {
+          if (cf.options && cf.options.length > 0) {
+            // Keep previous selected value if it exists in current options, else default to first option
+            if (!next[cf.name] || !cf.options.includes(next[cf.name])) {
+              next[cf.name] = cf.defaultValue || cf.options[0];
+            }
+          }
+        });
+        return next;
+      });
+    }
+  }, [product]);
+
   // MATRIX SELECTION STATE
-  // Selected Quantity and Selected Delivery Speed
   const [selectedQuantity, setSelectedQuantity] = useState<number>(25);
   const [selectedSpeed, setSelectedSpeed] = useState<'sameDay' | 'nextDay' | 'standard'>('sameDay');
   const [customQuantityInput, setCustomQuantityInput] = useState<string>('');
@@ -121,6 +153,11 @@ export function ProductDetailClient({
 
   // Aggregated options map for the pricing engine
   const activeOptions = useMemo(() => {
+    if (product?.customFields && product.customFields.length > 0) {
+      return {
+        ...customFieldValues,
+      };
+    }
     return {
       'Finished Size': finishedSize,
       'Printed Sides': printedSides,
@@ -128,11 +165,19 @@ export function ProductDetailClient({
       Lamination: lamination,
       Embellishment: embellishment,
       'File Copies': fileCopies,
-      ...customFieldValues,
     };
-  }, [finishedSize, printedSides, stock, lamination, embellishment, fileCopies, customFieldValues]);
+  }, [
+    product?.customFields,
+    customFieldValues,
+    finishedSize,
+    printedSides,
+    stock,
+    lamination,
+    embellishment,
+    fileCopies,
+  ]);
 
-  // Base price anchor
+  // Base price anchor from CMS
   const basePriceAnchor = product?.discountedPrice || product?.price || 14.69;
 
   // DYNAMIC PRICE MATRIX (Fully reactive to all dropdown options and sets)
@@ -152,11 +197,38 @@ export function ProductDetailClient({
     );
   }, [customQuantityNumber, basePriceAnchor, activeOptions, numberOfSets]);
 
+  // Active Size and Stock names used for Dynamic Weight Calculation
+  const activeSizeName = useMemo(() => {
+    if (product?.customFields && product.customFields.length > 0) {
+      // Find field matching "size"
+      const sizeKey = Object.keys(customFieldValues).find((k) =>
+        k.toLowerCase().includes('size')
+      );
+      if (sizeKey && customFieldValues[sizeKey]) {
+        return customFieldValues[sizeKey];
+      }
+    }
+    return finishedSize;
+  }, [product?.customFields, customFieldValues, finishedSize]);
+
+  const activeStockName = useMemo(() => {
+    if (product?.customFields && product.customFields.length > 0) {
+      // Find field matching "stock" or "paper"
+      const stockKey = Object.keys(customFieldValues).find((k) =>
+        k.toLowerCase().includes('stock') || k.toLowerCase().includes('paper')
+      );
+      if (stockKey && customFieldValues[stockKey]) {
+        return customFieldValues[stockKey];
+      }
+    }
+    return stock;
+  }, [product?.customFields, customFieldValues, stock]);
+
   // DYNAMIC WEIGHT CALCULATION (Weight per item in grams & Total weight in kg)
   const printWeight = useMemo(() => {
     const qty = customQuantityNumber > 0 ? customQuantityNumber : selectedQuantity;
-    return calculatePrintWeight(finishedSize, stock, qty, numberOfSets);
-  }, [finishedSize, stock, selectedQuantity, customQuantityNumber, numberOfSets]);
+    return calculatePrintWeight(activeSizeName, activeStockName, qty, numberOfSets);
+  }, [activeSizeName, activeStockName, selectedQuantity, customQuantityNumber, numberOfSets]);
 
   // ACTIVE SELECTED CELL PRICE
   const currentSelectedPrice = useMemo(() => {
@@ -233,7 +305,7 @@ export function ProductDetailClient({
   const handleSelectCell = (qty: number, speed: 'sameDay' | 'nextDay' | 'standard') => {
     setSelectedQuantity(qty);
     setSelectedSpeed(speed);
-    setCustomQuantityInput(''); // Reset custom quantity if picking standard tier
+    setCustomQuantityInput('');
   };
 
   const handleSelectCustomSpeed = (speed: 'sameDay' | 'nextDay' | 'standard') => {
@@ -251,6 +323,9 @@ export function ProductDetailClient({
 
     openCallMe(context, activeOptions);
   };
+
+  // Has CMS Custom Fields defined?
+  const hasCMSFields = Boolean(product.customFields && product.customFields.length > 0);
 
   return (
     <div className="bg-[#fbfcfd] min-h-screen py-8 sm:py-12 font-sans text-slate-900">
@@ -533,266 +608,161 @@ export function ProductDetailClient({
               </div>
             </div>
 
-            {/* SPECIFICATION DROPDOWNS & CONTROLS (2-Column Grid matching Image 1) */}
+            {/* SPECIFICATION DROPDOWNS & CONTROLS (Driven 100% by CMS when customFields exist) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3.5 pt-1">
-              {/* ROW 1 LEFT: Finished Size */}
-              <div>
-                <label className="block text-xs font-bold text-slate-800 mb-1">
-                  Finished Size:
-                </label>
-                <div className="relative">
-                  <select
-                    value={finishedSize}
-                    onChange={(e) => setFinishedSize(e.target.value)}
-                    className="w-full h-10 px-3 bg-white border border-slate-300 rounded-sm text-xs font-medium text-slate-900 focus:outline-hidden focus:border-[#102a43] focus:ring-1 focus:ring-[#102a43] cursor-pointer appearance-none pr-8 shadow-2xs"
-                  >
-                    <option value="A6">A6 (105 × 148 mm)</option>
-                    <option value="A5">A5 (148 × 210 mm)</option>
-                    <option value="A4">A4 (210 × 297 mm)</option>
-                    <option value="A3">A3 (297 × 420 mm)</option>
-                    <option value="DL">DL (99 × 210 mm)</option>
-                    <option value="Square">Square (148 × 148 mm)</option>
-                  </select>
-                  <CaretDown
-                    weight="bold"
-                    className="h-3.5 w-3.5 text-slate-500 absolute right-3 top-3.5 pointer-events-none"
-                  />
-                </div>
-              </div>
+              {hasCMSFields ? (
+                // A. PRODUCT HAS CUSTOM FIELDS IN CMS -> RENDER THEM DIRECTLY
+                <>
+                  {product.customFields!.map((field, fIdx) => {
+                    const isSidesField =
+                      field.name.toLowerCase().includes('side') &&
+                      field.options.length === 2 &&
+                      field.options.some((o) => o.toLowerCase().includes('single')) &&
+                      field.options.some((o) => o.toLowerCase().includes('double'));
 
-              {/* ROW 1 RIGHT: Printed Sides (Segmented Button Pills matching Image 1) */}
-              <div>
-                <label className="block text-xs font-bold text-slate-800 mb-1">
-                  Printed Sides:
-                </label>
-                <div className="grid grid-cols-2 gap-1.5 h-10">
-                  <button
-                    type="button"
-                    onClick={() => setPrintedSides('Single Sided')}
-                    className={`flex items-center justify-center gap-1.5 px-3 rounded-sm text-xs font-bold transition-all cursor-pointer border ${
-                      printedSides === 'Single Sided'
-                        ? 'bg-[#102a43] text-white border-[#102a43]'
-                        : 'bg-white text-slate-800 border-slate-300 hover:bg-slate-50'
-                    }`}
-                  >
-                    <span>Single Sided</span>
-                    {printedSides === 'Single Sided' && (
-                      <Check weight="bold" className="h-3.5 w-3.5" />
-                    )}
-                  </button>
+                    const currentValue = customFieldValues[field.name] || field.options[0];
 
-                  <button
-                    type="button"
-                    onClick={() => setPrintedSides('Double Sided')}
-                    className={`flex items-center justify-center gap-1.5 px-3 rounded-sm text-xs font-bold transition-all cursor-pointer border ${
-                      printedSides === 'Double Sided'
-                        ? 'bg-[#102a43] text-white border-[#102a43]'
-                        : 'bg-white text-slate-800 border-slate-300 hover:bg-slate-50'
-                    }`}
-                  >
-                    <span>Double Sided</span>
-                    {printedSides === 'Double Sided' && (
-                      <Check weight="bold" className="h-3.5 w-3.5" />
-                    )}
-                  </button>
-                </div>
-              </div>
+                    if (isSidesField) {
+                      // Render as Segmented Buttons (Matching Image 1)
+                      return (
+                        <div key={field.id || field.name}>
+                          <label className="block text-xs font-bold text-slate-800 mb-1">
+                            {field.name}:
+                          </label>
+                          <div className="grid grid-cols-2 gap-1.5 h-10">
+                            {field.options.map((opt) => {
+                              const isSelected = currentValue === opt;
+                              return (
+                                <button
+                                  key={opt}
+                                  type="button"
+                                  onClick={() =>
+                                    setCustomFieldValues((prev) => ({
+                                      ...prev,
+                                      [field.name]: opt,
+                                    }))
+                                  }
+                                  className={`flex items-center justify-center gap-1.5 px-3 rounded-sm text-xs font-bold transition-all cursor-pointer border ${
+                                    isSelected
+                                      ? 'bg-[#102a43] text-white border-[#102a43]'
+                                      : 'bg-white text-slate-800 border-slate-300 hover:bg-slate-50'
+                                  }`}
+                                >
+                                  <span>{cleanOptionDisplayName(opt)}</span>
+                                  {isSelected && <Check weight="bold" className="h-3.5 w-3.5" />}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    }
 
-              {/* ROW 2 LEFT: Stock */}
-              <div>
-                <label className="flex items-center gap-1 text-xs font-bold text-slate-800 mb-1">
-                  <span>Stock:</span>
-                  <span title="Paper stock density & finish" className="inline-flex">
-                    <Question weight="fill" className="h-3.5 w-3.5 text-slate-400 cursor-pointer" />
-                  </span>
-                </label>
-                <div className="relative">
-                  <select
-                    value={stock}
-                    onChange={(e) => setStock(e.target.value)}
-                    className="w-full h-10 px-3 bg-white border border-slate-300 rounded-sm text-xs font-medium text-slate-900 focus:outline-hidden focus:border-[#102a43] focus:ring-1 focus:ring-[#102a43] cursor-pointer appearance-none pr-8 shadow-2xs"
-                  >
-                    <option value="130gsm Gloss">130gsm Gloss</option>
-                    <option value="150gsm Silk">150gsm Silk</option>
-                    <option value="170gsm Silk">170gsm Silk</option>
-                    <option value="250gsm Silk">250gsm Silk</option>
-                    <option value="350gsm Silk">350gsm Silk (Card Stock)</option>
-                    <option value="400gsm Matt">400gsm Matt Premium</option>
-                  </select>
-                  <CaretDown
-                    weight="bold"
-                    className="h-3.5 w-3.5 text-slate-500 absolute right-3 top-3.5 pointer-events-none"
-                  />
-                </div>
-              </div>
+                    // Standard Dropdown for CMS field
+                    return (
+                      <div key={field.id || field.name}>
+                        <label className="flex items-center gap-1 text-xs font-bold text-slate-800 mb-1">
+                          <span>{field.name}:</span>
+                          <span title={field.name} className="inline-flex">
+                            <Question weight="fill" className="h-3.5 w-3.5 text-slate-400 cursor-pointer" />
+                          </span>
+                        </label>
+                        <div className="relative">
+                          <select
+                            value={currentValue}
+                            onChange={(e) =>
+                              setCustomFieldValues((prev) => ({
+                                ...prev,
+                                [field.name]: e.target.value,
+                              }))
+                            }
+                            className="w-full h-10 px-3 bg-white border border-slate-300 rounded-sm text-xs font-medium text-slate-900 focus:outline-hidden focus:border-[#102a43] focus:ring-1 focus:ring-[#102a43] cursor-pointer appearance-none pr-8 shadow-2xs"
+                          >
+                            {field.options.map((opt) => (
+                              <option key={opt} value={opt}>
+                                {cleanOptionDisplayName(opt)}
+                              </option>
+                            ))}
+                          </select>
+                          <CaretDown
+                            weight="bold"
+                            className="h-3.5 w-3.5 text-slate-500 absolute right-3 top-3.5 pointer-events-none"
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
 
-              {/* ROW 2 RIGHT: Weight Per Item & Total Weight (Auto-calculated!) */}
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-xs font-bold text-slate-800 mb-1 truncate">
-                    Weight Per Item:
-                  </label>
-                  <div className="h-10 px-3 flex items-center bg-white border border-slate-300 rounded-sm text-xs font-medium text-slate-800 select-none shadow-2xs">
-                    {printWeight.weightPerItemGrams}g
+                  {/* Dynamic Weight Per Item & Total Weight Box */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-800 mb-1 truncate">
+                        Weight Per Item:
+                      </label>
+                      <div className="h-10 px-3 flex items-center bg-white border border-slate-300 rounded-sm text-xs font-medium text-slate-800 select-none shadow-2xs">
+                        {printWeight.weightPerItemGrams}g
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-800 mb-1 truncate">
+                        Total Weight:
+                      </label>
+                      <div className="h-10 px-3 flex items-center bg-white border border-slate-300 rounded-sm text-xs font-medium text-slate-800 select-none shadow-2xs">
+                        {printWeight.totalWeightKg}kg
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-800 mb-1 truncate">
-                    Total Weight:
-                  </label>
-                  <div className="h-10 px-3 flex items-center bg-white border border-slate-300 rounded-sm text-xs font-medium text-slate-800 select-none shadow-2xs">
-                    {printWeight.totalWeightKg}kg
-                  </div>
-                </div>
-              </div>
 
-              {/* ROW 3 LEFT: Lamination */}
-              <div>
-                <label className="flex items-center gap-1 text-xs font-bold text-slate-800 mb-1">
-                  <span>Lamination:</span>
-                  <span title="Protective surface coating" className="inline-flex">
-                    <Question weight="fill" className="h-3.5 w-3.5 text-slate-400 cursor-pointer" />
-                  </span>
-                </label>
-                <div className="relative">
-                  <select
-                    value={lamination}
-                    onChange={(e) => setLamination(e.target.value)}
-                    className="w-full h-10 px-3 bg-white border border-slate-300 rounded-sm text-xs font-medium text-slate-900 focus:outline-hidden focus:border-[#102a43] focus:ring-1 focus:ring-[#102a43] cursor-pointer appearance-none pr-8 shadow-2xs"
-                  >
-                    <option value="No Lamination">No Lamination</option>
-                    <option value="Matt Lamination">Matt Lamination (+£12.00)</option>
-                    <option value="Gloss Lamination">Gloss Lamination (+£12.00)</option>
-                    <option value="Soft Touch Lamination">Soft Touch Velvet (+£16.00)</option>
-                  </select>
-                  <CaretDown
-                    weight="bold"
-                    className="h-3.5 w-3.5 text-slate-500 absolute right-3 top-3.5 pointer-events-none"
-                  />
-                </div>
-              </div>
-
-              {/* ROW 3 RIGHT: Embellishment */}
-              <div>
-                <label className="flex items-center gap-1 text-xs font-bold text-slate-800 mb-1">
-                  <span>Embellishment:</span>
-                  <span title="Specialty foils & Spot UV highlights" className="inline-flex">
-                    <Question weight="fill" className="h-3.5 w-3.5 text-slate-400 cursor-pointer" />
-                  </span>
-                </label>
-                <div className="relative">
-                  <select
-                    value={embellishment}
-                    onChange={(e) => setEmbellishment(e.target.value)}
-                    className="w-full h-10 px-3 bg-white border border-slate-300 rounded-sm text-xs font-medium text-slate-900 focus:outline-hidden focus:border-[#102a43] focus:ring-1 focus:ring-[#102a43] cursor-pointer appearance-none pr-8 shadow-2xs"
-                  >
-                    <option value="No Embellishment">No Embellishment</option>
-                    <option value="Gold Foil">Metallic Gold Foil (+£24.00)</option>
-                    <option value="Silver Foil">Metallic Silver Foil (+£24.00)</option>
-                    <option value="Spot UV">Raised Spot UV Gloss (+£24.00)</option>
-                  </select>
-                  <CaretDown
-                    weight="bold"
-                    className="h-3.5 w-3.5 text-slate-500 absolute right-3 top-3.5 pointer-events-none"
-                  />
-                </div>
-              </div>
-
-              {/* ROW 4 LEFT: Number of Sets */}
-              <div>
-                <label className="flex items-center gap-1 text-xs font-bold text-slate-800 mb-1">
-                  <span>Number of Sets:</span>
-                  <span title="Different artwork sets / variations of this run" className="inline-flex">
-                    <Question weight="fill" className="h-3.5 w-3.5 text-slate-400 cursor-pointer" />
-                  </span>
-                </label>
-                <div className="relative">
-                  <select
-                    value={numberOfSets}
-                    onChange={(e) => setNumberOfSets(Math.max(1, parseInt(e.target.value, 10)))}
-                    className="w-full h-10 px-3 bg-white border border-slate-300 rounded-sm text-xs font-medium text-slate-900 focus:outline-hidden focus:border-[#102a43] focus:ring-1 focus:ring-[#102a43] cursor-pointer appearance-none pr-8 shadow-2xs"
-                  >
-                    <option value={1}>1</option>
-                    <option value={2}>2</option>
-                    <option value={3}>3</option>
-                    <option value={4}>4</option>
-                    <option value={5}>5</option>
-                    <option value={10}>10</option>
-                  </select>
-                  <CaretDown
-                    weight="bold"
-                    className="h-3.5 w-3.5 text-slate-500 absolute right-3 top-3.5 pointer-events-none"
-                  />
-                </div>
-              </div>
-
-              {/* ROW 4 RIGHT: File Copies */}
-              <div>
-                <label className="flex items-center gap-1 text-xs font-bold text-slate-800 mb-1">
-                  <span>File Copies:</span>
-                  <span title="Physical printed hardcopy proof posted in advance" className="inline-flex">
-                    <Question weight="fill" className="h-3.5 w-3.5 text-slate-400 cursor-pointer" />
-                  </span>
-                </label>
-                <div className="relative">
-                  <select
-                    value={fileCopies}
-                    onChange={(e) => setFileCopies(e.target.value)}
-                    className="w-full h-10 px-3 bg-white border border-slate-300 rounded-sm text-xs font-medium text-slate-900 focus:outline-hidden focus:border-[#102a43] focus:ring-1 focus:ring-[#102a43] cursor-pointer appearance-none pr-8 shadow-2xs"
-                  >
-                    <option value="No">No</option>
-                    <option value="Yes (1 Proof Copy)">Yes (1 Physical Hardcopy Proof)</option>
-                    <option value="Yes (Multiple Copies)">Yes (Multiple Hardcopy Proofs)</option>
-                  </select>
-                  <CaretDown
-                    weight="bold"
-                    className="h-3.5 w-3.5 text-slate-500 absolute right-3 top-3.5 pointer-events-none"
-                  />
-                </div>
-              </div>
-
-              {/* ADDITIONAL CMS CUSTOM FIELDS (Only unique product-specific fields) */}
-              {product.customFields &&
-                product.customFields.length > 0 &&
-                product.customFields
-                  .filter((field) => {
-                    const fn = field.name.toLowerCase().trim();
-                    const standardKeys = [
-                      'finished size',
-                      'choose a size',
-                      'size',
-                      'printed sides',
-                      'sides',
-                      'stock',
-                      'paper stock',
-                      'lamination',
-                      'embellishment',
-                      'number of sets',
-                      'file copies',
-                    ];
-                    return !standardKeys.includes(fn);
-                  })
-                  .map((field) => (
-                  <div key={field.id || field.name}>
+                  {/* Number of Sets Selector (if not explicitly in customFields) */}
+                  {!Object.keys(customFieldValues).some((k) => k.toLowerCase().includes('set')) && (
+                    <div>
+                      <label className="flex items-center gap-1 text-xs font-bold text-slate-800 mb-1">
+                        <span>Number of Sets:</span>
+                        <span title="Quantity sets" className="inline-flex">
+                          <Question weight="fill" className="h-3.5 w-3.5 text-slate-400 cursor-pointer" />
+                        </span>
+                      </label>
+                      <div className="relative">
+                        <select
+                          value={numberOfSets}
+                          onChange={(e) => setNumberOfSets(Math.max(1, parseInt(e.target.value, 10)))}
+                          className="w-full h-10 px-3 bg-white border border-slate-300 rounded-sm text-xs font-medium text-slate-900 focus:outline-hidden focus:border-[#102a43] focus:ring-1 focus:ring-[#102a43] cursor-pointer appearance-none pr-8 shadow-2xs"
+                        >
+                          <option value={1}>1</option>
+                          <option value={2}>2</option>
+                          <option value={3}>3</option>
+                          <option value={4}>4</option>
+                          <option value={5}>5</option>
+                          <option value={10}>10</option>
+                        </select>
+                        <CaretDown
+                          weight="bold"
+                          className="h-3.5 w-3.5 text-slate-500 absolute right-3 top-3.5 pointer-events-none"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                // B. PRODUCT HAS NO CMS CUSTOM FIELDS -> RENDER DEFAULT STANDARD PRINT CONTROLS
+                <>
+                  {/* Finished Size */}
+                  <div>
                     <label className="block text-xs font-bold text-slate-800 mb-1">
-                      {field.name}:
+                      Finished Size:
                     </label>
                     <div className="relative">
                       <select
-                        value={customFieldValues[field.name] || field.options[0]}
-                        onChange={(e) =>
-                          setCustomFieldValues((prev) => ({
-                            ...prev,
-                            [field.name]: e.target.value,
-                          }))
-                        }
+                        value={finishedSize}
+                        onChange={(e) => setFinishedSize(e.target.value)}
                         className="w-full h-10 px-3 bg-white border border-slate-300 rounded-sm text-xs font-medium text-slate-900 focus:outline-hidden focus:border-[#102a43] focus:ring-1 focus:ring-[#102a43] cursor-pointer appearance-none pr-8 shadow-2xs"
                       >
-                        {field.options.map((opt) => (
-                          <option key={opt} value={opt}>
-                            {opt}
-                          </option>
-                        ))}
+                        <option value="A6">A6 (105 × 148 mm)</option>
+                        <option value="A5">A5 (148 × 210 mm)</option>
+                        <option value="A4">A4 (210 × 297 mm)</option>
+                        <option value="A3">A3 (297 × 420 mm)</option>
+                        <option value="DL">DL (99 × 210 mm)</option>
+                        <option value="Square">Square (148 × 148 mm)</option>
                       </select>
                       <CaretDown
                         weight="bold"
@@ -800,7 +770,199 @@ export function ProductDetailClient({
                       />
                     </div>
                   </div>
-                ))}
+
+                  {/* Printed Sides (Segmented Button Pills matching Image 1) */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-800 mb-1">
+                      Printed Sides:
+                    </label>
+                    <div className="grid grid-cols-2 gap-1.5 h-10">
+                      <button
+                        type="button"
+                        onClick={() => setPrintedSides('Single Sided')}
+                        className={`flex items-center justify-center gap-1.5 px-3 rounded-sm text-xs font-bold transition-all cursor-pointer border ${
+                          printedSides === 'Single Sided'
+                            ? 'bg-[#102a43] text-white border-[#102a43]'
+                            : 'bg-white text-slate-800 border-slate-300 hover:bg-slate-50'
+                        }`}
+                      >
+                        <span>Single Sided</span>
+                        {printedSides === 'Single Sided' && (
+                          <Check weight="bold" className="h-3.5 w-3.5" />
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setPrintedSides('Double Sided')}
+                        className={`flex items-center justify-center gap-1.5 px-3 rounded-sm text-xs font-bold transition-all cursor-pointer border ${
+                          printedSides === 'Double Sided'
+                            ? 'bg-[#102a43] text-white border-[#102a43]'
+                            : 'bg-white text-slate-800 border-slate-300 hover:bg-slate-50'
+                        }`}
+                      >
+                        <span>Double Sided</span>
+                        {printedSides === 'Double Sided' && (
+                          <Check weight="bold" className="h-3.5 w-3.5" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Stock */}
+                  <div>
+                    <label className="flex items-center gap-1 text-xs font-bold text-slate-800 mb-1">
+                      <span>Stock:</span>
+                      <span title="Paper stock density & finish" className="inline-flex">
+                        <Question weight="fill" className="h-3.5 w-3.5 text-slate-400 cursor-pointer" />
+                      </span>
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={stock}
+                        onChange={(e) => setStock(e.target.value)}
+                        className="w-full h-10 px-3 bg-white border border-slate-300 rounded-sm text-xs font-medium text-slate-900 focus:outline-hidden focus:border-[#102a43] focus:ring-1 focus:ring-[#102a43] cursor-pointer appearance-none pr-8 shadow-2xs"
+                      >
+                        <option value="130gsm Gloss">130gsm Gloss</option>
+                        <option value="150gsm Silk">150gsm Silk</option>
+                        <option value="170gsm Silk">170gsm Silk</option>
+                        <option value="250gsm Silk">250gsm Silk</option>
+                        <option value="350gsm Silk">350gsm Silk (Card Stock)</option>
+                        <option value="400gsm Matt">400gsm Matt Premium</option>
+                      </select>
+                      <CaretDown
+                        weight="bold"
+                        className="h-3.5 w-3.5 text-slate-500 absolute right-3 top-3.5 pointer-events-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Weight Per Item & Total Weight */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-800 mb-1 truncate">
+                        Weight Per Item:
+                      </label>
+                      <div className="h-10 px-3 flex items-center bg-white border border-slate-300 rounded-sm text-xs font-medium text-slate-800 select-none shadow-2xs">
+                        {printWeight.weightPerItemGrams}g
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-800 mb-1 truncate">
+                        Total Weight:
+                      </label>
+                      <div className="h-10 px-3 flex items-center bg-white border border-slate-300 rounded-sm text-xs font-medium text-slate-800 select-none shadow-2xs">
+                        {printWeight.totalWeightKg}kg
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Lamination */}
+                  <div>
+                    <label className="flex items-center gap-1 text-xs font-bold text-slate-800 mb-1">
+                      <span>Lamination:</span>
+                      <span title="Protective surface coating" className="inline-flex">
+                        <Question weight="fill" className="h-3.5 w-3.5 text-slate-400 cursor-pointer" />
+                      </span>
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={lamination}
+                        onChange={(e) => setLamination(e.target.value)}
+                        className="w-full h-10 px-3 bg-white border border-slate-300 rounded-sm text-xs font-medium text-slate-900 focus:outline-hidden focus:border-[#102a43] focus:ring-1 focus:ring-[#102a43] cursor-pointer appearance-none pr-8 shadow-2xs"
+                      >
+                        <option value="No Lamination">No Lamination</option>
+                        <option value="Matt Lamination">Matt Lamination (+£12.00)</option>
+                        <option value="Gloss Lamination">Gloss Lamination (+£12.00)</option>
+                        <option value="Soft Touch Lamination">Soft Touch Velvet (+£16.00)</option>
+                      </select>
+                      <CaretDown
+                        weight="bold"
+                        className="h-3.5 w-3.5 text-slate-500 absolute right-3 top-3.5 pointer-events-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Embellishment */}
+                  <div>
+                    <label className="flex items-center gap-1 text-xs font-bold text-slate-800 mb-1">
+                      <span>Embellishment:</span>
+                      <span title="Specialty foils & Spot UV highlights" className="inline-flex">
+                        <Question weight="fill" className="h-3.5 w-3.5 text-slate-400 cursor-pointer" />
+                      </span>
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={embellishment}
+                        onChange={(e) => setEmbellishment(e.target.value)}
+                        className="w-full h-10 px-3 bg-white border border-slate-300 rounded-sm text-xs font-medium text-slate-900 focus:outline-hidden focus:border-[#102a43] focus:ring-1 focus:ring-[#102a43] cursor-pointer appearance-none pr-8 shadow-2xs"
+                      >
+                        <option value="No Embellishment">No Embellishment</option>
+                        <option value="Gold Foil">Metallic Gold Foil (+£24.00)</option>
+                        <option value="Silver Foil">Metallic Silver Foil (+£24.00)</option>
+                        <option value="Spot UV">Raised Spot UV Gloss (+£24.00)</option>
+                      </select>
+                      <CaretDown
+                        weight="bold"
+                        className="h-3.5 w-3.5 text-slate-500 absolute right-3 top-3.5 pointer-events-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Number of Sets */}
+                  <div>
+                    <label className="flex items-center gap-1 text-xs font-bold text-slate-800 mb-1">
+                      <span>Number of Sets:</span>
+                      <span title="Different artwork sets / variations of this run" className="inline-flex">
+                        <Question weight="fill" className="h-3.5 w-3.5 text-slate-400 cursor-pointer" />
+                      </span>
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={numberOfSets}
+                        onChange={(e) => setNumberOfSets(Math.max(1, parseInt(e.target.value, 10)))}
+                        className="w-full h-10 px-3 bg-white border border-slate-300 rounded-sm text-xs font-medium text-slate-900 focus:outline-hidden focus:border-[#102a43] focus:ring-1 focus:ring-[#102a43] cursor-pointer appearance-none pr-8 shadow-2xs"
+                      >
+                        <option value={1}>1</option>
+                        <option value={2}>2</option>
+                        <option value={3}>3</option>
+                        <option value={4}>4</option>
+                        <option value={5}>5</option>
+                        <option value={10}>10</option>
+                      </select>
+                      <CaretDown
+                        weight="bold"
+                        className="h-3.5 w-3.5 text-slate-500 absolute right-3 top-3.5 pointer-events-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* File Copies */}
+                  <div>
+                    <label className="flex items-center gap-1 text-xs font-bold text-slate-800 mb-1">
+                      <span>File Copies:</span>
+                      <span title="Physical printed hardcopy proof posted in advance" className="inline-flex">
+                        <Question weight="fill" className="h-3.5 w-3.5 text-slate-400 cursor-pointer" />
+                      </span>
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={fileCopies}
+                        onChange={(e) => setFileCopies(e.target.value)}
+                        className="w-full h-10 px-3 bg-white border border-slate-300 rounded-sm text-xs font-medium text-slate-900 focus:outline-hidden focus:border-[#102a43] focus:ring-1 focus:ring-[#102a43] cursor-pointer appearance-none pr-8 shadow-2xs"
+                      >
+                        <option value="No">No</option>
+                        <option value="Yes (1 Proof Copy)">Yes (1 Physical Hardcopy Proof)</option>
+                        <option value="Yes (Multiple Copies)">Yes (Multiple Hardcopy Proofs)</option>
+                      </select>
+                      <CaretDown
+                        weight="bold"
+                        className="h-3.5 w-3.5 text-slate-500 absolute right-3 top-3.5 pointer-events-none"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* ================= THE DYNAMIC PRICE MATRIX TABLE (1:1 Clone of Image 1) ================= */}
@@ -1051,9 +1213,11 @@ export function ProductDetailClient({
                     {customQuantityNumber > 0 ? customQuantityNumber : selectedQuantity} ×{' '}
                     {product.title}
                   </div>
-                  <div className="text-slate-600 text-[11px] mt-0.5">
-                    {finishedSize} • {printedSides} • {stock} • {speedLabels[selectedSpeed].title}{' '}
-                    (Due {speedLabels[selectedSpeed].dueDate})
+                  <div className="text-slate-600 text-[11px] mt-0.5 line-clamp-1">
+                    {Object.entries(activeOptions)
+                      .map(([k, v]) => `${k}: ${cleanOptionDisplayName(v)}`)
+                      .join(' • ')}{' '}
+                    • {speedLabels[selectedSpeed].title} (Due {speedLabels[selectedSpeed].dueDate})
                   </div>
                 </div>
 
