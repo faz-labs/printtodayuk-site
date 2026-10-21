@@ -17,6 +17,7 @@ export interface MatrixCellPrice {
   rrpPrice?: number;
   isDiscounted: boolean;
   unitPrice: number;
+  isAvailable?: boolean;
 }
 
 export interface MatrixRow {
@@ -149,35 +150,25 @@ export function parseOptionModifier(optionText: string): { multiplier: number; f
 }
 
 /**
- * Formats option names cleanly for the storefront dropdowns.
- * e.g. "A8+500%" -> "A8 (+500%)"
+ * Strips pricing modifiers (+50%, +500%, (+25%), +£12, etc.) from option names
+ * so the customer on the storefront only sees the clean title (e.g. "A8" or "Matt Lamination").
+ * The background pricing engine still uses the raw option value to compute the correct multiplier/add-on.
  */
 export function cleanOptionDisplayName(optionText: string): string {
   if (!optionText) return '';
-  const trimmed = optionText.trim();
+  let cleaned = optionText.trim();
 
-  // If already has parentheses e.g. "A8 (+500%)", leave as is
-  if (/\([+-]/.test(trimmed)) return trimmed;
+  // Strip parenthesized modifiers e.g. "(+50%)", "(-15%)", "(+£12.00)", "(+12.00)", "(500%)"
+  cleaned = cleaned.replace(/\s*\([+-]?\d+(?:\.\d+)?%\)/gi, '');
+  cleaned = cleaned.replace(/\s*\(\+[£$]?\d+(?:\.\d+)?\)/gi, '');
+  cleaned = cleaned.replace(/\s*\([£$]\d+(?:\.\d+)?\)/gi, '');
 
-  // Format "A8+500%" -> "A8 (+500%)"
-  const plusPercent = trimmed.match(/^(.+?)\s*\+([0-9.]+)%$/);
-  if (plusPercent) {
-    return `${plusPercent[1].trim()} (+${plusPercent[2]}%)`;
-  }
+  // Strip unparenthesized suffix modifiers e.g. "+500%", "+50%", "-15%", "+£12", "+£12.00", "+$15"
+  cleaned = cleaned.replace(/\s*[+-]\d+(?:\.\d+)?%$/gi, '');
+  cleaned = cleaned.replace(/\s*\+[£$]\d+(?:\.\d+)?$/gi, '');
+  cleaned = cleaned.replace(/\s*-[£$]\d+(?:\.\d+)?$/gi, '');
 
-  // Format "A8-15%" -> "A8 (-15%)"
-  const minusPercent = trimmed.match(/^(.+?)\s*\-([0-9.]+)%$/);
-  if (minusPercent) {
-    return `${minusPercent[1].trim()} (-${minusPercent[2]}%)`;
-  }
-
-  // Format "Finish +£12" -> "Finish (+£12)"
-  const plusFlat = trimmed.match(/^(.+?)\s*\+([£$][0-9.]+)$/);
-  if (plusFlat) {
-    return `${plusFlat[1].trim()} (+${plusFlat[2]})`;
-  }
-
-  return trimmed;
+  return cleaned.trim() || optionText.trim();
 }
 
 /**
@@ -239,19 +230,73 @@ export function getIndustryDefaultModifier(
 }
 
 /**
- * Standard quantity tiers used by commercial printers.
+ * Standard default quantity tiers.
  */
 export const DEFAULT_QUANTITY_TIERS = [25, 50, 100, 200, 250, 300, 500, 1000, 2500, 5000];
 
 /**
+ * Generates commercially viable quantity tiers dynamically based on product minQuantity and maxQuantity.
+ * Handles products starting from 1 (banners, tablecloths, posters) up to 250,000,
+ * as well as standard sheet/card products starting at 25 or 50.
+ */
+export function getProductQuantityTiers(
+  minQty: number = 25,
+  maxQty: number = 250000
+): number[] {
+  const safeMin = Math.max(1, Math.round(minQty || 25));
+  const safeMax = Math.max(safeMin, Math.round(maxQty || 250000));
+
+  let candidateTiers: number[] = [];
+
+  if (safeMin <= 5) {
+    // Low-volume items (PVC Banners, Signage, Canvases, Tablecloths, Posters)
+    candidateTiers = [
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 50, 75, 100, 150, 200, 250,
+      500, 1000, 2500, 5000, 10000, 25000, 50000, 100000, 250000,
+    ];
+  } else {
+    // High-volume sheet/card printing (Flyers, Leaflets, Business Cards, Booklets)
+    candidateTiers = [
+      25, 50, 75, 100, 150, 200, 250, 300, 500, 750, 1000, 1500, 2000, 2500,
+      5000, 7500, 10000, 15000, 20000, 25000, 50000, 75000, 100000, 250000,
+    ];
+  }
+
+  // Ensure safeMin is included
+  if (!candidateTiers.includes(safeMin)) {
+    candidateTiers.push(safeMin);
+  }
+
+  // Filter within [safeMin, safeMax]
+  const filtered = candidateTiers.filter((q) => q >= safeMin && q <= safeMax);
+
+  // If filtered is empty or doesn't have safeMin, ensure safeMin is present
+  if (!filtered.includes(safeMin)) {
+    filtered.unshift(safeMin);
+  }
+
+  // Ensure unique and sorted ascending
+  return Array.from(new Set(filtered)).sort((a, b) => a - b);
+}
+
+/**
  * Generates an entire dynamic price matrix for any product and any combination of options.
+ * Base price represents the cost of `minQuantity` items on Standard delivery.
  */
 export function generateDynamicPriceMatrix(
   basePrice: number,
   selectedOptions: Record<string, string>,
   numberOfSets: number = 1,
-  quantityTiers: number[] = DEFAULT_QUANTITY_TIERS
+  quantityTiers?: number[],
+  minQuantity: number = 25,
+  maxSameDayQuantity?: number
 ): MatrixRow[] {
+  const safeMin = Math.max(1, minQuantity || 25);
+  const tiers =
+    quantityTiers && quantityTiers.length > 0
+      ? quantityTiers
+      : getProductQuantityTiers(safeMin, 250000);
+
   // Aggregate total option multiplier and total flat fee
   let combinedMultiplier = 1.0;
   let combinedFlatAddon = 0.0;
@@ -267,13 +312,13 @@ export function generateDynamicPriceMatrix(
   const SPEED_NEXT_DAY = 1.074; // +7.4% (e.g. £14.69 -> £15.77 in reference)
   const SPEED_STANDARD = 1.0;   // Base 3-4 working days
 
-  // Reference base anchor: product price set in CMS at 25 units standard delivery
+  // Reference base anchor: product price set in CMS at minQuantity on standard delivery
   const baseAnchorPrice = basePrice && basePrice > 0 ? basePrice : 14.69;
 
-  return quantityTiers.map((qty) => {
+  return tiers.map((qty) => {
     // Commercial bulk economies of scale logarithmic curve:
-    // P(q) = Base * (q / 25)^0.42
-    const scalingFactor = Math.pow(qty / 25, 0.42);
+    // P(q) = Base * (q / safeMin)^0.42
+    const scalingFactor = Math.pow(qty / safeMin, 0.42);
     const rawBasePrice = baseAnchorPrice * scalingFactor;
 
     // Apply combined options multiplier & flat addon
@@ -285,10 +330,14 @@ export function generateDynamicPriceMatrix(
     const priceSameDay = Number((adjustedStandard * SPEED_SAME_DAY).toFixed(2));
 
     // Strikethrough discount for marketing (shows on select tiers like 100 units)
-    const isSpecialDiscountTier = qty === 100;
+    const isSpecialDiscountTier = qty === 100 || (safeMin < 10 && qty === 10);
     const rrpSameDay = isSpecialDiscountTier ? Number((priceSameDay * 1.11).toFixed(2)) : undefined;
     const rrpNextDay = isSpecialDiscountTier ? Number((priceNextDay * 1.11).toFixed(2)) : undefined;
     const rrpStandard = isSpecialDiscountTier ? Number((priceStandard * 1.11).toFixed(2)) : undefined;
+
+    // Check same-day feasibility: beyond maxSameDayQuantity, same day capacity is reached
+    const isSameDayFeasible =
+      !maxSameDayQuantity || maxSameDayQuantity <= 0 || qty <= maxSameDayQuantity;
 
     return {
       quantity: qty,
@@ -297,18 +346,21 @@ export function generateDynamicPriceMatrix(
         rrpPrice: rrpSameDay,
         isDiscounted: isSpecialDiscountTier,
         unitPrice: Number((priceSameDay / (qty * numberOfSets)).toFixed(3)),
+        isAvailable: isSameDayFeasible,
       },
       nextDay: {
         price: priceNextDay,
         rrpPrice: rrpNextDay,
         isDiscounted: isSpecialDiscountTier,
         unitPrice: Number((priceNextDay / (qty * numberOfSets)).toFixed(3)),
+        isAvailable: true,
       },
       standard: {
         price: priceStandard,
         rrpPrice: rrpStandard,
         isDiscounted: isSpecialDiscountTier,
         unitPrice: Number((priceStandard / (qty * numberOfSets)).toFixed(3)),
+        isAvailable: true,
       },
     };
   });
@@ -321,16 +373,26 @@ export function calculateCustomQuantityPrice(
   customQty: number,
   basePrice: number,
   selectedOptions: Record<string, string>,
-  numberOfSets: number = 1
-): { sameDay: number; nextDay: number; standard: number } | null {
+  numberOfSets: number = 1,
+  minQuantity: number = 25,
+  maxSameDayQuantity?: number
+): { sameDay: number; nextDay: number; standard: number; isSameDayAvailable: boolean } | null {
   if (!customQty || customQty < 1 || isNaN(customQty)) return null;
 
-  const matrix = generateDynamicPriceMatrix(basePrice, selectedOptions, numberOfSets, [customQty]);
+  const matrix = generateDynamicPriceMatrix(
+    basePrice,
+    selectedOptions,
+    numberOfSets,
+    [customQty],
+    minQuantity,
+    maxSameDayQuantity
+  );
   if (matrix.length === 0) return null;
 
   return {
     sameDay: matrix[0].sameDay.price,
     nextDay: matrix[0].nextDay.price,
     standard: matrix[0].standard.price,
+    isSameDayAvailable: matrix[0].sameDay.isAvailable !== false,
   };
 }

@@ -23,6 +23,8 @@ export interface Product {
   subcategory?: string; // Optional legacy field
   isSameDayAvailable: boolean;
   minQuantity?: number;
+  maxQuantity?: number;
+  maxSameDayQuantity?: number;
   features?: string[];
   customFields?: CustomField[];
   createdAt: number;

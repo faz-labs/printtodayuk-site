@@ -32,7 +32,9 @@ export function ProductForm({
   const [discountedPrice, setDiscountedPrice] = useState<string>('');
   const [category, setCategory] = useState<string>(categories[0]?.name || '');
   const [isSameDayAvailable, setIsSameDayAvailable] = useState(true);
-  const [minQuantity, setMinQuantity] = useState<string>('1');
+  const [minQuantity, setMinQuantity] = useState<string>('25');
+  const [maxQuantity, setMaxQuantity] = useState<string>('250000');
+  const [maxSameDayQuantity, setMaxSameDayQuantity] = useState<string>('');
   const [features, setFeatures] = useState<string[]>([]);
   const [newFeature, setNewFeature] = useState('');
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
@@ -59,7 +61,11 @@ export function ProductForm({
       );
       setCategory(initialProduct.category || categories[0]?.name || '');
       setIsSameDayAvailable(initialProduct.isSameDayAvailable);
-      setMinQuantity(initialProduct.minQuantity ? initialProduct.minQuantity.toString() : '1');
+      setMinQuantity(initialProduct.minQuantity ? initialProduct.minQuantity.toString() : '25');
+      setMaxQuantity(initialProduct.maxQuantity ? initialProduct.maxQuantity.toString() : '250000');
+      setMaxSameDayQuantity(
+        initialProduct.maxSameDayQuantity ? initialProduct.maxSameDayQuantity.toString() : ''
+      );
       setFeatures(initialProduct.features || []);
       setCustomFields(initialProduct.customFields || []);
     } else {
@@ -69,11 +75,13 @@ export function ProductForm({
       setDescription('');
       setImages([]);
       setImageUrl('');
-      setPrice('29.00');
+      setPrice('14.69');
       setDiscountedPrice('');
       setCategory(categories[0]?.name || '');
       setIsSameDayAvailable(true);
-      setMinQuantity('100');
+      setMinQuantity('25');
+      setMaxQuantity('250000');
+      setMaxSameDayQuantity('');
       setFeatures([
         'Premium High Definition Print Quality',
         'Same-day London Dispatch Available',
@@ -229,6 +237,8 @@ export function ProductForm({
         category: category || categories[0]?.name || 'General',
         isSameDayAvailable,
         minQuantity: parseInt(minQuantity, 10) || 1,
+        maxQuantity: parseInt(maxQuantity, 10) || 250000,
+        maxSameDayQuantity: maxSameDayQuantity.trim() ? parseInt(maxSameDayQuantity, 10) : undefined,
         features: features.length > 0 ? features : [],
         customFields: validCustomFields.length > 0 ? validCustomFields : [],
       };
@@ -319,48 +329,100 @@ export function ProductForm({
         {/* Multi-Image S3 Uploader */}
         <MultiImageUploader images={images} onImagesChange={handleImagesChange} />
 
-        {/* Pricing & Min Quantity */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5">
-              Base Price (£) <span className="text-rose-500">*</span>
-            </label>
-            <input
-              type="number"
-              step="0.01"
-              required
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-              placeholder="35.00"
-              className="w-full h-11 px-3.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:outline-hidden focus:border-[#012169]"
-            />
+        {/* Pricing & Quantity Limits */}
+        <div className="space-y-3 p-4 rounded-2xl bg-slate-50 border border-slate-200">
+          <div className="font-bold text-xs uppercase tracking-wider text-slate-800">
+            Pricing & Order Quantity Rules
           </div>
 
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5">
-              Discounted Price (£) (Optional)
-            </label>
-            <input
-              type="number"
-              step="0.01"
-              value={discountedPrice}
-              onChange={(e) => setDiscountedPrice(e.target.value)}
-              placeholder="28.00"
-              className="w-full h-11 px-3.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:outline-hidden focus:border-[#012169]"
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Base Price (£) <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                required
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                placeholder="14.69"
+                className="w-full h-10 px-3.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:outline-hidden focus:border-[#012169]"
+              />
+              <p className="text-[11px] text-slate-500 mt-1">
+                Price for starting baseline spec at <strong>Min Quantity</strong> on Standard Delivery (3-4 days).
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Discounted Price (£) (Optional)
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                value={discountedPrice}
+                onChange={(e) => setDiscountedPrice(e.target.value)}
+                placeholder="12.50"
+                className="w-full h-10 px-3.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:outline-hidden focus:border-[#012169]"
+              />
+              <p className="text-[11px] text-slate-500 mt-1">
+                Promotional discounted price for the base tier (replaces Base Price if filled).
+              </p>
+            </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5">
-              Min Order Units
-            </label>
-            <input
-              type="number"
-              value={minQuantity}
-              onChange={(e) => setMinQuantity(e.target.value)}
-              placeholder="100"
-              className="w-full h-11 px-3.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:outline-hidden focus:border-[#012169]"
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Min Quantity (Starting Units)
+              </label>
+              <input
+                type="number"
+                min="1"
+                value={minQuantity}
+                onChange={(e) => setMinQuantity(e.target.value)}
+                placeholder="25"
+                className="w-full h-10 px-3.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:outline-hidden focus:border-[#012169]"
+              />
+              <p className="text-[11px] text-slate-500 mt-1">
+                e.g. <strong>1</strong> for banners/posters/tablecloths, or <strong>25</strong> for flyers.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Max Quantity (Up to)
+              </label>
+              <input
+                type="number"
+                min="1"
+                value={maxQuantity}
+                onChange={(e) => setMaxQuantity(e.target.value)}
+                placeholder="250000"
+                className="w-full h-10 px-3.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:outline-hidden focus:border-[#012169]"
+              />
+              <p className="text-[11px] text-slate-500 mt-1">
+                Default <strong>250,000</strong> units.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Max Same-Day Quantity (Cutoff)
+              </label>
+              <input
+                type="number"
+                min="1"
+                value={maxSameDayQuantity}
+                onChange={(e) => setMaxSameDayQuantity(e.target.value)}
+                placeholder="e.g. 1000 or 10000"
+                className="w-full h-10 px-3.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:outline-hidden focus:border-[#012169]"
+              />
+              <p className="text-[11px] text-slate-500 mt-1">
+                Above this quantity, Same Day will not be available.
+              </p>
+            </div>
           </div>
         </div>
 

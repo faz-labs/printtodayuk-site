@@ -141,9 +141,20 @@ export function ProductDetailClient({
   }, [product]);
 
   // MATRIX SELECTION STATE
-  const [selectedQuantity, setSelectedQuantity] = useState<number>(25);
+  const [selectedQuantity, setSelectedQuantity] = useState<number>(() => {
+    return initialProduct?.minQuantity && initialProduct.minQuantity > 0
+      ? initialProduct.minQuantity
+      : 25;
+  });
   const [selectedSpeed, setSelectedSpeed] = useState<'sameDay' | 'nextDay' | 'standard'>('sameDay');
   const [customQuantityInput, setCustomQuantityInput] = useState<string>('');
+  const [showAllQuantities, setShowAllQuantities] = useState(false);
+
+  useEffect(() => {
+    if (product?.minQuantity && product.minQuantity > 0) {
+      setSelectedQuantity((prev) => (prev < product.minQuantity! ? product.minQuantity! : prev));
+    }
+  }, [product?.minQuantity]);
 
   // Accordion state for Left Column Pill Buttons
   const [activeAccordion, setActiveAccordion] = useState<string | null>(null);
@@ -182,8 +193,15 @@ export function ProductDetailClient({
 
   // DYNAMIC PRICE MATRIX (Fully reactive to all dropdown options and sets)
   const priceMatrix = useMemo(() => {
-    return generateDynamicPriceMatrix(basePriceAnchor, activeOptions, numberOfSets);
-  }, [basePriceAnchor, activeOptions, numberOfSets]);
+    return generateDynamicPriceMatrix(
+      basePriceAnchor,
+      activeOptions,
+      numberOfSets,
+      undefined,
+      product?.minQuantity,
+      product?.maxSameDayQuantity
+    );
+  }, [basePriceAnchor, activeOptions, numberOfSets, product?.minQuantity, product?.maxSameDayQuantity]);
 
   // Custom Quantity dynamic price calculation
   const customQuantityNumber = parseInt(customQuantityInput, 10);
@@ -193,9 +211,11 @@ export function ProductDetailClient({
       customQuantityNumber,
       basePriceAnchor,
       activeOptions,
-      numberOfSets
+      numberOfSets,
+      product?.minQuantity,
+      product?.maxSameDayQuantity
     );
-  }, [customQuantityNumber, basePriceAnchor, activeOptions, numberOfSets]);
+  }, [customQuantityNumber, basePriceAnchor, activeOptions, numberOfSets, product?.minQuantity, product?.maxSameDayQuantity]);
 
   // Active Size and Stock names used for Dynamic Weight Calculation
   const activeSizeName = useMemo(() => {
@@ -233,10 +253,17 @@ export function ProductDetailClient({
   // ACTIVE SELECTED CELL PRICE
   const currentSelectedPrice = useMemo(() => {
     if (customQuantityNumber > 0 && customQuantityPrices) {
-      return customQuantityPrices[selectedSpeed];
+      const effectiveSpeed =
+        selectedSpeed === 'sameDay' && !customQuantityPrices.isSameDayAvailable
+          ? 'nextDay'
+          : selectedSpeed;
+      return customQuantityPrices[effectiveSpeed];
     }
     const row = priceMatrix.find((r) => r.quantity === selectedQuantity) || priceMatrix[0];
-    return row ? row[selectedSpeed].price : 19.89;
+    if (!row) return 19.89;
+    const effectiveSpeed =
+      selectedSpeed === 'sameDay' && row.sameDay.isAvailable === false ? 'nextDay' : selectedSpeed;
+    return row[effectiveSpeed].price;
   }, [priceMatrix, selectedQuantity, selectedSpeed, customQuantityNumber, customQuantityPrices]);
 
   const handleShare = () => {
@@ -304,13 +331,22 @@ export function ProductDetailClient({
 
   const handleSelectCell = (qty: number, speed: 'sameDay' | 'nextDay' | 'standard') => {
     setSelectedQuantity(qty);
-    setSelectedSpeed(speed);
+    // If sameDay was selected but row exceeds same-day cutoff, fall back to nextDay
+    if (speed === 'sameDay' && product.maxSameDayQuantity && qty > product.maxSameDayQuantity) {
+      setSelectedSpeed('nextDay');
+    } else {
+      setSelectedSpeed(speed);
+    }
     setCustomQuantityInput('');
   };
 
   const handleSelectCustomSpeed = (speed: 'sameDay' | 'nextDay' | 'standard') => {
     if (customQuantityNumber > 0) {
-      setSelectedSpeed(speed);
+      if (speed === 'sameDay' && customQuantityPrices && !customQuantityPrices.isSameDayAvailable) {
+        setSelectedSpeed('nextDay');
+      } else {
+        setSelectedSpeed(speed);
+      }
     }
   };
 
@@ -326,6 +362,9 @@ export function ProductDetailClient({
 
   // Has CMS Custom Fields defined?
   const hasCMSFields = Boolean(product.customFields && product.customFields.length > 0);
+
+  // Sliced matrix rows for clean UI height with "See More Quantities" expansion
+  const visibleMatrixRows = showAllQuantities ? priceMatrix : priceMatrix.slice(0, 10);
 
   return (
     <div className="bg-[#fbfcfd] min-h-screen py-8 sm:py-12 font-sans text-slate-900">
@@ -1025,18 +1064,27 @@ export function ProductDetailClient({
                   </div>
 
                   {/* Same Day Custom Cell */}
-                  <button
-                    type="button"
-                    disabled={!customQuantityPrices}
-                    onClick={() => handleSelectCustomSpeed('sameDay')}
-                    className={`p-1.5 sm:p-2 border-r border-slate-300 flex items-center justify-center transition-colors cursor-pointer ${
-                      customQuantityNumber > 0 && selectedSpeed === 'sameDay'
-                        ? 'bg-[#102a43] text-white font-bold'
-                        : 'hover:bg-slate-100 text-slate-700'
-                    }`}
-                  >
-                    {customQuantityPrices ? `£${customQuantityPrices.sameDay.toFixed(2)}` : '—'}
-                  </button>
+                  {customQuantityPrices?.isSameDayAvailable !== false ? (
+                    <button
+                      type="button"
+                      disabled={!customQuantityPrices}
+                      onClick={() => handleSelectCustomSpeed('sameDay')}
+                      className={`p-1.5 sm:p-2 border-r border-slate-300 flex items-center justify-center transition-colors cursor-pointer ${
+                        customQuantityNumber > 0 && selectedSpeed === 'sameDay'
+                          ? 'bg-[#102a43] text-white font-bold'
+                          : 'hover:bg-slate-100 text-slate-700'
+                      }`}
+                    >
+                      {customQuantityPrices ? `£${customQuantityPrices.sameDay.toFixed(2)}` : '—'}
+                    </button>
+                  ) : (
+                    <div
+                      title="Exceeds same-day capacity limit"
+                      className="p-1.5 sm:p-2 border-r border-slate-300 flex items-center justify-center bg-slate-100/70 text-slate-400 text-xs cursor-not-allowed select-none"
+                    >
+                      —
+                    </div>
+                  )}
 
                   {/* 1 Working Day Custom Cell */}
                   <button
@@ -1068,8 +1116,8 @@ export function ProductDetailClient({
                 </div>
 
                 {/* 3. SCROLLABLE QUANTITY MATRIX ROWS (Matching Image 1) */}
-                <div className="max-h-[380px] overflow-y-auto divide-y divide-slate-200">
-                  {priceMatrix.map((row) => {
+                <div className="max-h-[420px] overflow-y-auto divide-y divide-slate-200">
+                  {visibleMatrixRows.map((row) => {
                     const isQtyActive =
                       customQuantityNumber <= 0 && selectedQuantity === row.quantity;
 
@@ -1084,45 +1132,54 @@ export function ProductDetailClient({
                       >
                         {/* Quantity Number Cell */}
                         <div className="p-2 sm:p-2.5 bg-slate-100/70 border-r border-slate-300 flex items-center justify-center font-bold text-slate-800 text-xs sm:text-sm">
-                          {row.quantity}
+                          {row.quantity.toLocaleString()}
                         </div>
 
                         {/* Speed Column 1: Same Day Express */}
-                        <button
-                          type="button"
-                          onClick={() => handleSelectCell(row.quantity, 'sameDay')}
-                          className={`p-2 sm:p-2.5 border-r border-slate-300 flex items-center justify-between px-3 transition-all cursor-pointer ${
-                            isSameDayActive
-                              ? 'bg-[#102a43] text-white font-bold shadow-inner'
-                              : 'bg-white hover:bg-slate-50 text-slate-800'
-                          }`}
-                        >
-                          <div className="flex items-baseline gap-1">
-                            <span className="text-xs sm:text-sm">
-                              £{row.sameDay.price.toFixed(2)}
-                            </span>
-                            {row.sameDay.rrpPrice && (
-                              <span
-                                className={`text-[10px] line-through ${
-                                  isSameDayActive ? 'text-slate-300' : 'text-slate-400'
-                                }`}
-                              >
-                                £{row.sameDay.rrpPrice.toFixed(2)}
-                              </span>
-                            )}
-                          </div>
-                          <span
-                            className={`h-3 w-3 rounded-full border flex items-center justify-center ml-1 ${
+                        {row.sameDay.isAvailable !== false ? (
+                          <button
+                            type="button"
+                            onClick={() => handleSelectCell(row.quantity, 'sameDay')}
+                            className={`p-2 sm:p-2.5 border-r border-slate-300 flex items-center justify-between px-3 transition-all cursor-pointer ${
                               isSameDayActive
-                                ? 'border-white bg-white'
-                                : 'border-slate-400 bg-transparent'
+                                ? 'bg-[#102a43] text-white font-bold shadow-inner'
+                                : 'bg-white hover:bg-slate-50 text-slate-800'
                             }`}
                           >
-                            {isSameDayActive && (
-                              <span className="h-1.5 w-1.5 rounded-full bg-[#102a43]" />
-                            )}
-                          </span>
-                        </button>
+                            <div className="flex items-baseline gap-1">
+                              <span className="text-xs sm:text-sm">
+                                £{row.sameDay.price.toFixed(2)}
+                              </span>
+                              {row.sameDay.rrpPrice && (
+                                <span
+                                  className={`text-[10px] line-through ${
+                                    isSameDayActive ? 'text-slate-300' : 'text-slate-400'
+                                  }`}
+                                >
+                                  £{row.sameDay.rrpPrice.toFixed(2)}
+                                </span>
+                              )}
+                            </div>
+                            <span
+                              className={`h-3 w-3 rounded-full border flex items-center justify-center ml-1 ${
+                                isSameDayActive
+                                  ? 'border-white bg-white'
+                                  : 'border-slate-400 bg-transparent'
+                              }`}
+                            >
+                              {isSameDayActive && (
+                                <span className="h-1.5 w-1.5 rounded-full bg-[#102a43]" />
+                              )}
+                            </span>
+                          </button>
+                        ) : (
+                          <div
+                            title="Order exceeds same-day print capacity"
+                            className="p-2 sm:p-2.5 border-r border-slate-300 flex items-center justify-center bg-slate-50 text-slate-400 text-xs font-semibold cursor-not-allowed select-none"
+                          >
+                            <span>—</span>
+                          </div>
+                        )}
 
                         {/* Speed Column 2: 1 Working Day */}
                         <button
@@ -1201,6 +1258,31 @@ export function ProductDetailClient({
                     );
                   })}
                 </div>
+
+                {/* SEE MORE QUANTITIES BUTTON */}
+                {priceMatrix.length > 10 && (
+                  <div className="p-2.5 bg-slate-50/90 border-t border-slate-300 flex items-center justify-center">
+                    <button
+                      type="button"
+                      onClick={() => setShowAllQuantities(!showAllQuantities)}
+                      className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-md text-xs font-bold text-[#102a43] bg-white border border-slate-300 shadow-2xs hover:bg-slate-100 transition-colors cursor-pointer"
+                    >
+                      <span>
+                        {showAllQuantities
+                          ? 'Show Fewer Quantities'
+                          : `See More Quantities (${priceMatrix.length - 10} more up to ${
+                              product.maxQuantity ? product.maxQuantity.toLocaleString() : '250,000'
+                            })`}
+                      </span>
+                      <CaretDown
+                        weight="bold"
+                        className={`h-3.5 w-3.5 transition-transform duration-200 ${
+                          showAllQuantities ? 'rotate-180' : ''
+                        }`}
+                      />
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
