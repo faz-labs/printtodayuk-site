@@ -336,7 +336,8 @@ export function generateDynamicPriceMatrix(
   minQuantity: number = 25,
   maxSameDayQuantity?: number,
   isCMSCustomFieldProduct: boolean = false,
-  maxQuantity?: number
+  maxQuantity?: number,
+  maxNextDayQuantity?: number
 ): MatrixRow[] {
   const safeMin = Math.max(1, minQuantity || 25);
   const safeMax = maxQuantity && maxQuantity >= safeMin ? maxQuantity : 250000;
@@ -404,9 +405,17 @@ export function generateDynamicPriceMatrix(
     const rrpNextDay = isSpecialDiscountTier ? Number((priceNextDay * 1.11).toFixed(2)) : undefined;
     const rrpStandard = isSpecialDiscountTier ? Number((priceStandard * 1.11).toFixed(2)) : undefined;
 
-    // Check same-day feasibility: beyond maxSameDayQuantity, same day capacity is reached
+    // Check same-day feasibility: if cutoff limit is specified (including 0), qty must be <= maxSameDayQuantity
     const isSameDayFeasible =
-      !maxSameDayQuantity || maxSameDayQuantity <= 0 || qty <= maxSameDayQuantity;
+      typeof maxSameDayQuantity === 'number'
+        ? qty <= maxSameDayQuantity
+        : true;
+
+    // Check 1-day feasibility: if cutoff limit is specified (including 0), qty must be <= maxNextDayQuantity
+    const isNextDayFeasible =
+      typeof maxNextDayQuantity === 'number'
+        ? qty <= maxNextDayQuantity
+        : true;
 
     return {
       quantity: qty,
@@ -422,7 +431,7 @@ export function generateDynamicPriceMatrix(
         rrpPrice: rrpNextDay,
         isDiscounted: isSpecialDiscountTier,
         unitPrice: Number((priceNextDay / (qty * numberOfSets)).toFixed(3)),
-        isAvailable: true,
+        isAvailable: isNextDayFeasible,
       },
       standard: {
         price: priceStandard,
@@ -446,8 +455,15 @@ export function calculateCustomQuantityPrice(
   minQuantity: number = 25,
   maxSameDayQuantity?: number,
   isCMSCustomFieldProduct: boolean = false,
-  maxQuantity?: number
-): { sameDay: number; nextDay: number; standard: number; isSameDayAvailable: boolean } | null {
+  maxQuantity?: number,
+  maxNextDayQuantity?: number
+): {
+  sameDay: number;
+  nextDay: number;
+  standard: number;
+  isSameDayAvailable: boolean;
+  isNextDayAvailable: boolean;
+} | null {
   if (!customQty || customQty < 1 || isNaN(customQty)) return null;
 
   const matrix = generateDynamicPriceMatrix(
@@ -458,7 +474,8 @@ export function calculateCustomQuantityPrice(
     minQuantity,
     maxSameDayQuantity,
     isCMSCustomFieldProduct,
-    maxQuantity
+    maxQuantity,
+    maxNextDayQuantity
   );
   if (matrix.length === 0) return null;
 
@@ -467,5 +484,6 @@ export function calculateCustomQuantityPrice(
     nextDay: matrix[0].nextDay.price,
     standard: matrix[0].standard.price,
     isSameDayAvailable: matrix[0].sameDay.isAvailable !== false,
+    isNextDayAvailable: matrix[0].nextDay.isAvailable !== false,
   };
 }

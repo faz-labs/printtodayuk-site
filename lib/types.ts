@@ -25,6 +25,7 @@ export interface Product {
   minQuantity?: number;
   maxQuantity?: number;
   maxSameDayQuantity?: number;
+  maxNextDayQuantity?: number;
   features?: string[];
   customFields?: CustomField[];
   createdAt: number;

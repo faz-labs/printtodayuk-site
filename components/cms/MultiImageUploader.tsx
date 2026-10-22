@@ -141,22 +141,15 @@ export function MultiImageUploader({
   };
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <div>
-          <label className="block text-xs font-bold text-slate-800">
-            Product Pictures <span className="text-rose-500">*</span>
-          </label>
-          <p className="text-[11px] text-slate-500">
-            Directly uploaded to AWS S3 bucket in{' '}
-            <span className="font-semibold text-[#012169]">Print Today</span>{' '}
-            folder. The first picture is the primary cover image.
-          </p>
-        </div>
+        <span className="text-[11px] text-slate-500 font-medium">
+          Images upload to S3 <span className="font-semibold text-[#012169]">Print Today</span> folder (1st image is cover).
+        </span>
 
         {s3Status.checked && (
           <span
-            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold ${
+            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold shrink-0 ${
               s3Status.isConfigured
                 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                 : 'bg-amber-50 text-amber-700 border border-amber-200'
@@ -170,7 +163,7 @@ export function MultiImageUploader({
             ) : (
               <>
                 <WarningCircle weight="fill" className="h-3 w-3 text-amber-600" />
-                <span>Save AWS keys in .env.local</span>
+                <span>AWS Config Needed</span>
               </>
             )}
           </span>
@@ -179,7 +172,7 @@ export function MultiImageUploader({
 
       {/* Error message */}
       {errorMessage && (
-        <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700 flex items-start gap-2">
+        <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700 flex items-start gap-2">
           <WarningCircle weight="fill" className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
           <div className="flex-1">
             <span className="font-semibold">{errorMessage}</span>
@@ -189,16 +182,16 @@ export function MultiImageUploader({
 
       {/* Success progress */}
       {uploadProgress && (
-        <div className="p-2.5 rounded-xl bg-blue-50 border border-[#012169]/15 text-xs text-[#012169] flex items-center gap-2">
+        <div className="p-2 rounded-xl bg-blue-50 border border-[#012169]/15 text-xs text-[#012169] flex items-center gap-2">
           <CheckCircle weight="fill" className="h-4 w-4 text-[#012169] shrink-0" />
           <span className="font-medium">{uploadProgress}</span>
         </div>
       )}
 
-      {/* Upload Drop Zone & Actions */}
+      {/* Compact Upload Drop Zone */}
       <div
         onClick={() => !isUploading && fileInputRef.current?.click()}
-        className={`relative border-2 border-dashed rounded-2xl p-6 text-center transition-all cursor-pointer ${
+        className={`relative border border-dashed rounded-xl py-2 px-3 transition-all cursor-pointer flex items-center justify-between gap-3 ${
           isUploading
             ? 'border-[#012169] bg-blue-50/50 cursor-wait'
             : 'border-slate-300 hover:border-[#012169] hover:bg-slate-50/80 bg-white'
@@ -214,31 +207,29 @@ export function MultiImageUploader({
           disabled={isUploading}
         />
 
-        <div className="flex flex-col items-center justify-center gap-2">
-          <div className="h-12 w-12 rounded-2xl bg-[#012169]/10 text-[#012169] flex items-center justify-center">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="h-8 w-8 rounded-lg bg-[#012169]/10 text-[#012169] flex items-center justify-center shrink-0">
             {isUploading ? (
-              <div className="h-6 w-6 border-2 border-[#012169]/30 border-t-[#012169] rounded-full animate-spin" />
+              <div className="h-4 w-4 border-2 border-[#012169]/30 border-t-[#012169] rounded-full animate-spin" />
             ) : (
-              <CloudArrowUp weight="bold" className="h-6 w-6" />
+              <CloudArrowUp weight="bold" className="h-4 w-4" />
             )}
           </div>
 
-          <div>
-            <span className="text-xs font-bold text-slate-800">
+          <div className="min-w-0">
+            <div className="text-xs font-bold text-slate-800 truncate">
               {isUploading ? 'Uploading to S3...' : 'Click to select pictures or drag & drop'}
-            </span>
-            <p className="text-[11px] text-slate-500 mt-0.5">
-              Select multiple pictures (JPG, PNG, WebP) to upload directly to S3
-            </p>
-          </div>
-
-          <div className="mt-1 flex items-center gap-2">
-            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-[#012169] text-white text-xs font-bold shadow-xs hover:bg-[#0A358C]">
-              <UploadSimple weight="bold" className="h-3.5 w-3.5" />
-              <span>Browse Pictures</span>
-            </span>
+            </div>
+            <div className="text-[10px] text-slate-400">
+              Auto-converts to WebP & optimizes size
+            </div>
           </div>
         </div>
+
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#012169] text-white text-[11px] font-bold shadow-xs hover:bg-[#0A358C] shrink-0">
+          <UploadSimple weight="bold" className="h-3 w-3" />
+          <span>Browse</span>
+        </span>
       </div>
 
       {/* Optional fallback URL toggle */}

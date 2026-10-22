@@ -48,6 +48,7 @@ export function ProductForm({
   const [minQuantity, setMinQuantity] = useState<string>('25');
   const [maxQuantity, setMaxQuantity] = useState<string>('250000');
   const [maxSameDayQuantity, setMaxSameDayQuantity] = useState<string>('');
+  const [maxNextDayQuantity, setMaxNextDayQuantity] = useState<string>('');
   const [features, setFeatures] = useState<string[]>([]);
   const [newFeature, setNewFeature] = useState('');
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
@@ -84,7 +85,14 @@ export function ProductForm({
       setMinQuantity(initialProduct.minQuantity ? initialProduct.minQuantity.toString() : '25');
       setMaxQuantity(initialProduct.maxQuantity ? initialProduct.maxQuantity.toString() : '250000');
       setMaxSameDayQuantity(
-        initialProduct.maxSameDayQuantity ? initialProduct.maxSameDayQuantity.toString() : ''
+        initialProduct.maxSameDayQuantity !== undefined && initialProduct.maxSameDayQuantity !== null
+          ? initialProduct.maxSameDayQuantity.toString()
+          : ''
+      );
+      setMaxNextDayQuantity(
+        initialProduct.maxNextDayQuantity !== undefined && initialProduct.maxNextDayQuantity !== null
+          ? initialProduct.maxNextDayQuantity.toString()
+          : ''
       );
       setFeatures(initialProduct.features || []);
       setCustomFields(initialProduct.customFields || []);
@@ -102,6 +110,7 @@ export function ProductForm({
       setMinQuantity('25');
       setMaxQuantity('250000');
       setMaxSameDayQuantity('');
+      setMaxNextDayQuantity('');
       setFeatures([
         'Premium High Definition Print Quality',
         'Same-day London Dispatch Available',
@@ -147,7 +156,7 @@ export function ProductForm({
       options: [],
       required: true,
     };
-    setCustomFields([...customFields, newField]);
+    setCustomFields([newField, ...customFields]);
   };
 
   const handleUpdateFieldName = (fieldId: string, name: string) => {
@@ -294,7 +303,7 @@ export function ProductForm({
         required: true,
       };
     }
-    setCustomFields([...customFields, newField]);
+    setCustomFields([newField, ...customFields]);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -334,7 +343,8 @@ export function ProductForm({
         isSameDayAvailable,
         minQuantity: parseInt(minQuantity, 10) || 1,
         maxQuantity: parseInt(maxQuantity, 10) || 250000,
-        maxSameDayQuantity: maxSameDayQuantity.trim() ? parseInt(maxSameDayQuantity, 10) : undefined,
+        maxSameDayQuantity: maxSameDayQuantity.trim() !== '' ? parseInt(maxSameDayQuantity, 10) : undefined,
+        maxNextDayQuantity: maxNextDayQuantity.trim() !== '' ? parseInt(maxNextDayQuantity, 10) : undefined,
         features: features.length > 0 ? features : [],
         customFields: validCustomFields.length > 0 ? validCustomFields : [],
       };
@@ -364,7 +374,7 @@ export function ProductForm({
       onClose={onClose}
       title={initialProduct ? 'Edit Product' : 'Add New Product'}
       description="Update product information, custom dropdown fields, pricing, and category filters."
-      maxWidth="6xl"
+      maxWidth="7xl"
     >
       <form onSubmit={handleSubmit} className="space-y-6 max-h-[82vh] overflow-y-auto pr-1">
         {error && (
@@ -468,7 +478,7 @@ export function ProductForm({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
                     Min Quantity
@@ -505,13 +515,28 @@ export function ProductForm({
                   </label>
                   <input
                     type="number"
-                    min="1"
+                    min="0"
                     value={maxSameDayQuantity}
                     onChange={(e) => setMaxSameDayQuantity(e.target.value)}
-                    placeholder="e.g. 1000"
+                    placeholder="0 or 1000"
                     className="w-full h-9 px-2.5 rounded-xl border border-slate-200 bg-white text-xs text-slate-900 focus:outline-hidden focus:border-[#012169]"
                   />
-                  <p className="text-[10px] text-slate-400 mt-0.5">Cutoff limit</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">0 = disabled</p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    1-Day Cutoff
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={maxNextDayQuantity}
+                    onChange={(e) => setMaxNextDayQuantity(e.target.value)}
+                    placeholder="0 or 5000"
+                    className="w-full h-9 px-2.5 rounded-xl border border-slate-200 bg-white text-xs text-slate-900 focus:outline-hidden focus:border-[#012169]"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-0.5">0 = disabled</p>
                 </div>
               </div>
             </div>
@@ -717,7 +742,7 @@ export function ProductForm({
                   No custom dropdowns yet. Click &ldquo;Add Dropdown&rdquo; or pick a Preset above.
                 </div>
               ) : (
-                <div className="space-y-3 pt-1 max-h-96 overflow-y-auto pr-1">
+                <div className="space-y-3 pt-1 max-h-[520px] overflow-y-auto pr-1">
                   {customFields.map((field, fieldIdx) => (
                     <div
                       key={field.id}
@@ -988,6 +1013,15 @@ export function ProductForm({
                       </div>
                     </div>
                   ))}
+
+                  <button
+                    type="button"
+                    onClick={handleAddCustomField}
+                    className="w-full py-2.5 rounded-xl border-2 border-dashed border-slate-300 hover:border-[#012169] hover:bg-white text-xs font-bold text-slate-600 hover:text-[#012169] transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    <span>Add Another Dropdown</span>
+                  </button>
                 </div>
               )}
             </div>

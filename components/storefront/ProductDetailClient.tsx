@@ -251,9 +251,10 @@ export function ProductDetailClient({
       product?.minQuantity,
       product?.maxSameDayQuantity,
       hasCMSFields,
-      effectiveMaxQty
+      effectiveMaxQty,
+      product?.maxNextDayQuantity
     );
-  }, [basePriceAnchor, activeOptions, physicalNumberOfSets, product?.minQuantity, product?.maxSameDayQuantity, hasCMSFields, effectiveMaxQty]);
+  }, [basePriceAnchor, activeOptions, physicalNumberOfSets, product?.minQuantity, product?.maxSameDayQuantity, product?.maxNextDayQuantity, hasCMSFields, effectiveMaxQty]);
 
   // Custom Quantity dynamic price calculation
   const isCustomQuantityExceedsMax = Boolean(
@@ -293,9 +294,10 @@ export function ProductDetailClient({
       product?.minQuantity,
       product?.maxSameDayQuantity,
       hasCMSFields,
-      effectiveMaxQty
+      effectiveMaxQty,
+      product?.maxNextDayQuantity
     );
-  }, [isCustomQuantityActive, customQuantityNumber, basePriceAnchor, activeOptions, physicalNumberOfSets, product?.minQuantity, product?.maxSameDayQuantity, hasCMSFields, effectiveMaxQty]);
+  }, [isCustomQuantityActive, customQuantityNumber, basePriceAnchor, activeOptions, physicalNumberOfSets, product?.minQuantity, product?.maxSameDayQuantity, product?.maxNextDayQuantity, hasCMSFields, effectiveMaxQty]);
 
   // Active Size and Stock names used for Dynamic Weight Calculation
   const activeSizeName = useMemo(() => {
@@ -333,16 +335,22 @@ export function ProductDetailClient({
   // ACTIVE SELECTED CELL PRICE
   const currentSelectedPrice = useMemo(() => {
     if (customQuantityNumber > 0 && customQuantityPrices) {
-      const effectiveSpeed =
-        selectedSpeed === 'sameDay' && !customQuantityPrices.isSameDayAvailable
-          ? 'nextDay'
-          : selectedSpeed;
+      let effectiveSpeed = selectedSpeed;
+      if (effectiveSpeed === 'sameDay' && !customQuantityPrices.isSameDayAvailable) {
+        effectiveSpeed = customQuantityPrices.isNextDayAvailable ? 'nextDay' : 'standard';
+      } else if (effectiveSpeed === 'nextDay' && !customQuantityPrices.isNextDayAvailable) {
+        effectiveSpeed = 'standard';
+      }
       return customQuantityPrices[effectiveSpeed];
     }
     const row = priceMatrix.find((r) => r.quantity === selectedQuantity) || priceMatrix[0];
     if (!row) return 19.89;
-    const effectiveSpeed =
-      selectedSpeed === 'sameDay' && row.sameDay.isAvailable === false ? 'nextDay' : selectedSpeed;
+    let effectiveSpeed = selectedSpeed;
+    if (effectiveSpeed === 'sameDay' && row.sameDay.isAvailable === false) {
+      effectiveSpeed = row.nextDay.isAvailable !== false ? 'nextDay' : 'standard';
+    } else if (effectiveSpeed === 'nextDay' && row.nextDay.isAvailable === false) {
+      effectiveSpeed = 'standard';
+    }
     return row[effectiveSpeed].price;
   }, [priceMatrix, selectedQuantity, selectedSpeed, customQuantityNumber, customQuantityPrices]);
 
@@ -411,22 +419,26 @@ export function ProductDetailClient({
 
   const handleSelectCell = (qty: number, speed: 'sameDay' | 'nextDay' | 'standard') => {
     setSelectedQuantity(qty);
-    // If sameDay was selected but row exceeds same-day cutoff, fall back to nextDay
-    if (speed === 'sameDay' && product.maxSameDayQuantity && qty > product.maxSameDayQuantity) {
-      setSelectedSpeed('nextDay');
-    } else {
-      setSelectedSpeed(speed);
+    const row = priceMatrix.find((r) => r.quantity === qty);
+    let effectiveSpeed = speed;
+    if (effectiveSpeed === 'sameDay' && row?.sameDay.isAvailable === false) {
+      effectiveSpeed = row?.nextDay.isAvailable !== false ? 'nextDay' : 'standard';
+    } else if (effectiveSpeed === 'nextDay' && row?.nextDay.isAvailable === false) {
+      effectiveSpeed = 'standard';
     }
+    setSelectedSpeed(effectiveSpeed);
     setCustomQuantityInput('');
   };
 
   const handleSelectCustomSpeed = (speed: 'sameDay' | 'nextDay' | 'standard') => {
-    if (customQuantityNumber > 0) {
-      if (speed === 'sameDay' && customQuantityPrices && !customQuantityPrices.isSameDayAvailable) {
-        setSelectedSpeed('nextDay');
-      } else {
-        setSelectedSpeed(speed);
+    if (customQuantityNumber > 0 && customQuantityPrices) {
+      let effectiveSpeed = speed;
+      if (effectiveSpeed === 'sameDay' && !customQuantityPrices.isSameDayAvailable) {
+        effectiveSpeed = customQuantityPrices.isNextDayAvailable ? 'nextDay' : 'standard';
+      } else if (effectiveSpeed === 'nextDay' && !customQuantityPrices.isNextDayAvailable) {
+        effectiveSpeed = 'standard';
       }
+      setSelectedSpeed(effectiveSpeed);
     }
   };
 
@@ -1187,7 +1199,7 @@ export function ProductDetailClient({
                     <div className="p-1.5 sm:p-2 border-r border-slate-300 flex items-center justify-center text-[10px] text-rose-500 font-bold bg-rose-50/50">
                       Exceeds Max
                     </div>
-                  ) : (
+                  ) : customQuantityPrices?.isNextDayAvailable !== false ? (
                     <button
                       type="button"
                       disabled={!customQuantityPrices}
@@ -1202,6 +1214,13 @@ export function ProductDetailClient({
                     >
                       {customQuantityPrices ? `£${customQuantityPrices.nextDay.toFixed(2)}` : '—'}
                     </button>
+                  ) : (
+                    <div
+                      title="Exceeds 1-day capacity limit"
+                      className="p-1.5 sm:p-2 border-r border-slate-300 flex items-center justify-center bg-slate-100/70 text-slate-400 text-xs cursor-not-allowed select-none"
+                    >
+                      —
+                    </div>
                   )}
 
                   {/* 3-4 Working Days Custom Cell */}
@@ -1324,45 +1343,56 @@ export function ProductDetailClient({
                         )}
 
                         {/* Speed Column 2: 1 Working Day */}
-                        <button
-                          type="button"
-                          onClick={() => handleSelectCell(row.quantity, 'nextDay')}
-                          className={`p-2 sm:p-2.5 border-r border-slate-300 flex items-center justify-between px-3 transition-all cursor-pointer ${
-                            isNextDayActive
-                              ? 'bg-[#102a43] text-white font-bold shadow-inner'
-                              : isQtyActive
-                              ? 'bg-blue-50/60 hover:bg-blue-100/70 text-slate-800 font-medium'
-                              : 'bg-white hover:bg-slate-50 text-slate-800'
-                          }`}
-                        >
-                          <div className="flex items-baseline gap-1">
-                            <span className="text-xs sm:text-sm">
-                              £{row.nextDay.price.toFixed(2)}
-                            </span>
-                            {row.nextDay.rrpPrice && (
-                              <span
-                                className={`text-[10px] line-through ${
-                                  isNextDayActive ? 'text-slate-300' : 'text-slate-400'
-                                }`}
-                              >
-                                £{row.nextDay.rrpPrice.toFixed(2)}
-                              </span>
-                            )}
-                          </div>
-                          <span
-                            className={`h-3.5 w-3.5 rounded-full border flex items-center justify-center ml-1 ${
+                        {row.nextDay.isAvailable !== false ? (
+                          <button
+                            type="button"
+                            onClick={() => handleSelectCell(row.quantity, 'nextDay')}
+                            className={`p-2 sm:p-2.5 border-r border-slate-300 flex items-center justify-between px-3 transition-all cursor-pointer ${
                               isNextDayActive
-                                ? 'border-white bg-white'
+                                ? 'bg-[#102a43] text-white font-bold shadow-inner'
                                 : isQtyActive
-                                ? 'border-slate-400 bg-white/70'
-                                : 'border-slate-300 bg-transparent'
+                                ? 'bg-blue-50/60 hover:bg-blue-100/70 text-slate-800 font-medium'
+                                : 'bg-white hover:bg-slate-50 text-slate-800'
                             }`}
                           >
-                            {isNextDayActive && (
-                              <span className="h-2 w-2 rounded-full bg-[#102a43]" />
-                            )}
-                          </span>
-                        </button>
+                            <div className="flex items-baseline gap-1">
+                              <span className="text-xs sm:text-sm">
+                                £{row.nextDay.price.toFixed(2)}
+                              </span>
+                              {row.nextDay.rrpPrice && (
+                                <span
+                                  className={`text-[10px] line-through ${
+                                    isNextDayActive ? 'text-slate-300' : 'text-slate-400'
+                                  }`}
+                                >
+                                  £{row.nextDay.rrpPrice.toFixed(2)}
+                                </span>
+                              )}
+                            </div>
+                            <span
+                              className={`h-3.5 w-3.5 rounded-full border flex items-center justify-center ml-1 ${
+                                isNextDayActive
+                                  ? 'border-white bg-white'
+                                  : isQtyActive
+                                  ? 'border-slate-400 bg-white/70'
+                                  : 'border-slate-300 bg-transparent'
+                              }`}
+                            >
+                              {isNextDayActive && (
+                                <span className="h-2 w-2 rounded-full bg-[#102a43]" />
+                              )}
+                            </span>
+                          </button>
+                        ) : (
+                          <div
+                            title="Order exceeds 1-day print capacity"
+                            className={`p-2 sm:p-2.5 border-r border-slate-300 flex items-center justify-center text-slate-400 text-xs font-semibold cursor-not-allowed select-none ${
+                              isQtyActive ? 'bg-slate-100/80' : 'bg-slate-50'
+                            }`}
+                          >
+                            <span>—</span>
+                          </div>
+                        )}
 
                         {/* Speed Column 3: 3-4 Working Days */}
                         <button
