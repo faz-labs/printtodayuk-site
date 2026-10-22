@@ -14,6 +14,7 @@ import {
   X,
   Phone,
   Sparkle,
+  MapPin,
 } from '@phosphor-icons/react';
 import { useCallMe } from './CallMeContext';
 
@@ -250,6 +251,24 @@ export function Footer() {
                   Raise a Concern
                 </button>
               </li>
+              {/* Studio Location */}
+              <li className="pt-2 border-t border-slate-100">
+                <a
+                  href="https://www.google.com/maps/search/?api=1&query=75+Green+Street,+E7+8JF,+London,+United+Kingdom"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group block hover:text-[#012169] transition-colors"
+                >
+                  <div className="font-bold text-slate-900 flex items-center gap-1.5 mb-1 text-xs">
+                    <MapPin weight="fill" className="h-3.5 w-3.5 text-[#C8102E] shrink-0 group-hover:scale-110 transition-transform" />
+                    <span>Studio Location</span>
+                  </div>
+                  <address className="not-italic text-[12px] leading-relaxed text-slate-500 group-hover:text-slate-700">
+                    75 Green Street, E7 8JF<br />
+                    London, United Kingdom
+                  </address>
+                </a>
+              </li>
             </ul>
           </div>
 
@@ -435,37 +454,53 @@ export function Footer() {
           </div>
         </div>
 
-        {/* 3. Middle Section: Brand Logo (Left) + Circular Social Icons (Right) */}
-        <div className="pt-8 pb-6 border-t border-slate-200/80 flex flex-col sm:flex-row items-center justify-between gap-6">
-          {/* Logo on Left */}
-          <Link href="/" className="flex items-center gap-2.5 group">
-            <img
-              src="/images/logo.png"
-              alt="Print Today UK"
-              className="h-9 sm:h-11 w-auto max-w-[210px] object-contain block drop-shadow-2xs"
-              onError={(e) => {
-                e.currentTarget.style.display = 'none';
-                const fallbackEl = document.getElementById('footer-brand-text-logo');
-                if (fallbackEl) fallbackEl.style.display = 'flex';
-              }}
-            />
-            <div id="footer-brand-text-logo" className="hidden items-center gap-2">
-              <div className="h-9 w-9 rounded-xl bg-[#012169] flex items-center justify-center text-white shadow-sm">
-                <Printer weight="bold" className="h-5 w-5 text-red-400" />
-              </div>
-              <div className="flex flex-col">
-                <span className="text-lg font-black tracking-tight text-slate-900 leading-none">
-                  PRINT<span className="text-[#012169]">TODAY</span>
-                  <span className="text-[#C8102E] font-extrabold text-[10px] ml-1 bg-red-50 px-1 py-0.5 rounded-sm border border-red-200/60">
-                    UK
+        {/* 3. Middle Section: Brand Logo & Studio Location (Left) + Circular Social Icons (Right) */}
+        <div className="pt-8 pb-6 border-t border-slate-200/80 flex flex-col md:flex-row items-center justify-between gap-6">
+          {/* Logo & Studio Location on Left */}
+          <div className="flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left">
+            <Link href="/" className="flex items-center gap-2.5 group shrink-0">
+              <img
+                src="/images/logo.png"
+                alt="Print Today UK"
+                className="h-9 sm:h-11 w-auto max-w-[210px] object-contain block drop-shadow-2xs"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                  const fallbackEl = document.getElementById('footer-brand-text-logo');
+                  if (fallbackEl) fallbackEl.style.display = 'flex';
+                }}
+              />
+              <div id="footer-brand-text-logo" className="hidden items-center gap-2">
+                <div className="h-9 w-9 rounded-xl bg-[#012169] flex items-center justify-center text-white shadow-sm">
+                  <Printer weight="bold" className="h-5 w-5 text-red-400" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-lg font-black tracking-tight text-slate-900 leading-none">
+                    PRINT<span className="text-[#012169]">TODAY</span>
+                    <span className="text-[#C8102E] font-extrabold text-[10px] ml-1 bg-red-50 px-1 py-0.5 rounded-sm border border-red-200/60">
+                      UK
+                    </span>
                   </span>
-                </span>
-                <span className="text-[9px] font-semibold text-slate-500 uppercase tracking-wider mt-0.5">
-                  Your Local Digital Printer
-                </span>
+                  <span className="text-[9px] font-semibold text-slate-500 uppercase tracking-wider mt-0.5">
+                    Your Local Digital Printer
+                  </span>
+                </div>
               </div>
-            </div>
-          </Link>
+            </Link>
+
+            <div className="hidden sm:block h-8 w-px bg-slate-200 shrink-0" />
+
+            <a
+              href="https://www.google.com/maps/search/?api=1&query=75+Green+Street,+E7+8JF,+London,+United+Kingdom"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-xs text-slate-600 hover:text-[#012169] transition-colors"
+            >
+              <MapPin weight="fill" className="h-4 w-4 text-[#C8102E] shrink-0" />
+              <span>
+                <strong className="text-slate-800">Studio:</strong> 75 Green Street, E7 8JF, London, United Kingdom
+              </span>
+            </a>
+          </div>
 
           {/* Social Media Circular Buttons on Right (Exact 6 matching Solopress) */}
           <div className="flex items-center gap-2.5 sm:gap-3 flex-wrap justify-center">
@@ -599,8 +634,12 @@ export function Footer() {
         </div>
       </div>
 
-      {/* 5. Bottom Dark Bar with copyright text on the right (Exact matching Solopress) */}
-      <div className="w-full bg-[#202E39] text-slate-300 text-xs py-3 px-4 sm:px-8 flex items-center justify-center sm:justify-end">
+      {/* 5. Bottom Dark Bar with Studio Location & copyright text */}
+      <div className="w-full bg-[#202E39] text-slate-300 text-xs py-3 px-4 sm:px-8 flex flex-col sm:flex-row items-center justify-between gap-2 text-center sm:text-left">
+        <div className="flex items-center gap-1.5 text-slate-400 text-[11px]">
+          <MapPin weight="fill" className="h-3.5 w-3.5 text-[#C8102E] shrink-0" />
+          <span>Studio: 75 Green Street, E7 8JF, London, United Kingdom</span>
+        </div>
         <span className="tracking-wide">
           copyright &copy; print today uk {new Date().getFullYear()}
         </span>
