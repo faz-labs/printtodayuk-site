@@ -237,6 +237,11 @@ export function ProductDetailClient({
 
 
   // DYNAMIC PRICE MATRIX (Fully reactive to all dropdown options and sets)
+  const effectiveMaxQty =
+    product?.maxQuantity && product.maxQuantity >= (product?.minQuantity || 1)
+      ? product.maxQuantity
+      : 250000;
+
   const priceMatrix = useMemo(() => {
     return generateDynamicPriceMatrix(
       basePriceAnchor,
@@ -245,16 +250,24 @@ export function ProductDetailClient({
       undefined,
       product?.minQuantity,
       product?.maxSameDayQuantity,
-      hasCMSFields
+      hasCMSFields,
+      effectiveMaxQty
     );
-  }, [basePriceAnchor, activeOptions, physicalNumberOfSets, product?.minQuantity, product?.maxSameDayQuantity, hasCMSFields]);
+  }, [basePriceAnchor, activeOptions, physicalNumberOfSets, product?.minQuantity, product?.maxSameDayQuantity, hasCMSFields, effectiveMaxQty]);
 
   // Custom Quantity dynamic price calculation
+  const isCustomQuantityExceedsMax = Boolean(
+    customQuantityInput &&
+    !isNaN(parseInt(customQuantityInput.trim(), 10)) &&
+    parseInt(customQuantityInput.trim(), 10) > effectiveMaxQty
+  );
+
   const isCustomQuantityActive = Boolean(
     customQuantityInput &&
     customQuantityInput.trim().length > 0 &&
     !isNaN(parseInt(customQuantityInput.trim(), 10)) &&
-    parseInt(customQuantityInput.trim(), 10) > 0
+    parseInt(customQuantityInput.trim(), 10) > 0 &&
+    !isCustomQuantityExceedsMax
   );
   const customQuantityNumber = isCustomQuantityActive
     ? parseInt(customQuantityInput.trim(), 10)
@@ -279,9 +292,10 @@ export function ProductDetailClient({
       physicalNumberOfSets,
       product?.minQuantity,
       product?.maxSameDayQuantity,
-      hasCMSFields
+      hasCMSFields,
+      effectiveMaxQty
     );
-  }, [isCustomQuantityActive, customQuantityNumber, basePriceAnchor, activeOptions, physicalNumberOfSets, product?.minQuantity, product?.maxSameDayQuantity, hasCMSFields]);
+  }, [isCustomQuantityActive, customQuantityNumber, basePriceAnchor, activeOptions, physicalNumberOfSets, product?.minQuantity, product?.maxSameDayQuantity, hasCMSFields, effectiveMaxQty]);
 
   // Active Size and Stock names used for Dynamic Weight Calculation
   const activeSizeName = useMemo(() => {
@@ -1121,16 +1135,30 @@ export function ProductDetailClient({
                   <div className="p-1.5 sm:p-2 border-r border-slate-300">
                     <input
                       type="number"
-                      min="1"
-                      placeholder="Enter Custom Quantity..."
+                      min={product?.minQuantity || 1}
+                      max={effectiveMaxQty}
+                      placeholder={`Custom Qty (max ${effectiveMaxQty.toLocaleString()})...`}
                       value={customQuantityInput}
                       onChange={(e) => setCustomQuantityInput(e.target.value)}
-                      className="w-full h-8 px-2 bg-white border border-slate-300 rounded-sm text-[11px] sm:text-xs text-slate-900 placeholder:text-slate-500 focus:outline-hidden focus:border-[#102a43]"
+                      className={`w-full h-8 px-2 bg-white border rounded-sm text-[11px] sm:text-xs text-slate-900 placeholder:text-slate-500 focus:outline-hidden ${
+                        isCustomQuantityExceedsMax
+                          ? 'border-rose-400 focus:border-rose-500 ring-1 ring-rose-200'
+                          : 'border-slate-300 focus:border-[#102a43]'
+                      }`}
                     />
+                    {isCustomQuantityExceedsMax && (
+                      <div className="text-[10px] text-rose-600 font-bold mt-0.5">
+                        Max limit: {effectiveMaxQty.toLocaleString()} units
+                      </div>
+                    )}
                   </div>
 
                   {/* Same Day Custom Cell */}
-                  {customQuantityPrices?.isSameDayAvailable !== false ? (
+                  {isCustomQuantityExceedsMax ? (
+                    <div className="p-1.5 sm:p-2 border-r border-slate-300 flex items-center justify-center text-[10px] text-rose-500 font-bold bg-rose-50/50">
+                      Exceeds Max
+                    </div>
+                  ) : customQuantityPrices?.isSameDayAvailable !== false ? (
                     <button
                       type="button"
                       disabled={!customQuantityPrices}
@@ -1155,36 +1183,48 @@ export function ProductDetailClient({
                   )}
 
                   {/* 1 Working Day Custom Cell */}
-                  <button
-                    type="button"
-                    disabled={!customQuantityPrices}
-                    onClick={() => handleSelectCustomSpeed('nextDay')}
-                    className={`p-1.5 sm:p-2 border-r border-slate-300 flex items-center justify-center transition-colors cursor-pointer ${
-                      isCustomQuantityActive && selectedSpeed === 'nextDay'
-                        ? 'bg-[#102a43] text-white font-bold shadow-inner'
-                        : isCustomQuantityActive
-                        ? 'bg-blue-50/60 hover:bg-blue-100/70 text-slate-800'
-                        : 'hover:bg-slate-100 text-slate-700'
-                    }`}
-                  >
-                    {customQuantityPrices ? `£${customQuantityPrices.nextDay.toFixed(2)}` : '—'}
-                  </button>
+                  {isCustomQuantityExceedsMax ? (
+                    <div className="p-1.5 sm:p-2 border-r border-slate-300 flex items-center justify-center text-[10px] text-rose-500 font-bold bg-rose-50/50">
+                      Exceeds Max
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={!customQuantityPrices}
+                      onClick={() => handleSelectCustomSpeed('nextDay')}
+                      className={`p-1.5 sm:p-2 border-r border-slate-300 flex items-center justify-center transition-colors cursor-pointer ${
+                        isCustomQuantityActive && selectedSpeed === 'nextDay'
+                          ? 'bg-[#102a43] text-white font-bold shadow-inner'
+                          : isCustomQuantityActive
+                          ? 'bg-blue-50/60 hover:bg-blue-100/70 text-slate-800'
+                          : 'hover:bg-slate-100 text-slate-700'
+                      }`}
+                    >
+                      {customQuantityPrices ? `£${customQuantityPrices.nextDay.toFixed(2)}` : '—'}
+                    </button>
+                  )}
 
                   {/* 3-4 Working Days Custom Cell */}
-                  <button
-                    type="button"
-                    disabled={!customQuantityPrices}
-                    onClick={() => handleSelectCustomSpeed('standard')}
-                    className={`p-1.5 sm:p-2 flex items-center justify-center transition-colors cursor-pointer ${
-                      isCustomQuantityActive && selectedSpeed === 'standard'
-                        ? 'bg-[#102a43] text-white font-bold shadow-inner'
-                        : isCustomQuantityActive
-                        ? 'bg-blue-50/60 hover:bg-blue-100/70 text-slate-800'
-                        : 'hover:bg-slate-100 text-slate-700'
-                    }`}
-                  >
-                    {customQuantityPrices ? `£${customQuantityPrices.standard.toFixed(2)}` : '—'}
-                  </button>
+                  {isCustomQuantityExceedsMax ? (
+                    <div className="p-1.5 sm:p-2 flex items-center justify-center text-[10px] text-rose-500 font-bold bg-rose-50/50">
+                      Exceeds Max
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={!customQuantityPrices}
+                      onClick={() => handleSelectCustomSpeed('standard')}
+                      className={`p-1.5 sm:p-2 flex items-center justify-center transition-colors cursor-pointer ${
+                        isCustomQuantityActive && selectedSpeed === 'standard'
+                          ? 'bg-[#102a43] text-white font-bold shadow-inner'
+                          : isCustomQuantityActive
+                          ? 'bg-blue-50/60 hover:bg-blue-100/70 text-slate-800'
+                          : 'hover:bg-slate-100 text-slate-700'
+                      }`}
+                    >
+                      {customQuantityPrices ? `£${customQuantityPrices.standard.toFixed(2)}` : '—'}
+                    </button>
+                  )}
                 </div>
 
                 {/* 3. SCROLLABLE QUANTITY MATRIX ROWS (Matching Image 1) */}

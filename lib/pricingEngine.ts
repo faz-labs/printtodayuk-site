@@ -300,9 +300,12 @@ export function getProductQuantityTiers(
     ];
   }
 
-  // Ensure safeMin is included
+  // Ensure safeMin and safeMax are candidates
   if (!candidateTiers.includes(safeMin)) {
     candidateTiers.push(safeMin);
+  }
+  if (!candidateTiers.includes(safeMax)) {
+    candidateTiers.push(safeMax);
   }
 
   // Filter within [safeMin, safeMax]
@@ -311,6 +314,10 @@ export function getProductQuantityTiers(
   // If filtered is empty or doesn't have safeMin, ensure safeMin is present
   if (!filtered.includes(safeMin)) {
     filtered.unshift(safeMin);
+  }
+  // Ensure safeMax is explicitly included as the ceiling
+  if (!filtered.includes(safeMax)) {
+    filtered.push(safeMax);
   }
 
   // Ensure unique and sorted ascending
@@ -328,13 +335,15 @@ export function generateDynamicPriceMatrix(
   quantityTiers?: number[],
   minQuantity: number = 25,
   maxSameDayQuantity?: number,
-  isCMSCustomFieldProduct: boolean = false
+  isCMSCustomFieldProduct: boolean = false,
+  maxQuantity?: number
 ): MatrixRow[] {
   const safeMin = Math.max(1, minQuantity || 25);
+  const safeMax = maxQuantity && maxQuantity >= safeMin ? maxQuantity : 250000;
   const tiers =
     quantityTiers && quantityTiers.length > 0
       ? quantityTiers
-      : getProductQuantityTiers(safeMin, 250000);
+      : getProductQuantityTiers(safeMin, safeMax);
 
   // Turnaround speed multipliers
   // Base price in CMS is anchored at 3-5 working days (Standard delivery)
@@ -436,7 +445,8 @@ export function calculateCustomQuantityPrice(
   numberOfSets: number = 1,
   minQuantity: number = 25,
   maxSameDayQuantity?: number,
-  isCMSCustomFieldProduct: boolean = false
+  isCMSCustomFieldProduct: boolean = false,
+  maxQuantity?: number
 ): { sameDay: number; nextDay: number; standard: number; isSameDayAvailable: boolean } | null {
   if (!customQty || customQty < 1 || isNaN(customQty)) return null;
 
@@ -447,7 +457,8 @@ export function calculateCustomQuantityPrice(
     [customQty],
     minQuantity,
     maxSameDayQuantity,
-    isCMSCustomFieldProduct
+    isCMSCustomFieldProduct,
+    maxQuantity
   );
   if (matrix.length === 0) return null;
 

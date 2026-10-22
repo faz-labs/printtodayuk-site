@@ -6,7 +6,20 @@ import { slugify } from '@/lib/utils';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { MultiImageUploader } from './MultiImageUploader';
-import { Plus, Trash, Lightning, Sparkle, SlidersHorizontal, X, FloppyDisk } from '@phosphor-icons/react';
+import {
+  Plus,
+  Trash,
+  Lightning,
+  Sparkle,
+  SlidersHorizontal,
+  X,
+  FloppyDisk,
+  DotsSixVertical,
+  PencilSimple,
+  CaretUp,
+  CaretDown,
+  Check,
+} from '@phosphor-icons/react';
 
 interface ProductFormProps {
   isOpen: boolean;
@@ -39,6 +52,13 @@ export function ProductForm({
   const [newFeature, setNewFeature] = useState('');
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
   const [activeNewOptionText, setActiveNewOptionText] = useState<{ [fieldId: string]: string }>({});
+  const [draggedFieldIndex, setDraggedFieldIndex] = useState<number | null>(null);
+  const [draggedOption, setDraggedOption] = useState<{ fieldId: string; index: number } | null>(null);
+  const [editingOption, setEditingOption] = useState<{
+    fieldId: string;
+    optionIndex: number;
+    value: string;
+  } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -164,6 +184,47 @@ export function ProductForm({
 
   const handleDeleteCustomField = (fieldId: string) => {
     setCustomFields(customFields.filter((f) => f.id !== fieldId));
+  };
+
+  const handleMoveField = (fromIdx: number, toIdx: number) => {
+    if (fromIdx === toIdx || fromIdx < 0 || toIdx < 0 || fromIdx >= customFields.length || toIdx >= customFields.length) return;
+    const updated = [...customFields];
+    const [removed] = updated.splice(fromIdx, 1);
+    updated.splice(toIdx, 0, removed);
+    setCustomFields(updated);
+  };
+
+  const handleMoveOption = (fieldId: string, fromIdx: number, toIdx: number) => {
+    if (fromIdx === toIdx) return;
+    setCustomFields(
+      customFields.map((f) => {
+        if (f.id === fieldId) {
+          const updatedOptions = [...f.options];
+          const [removed] = updatedOptions.splice(fromIdx, 1);
+          updatedOptions.splice(toIdx, 0, removed);
+          return { ...f, options: updatedOptions };
+        }
+        return f;
+      })
+    );
+  };
+
+  const handleSaveOptionEdit = () => {
+    if (!editingOption) return;
+    const trimmed = editingOption.value.trim();
+    if (trimmed) {
+      setCustomFields(
+        customFields.map((f) => {
+          if (f.id === editingOption.fieldId) {
+            const updatedOptions = [...f.options];
+            updatedOptions[editingOption.optionIndex] = trimmed;
+            return { ...f, options: updatedOptions };
+          }
+          return f;
+        })
+      );
+    }
+    setEditingOption(null);
   };
 
   const handleAddPreset = (
@@ -656,40 +717,103 @@ export function ProductForm({
                   No custom dropdowns yet. Click &ldquo;Add Dropdown&rdquo; or pick a Preset above.
                 </div>
               ) : (
-                <div className="space-y-3 pt-1 max-h-80 overflow-y-auto pr-1">
-                  {customFields.map((field) => (
+                <div className="space-y-3 pt-1 max-h-96 overflow-y-auto pr-1">
+                  {customFields.map((field, fieldIdx) => (
                     <div
                       key={field.id}
-                      className="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-2.5"
+                      draggable={editingOption === null}
+                      onDragStart={(e) => {
+                        const target = e.target as HTMLElement;
+                        if (target.tagName === 'INPUT' || target.closest('.no-field-drag')) {
+                          e.preventDefault();
+                          return;
+                        }
+                        setDraggedFieldIndex(fieldIdx);
+                      }}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        if (draggedFieldIndex !== null) {
+                          handleMoveField(draggedFieldIndex, fieldIdx);
+                          setDraggedFieldIndex(null);
+                        }
+                      }}
+                      className={`p-3 rounded-xl bg-white border shadow-2xs space-y-2.5 transition-all ${
+                        draggedFieldIndex === fieldIdx
+                          ? 'border-[#012169] ring-2 ring-[#012169]/20 opacity-70'
+                          : 'border-slate-200 hover:border-slate-300'
+                      }`}
                     >
+                      {/* Field Header with Drag Grip, Up/Down, Title Input, and Delete */}
                       <div className="flex items-center justify-between gap-2">
-                        <div className="flex-1">
-                          <label className="block text-[10px] font-bold text-slate-700 mb-0.5">
-                            Dropdown Label / Field Title
-                          </label>
-                          <input
-                            type="text"
-                            value={field.name}
-                            onChange={(e) => handleUpdateFieldName(field.id, e.target.value)}
-                            placeholder="e.g. Choose A Size, Choose A Finish..."
-                            className="w-full h-8 px-2.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-900 focus:outline-hidden focus:border-[#012169]"
-                          />
+                        <div className="flex items-center gap-1.5 flex-1">
+                          <div
+                            className="p-1 text-slate-400 hover:text-[#012169] cursor-grab active:cursor-grabbing shrink-0"
+                            title="Drag card to reorder dropdown"
+                          >
+                            <DotsSixVertical weight="bold" className="h-4 w-4" />
+                          </div>
+
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between mb-0.5">
+                              <label className="block text-[10px] font-bold text-slate-700">
+                                Dropdown #{fieldIdx + 1} Title
+                              </label>
+                              <span className="text-[9px] text-slate-400 font-medium hidden sm:inline">
+                                Drag grip or use arrows to sort
+                              </span>
+                            </div>
+                            <input
+                              type="text"
+                              value={field.name}
+                              onChange={(e) => handleUpdateFieldName(field.id, e.target.value)}
+                              placeholder="e.g. Finished Size, Printed Sides, Paper Stock..."
+                              className="w-full h-8 px-2.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-900 focus:outline-hidden focus:border-[#012169]"
+                            />
+                          </div>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteCustomField(field.id)}
-                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer self-end mb-0.5"
-                          title="Remove field"
-                        >
-                          <Trash weight="bold" className="h-3.5 w-3.5" />
-                        </button>
+
+                        {/* Controls: Up, Down, Delete */}
+                        <div className="flex items-center gap-0.5 self-end mb-0.5 no-field-drag">
+                          <button
+                            type="button"
+                            disabled={fieldIdx === 0}
+                            onClick={() => handleMoveField(fieldIdx, fieldIdx - 1)}
+                            className="p-1.5 text-slate-400 hover:text-slate-800 disabled:opacity-20 disabled:cursor-not-allowed rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
+                            title="Move up"
+                          >
+                            <CaretUp weight="bold" className="h-3 w-3" />
+                          </button>
+                          <button
+                            type="button"
+                            disabled={fieldIdx === customFields.length - 1}
+                            onClick={() => handleMoveField(fieldIdx, fieldIdx + 1)}
+                            className="p-1.5 text-slate-400 hover:text-slate-800 disabled:opacity-20 disabled:cursor-not-allowed rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
+                            title="Move down"
+                          >
+                            <CaretDown weight="bold" className="h-3 w-3" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteCustomField(field.id)}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors cursor-pointer ml-1"
+                            title="Delete this dropdown"
+                          >
+                            <Trash weight="bold" className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
                       </div>
 
                       {/* Dropdown Options (Values) list */}
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-600 mb-1">
-                          Selectable Dropdown Options (Values)
-                        </label>
+                      <div className="no-field-drag">
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="block text-[10px] font-bold text-slate-600">
+                            Selectable Dropdown Options (Values)
+                          </label>
+                          <span className="text-[9px] text-slate-400 font-medium">
+                            💡 Double-click any value to edit · Drag to reorder
+                          </span>
+                        </div>
 
                         {/* Add option input */}
                         <div className="flex gap-1.5 mb-2">
@@ -708,7 +832,7 @@ export function ProductForm({
                                 handleAddOptionToField(field.id);
                               }
                             }}
-                            placeholder="Add option (e.g. A4, Matt Lamination +£12, A8+500%)..."
+                            placeholder="Add option (e.g. A4 +35%, Double Sided +10%, Matt Lamination +£12)..."
                             className="flex-1 h-8 px-2.5 rounded-lg border border-slate-200 text-xs text-slate-900 focus:outline-hidden focus:border-[#012169]"
                           />
                           <button
@@ -723,22 +847,138 @@ export function ProductForm({
 
                         {/* Options list chips */}
                         {field.options.length > 0 ? (
-                          <div className="flex flex-wrap gap-1.5">
-                            {field.options.map((opt, optIdx) => (
-                              <span
-                                key={optIdx}
-                                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-[#012169]/10 border border-[#012169]/20 text-[#012169] text-xs font-semibold"
-                              >
-                                <span>{opt}</span>
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveOptionFromField(field.id, optIdx)}
-                                  className="text-[#012169]/60 hover:text-rose-600 cursor-pointer"
+                          <div className="flex flex-wrap gap-1.5 items-center">
+                            {field.options.map((opt, optIdx) => {
+                              const isEditingThisOption =
+                                editingOption?.fieldId === field.id &&
+                                editingOption?.optionIndex === optIdx;
+
+                              if (isEditingThisOption) {
+                                return (
+                                  <div
+                                    key={`edit-${optIdx}`}
+                                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg bg-white border border-[#012169] ring-2 ring-[#012169]/20 shadow-xs"
+                                  >
+                                    <input
+                                      type="text"
+                                      autoFocus
+                                      value={editingOption.value}
+                                      onChange={(e) =>
+                                        setEditingOption({
+                                          ...editingOption,
+                                          value: e.target.value,
+                                        })
+                                      }
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                          e.preventDefault();
+                                          handleSaveOptionEdit();
+                                        } else if (e.key === 'Escape') {
+                                          setEditingOption(null);
+                                        }
+                                      }}
+                                      onBlur={handleSaveOptionEdit}
+                                      className="h-6 px-1 text-xs font-semibold text-slate-900 focus:outline-hidden min-w-[130px] max-w-[240px]"
+                                    />
+                                    <button
+                                      type="button"
+                                      onMouseDown={(e) => {
+                                        e.preventDefault();
+                                        handleSaveOptionEdit();
+                                      }}
+                                      className="text-emerald-600 hover:text-emerald-700 p-0.5 cursor-pointer"
+                                      title="Save (Enter)"
+                                    >
+                                      <Check weight="bold" className="h-3.5 w-3.5" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onMouseDown={(e) => {
+                                        e.preventDefault();
+                                        setEditingOption(null);
+                                      }}
+                                      className="text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
+                                      title="Cancel (Esc)"
+                                    >
+                                      <X weight="bold" className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
+                                );
+                              }
+
+                              const isBeingDragged =
+                                draggedOption?.fieldId === field.id &&
+                                draggedOption?.index === optIdx;
+
+                              return (
+                                <span
+                                  key={optIdx}
+                                  draggable={editingOption === null}
+                                  onDragStart={(e) => {
+                                    e.stopPropagation();
+                                    setDraggedOption({ fieldId: field.id, index: optIdx });
+                                  }}
+                                  onDragOver={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                  }}
+                                  onDrop={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    if (draggedOption && draggedOption.fieldId === field.id) {
+                                      handleMoveOption(field.id, draggedOption.index, optIdx);
+                                      setDraggedOption(null);
+                                    }
+                                  }}
+                                  onDoubleClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingOption({
+                                      fieldId: field.id,
+                                      optionIndex: optIdx,
+                                      value: opt,
+                                    });
+                                  }}
+                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg border text-xs font-semibold transition-all group select-none cursor-grab active:cursor-grabbing ${
+                                    isBeingDragged
+                                      ? 'bg-[#012169]/20 border-[#012169] opacity-60'
+                                      : 'bg-[#012169]/10 hover:bg-[#012169]/15 border-[#012169]/20 text-[#012169]'
+                                  }`}
+                                  title="Double-click to edit · Drag to reorder"
                                 >
-                                  <X className="h-3 w-3" />
-                                </button>
-                              </span>
-                            ))}
+                                  <DotsSixVertical
+                                    weight="bold"
+                                    className="h-2.5 w-2.5 text-[#012169]/40 group-hover:text-[#012169] shrink-0"
+                                  />
+                                  <span>{opt}</span>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setEditingOption({
+                                        fieldId: field.id,
+                                        optionIndex: optIdx,
+                                        value: opt,
+                                      });
+                                    }}
+                                    className="text-[#012169]/40 hover:text-[#012169] p-0.5 rounded cursor-pointer"
+                                    title="Edit value"
+                                  >
+                                    <PencilSimple weight="bold" className="h-2.5 w-2.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleRemoveOptionFromField(field.id, optIdx);
+                                    }}
+                                    className="text-[#012169]/60 hover:text-rose-600 transition-colors p-0.5 rounded cursor-pointer"
+                                    title="Remove option"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </button>
+                                </span>
+                              );
+                            })}
                           </div>
                         ) : (
                           <div className="text-[10px] text-amber-700 bg-amber-50 p-1.5 rounded-lg border border-amber-200">
