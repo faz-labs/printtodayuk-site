@@ -5,6 +5,7 @@ import { Footer } from '@/components/storefront/Footer';
 import { CallMeProvider } from '@/components/storefront/CallMeContext';
 import { CallMeModal } from '@/components/storefront/CallMeModal';
 import { FloatingWhatsApp } from '@/components/storefront/FloatingWhatsApp';
+import { UnderConstructionNoticeModal } from '@/components/storefront/UnderConstructionNoticeModal';
 
 import { getCategories, getProducts } from '@/lib/db';
 
@@ -27,6 +28,7 @@ export default async function StorefrontLayout({
         <Footer />
         <CallMeModal />
         <FloatingWhatsApp />
+        <UnderConstructionNoticeModal />
       </div>
     </CallMeProvider>
   );
