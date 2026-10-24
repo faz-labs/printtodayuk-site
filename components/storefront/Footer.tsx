@@ -462,8 +462,12 @@ export function Footer() {
             <Link href="/" className="flex items-center gap-2.5 group shrink-0">
               <img
                 src="/images/logo.png"
+                srcSet="/images/logo.png 1x, /images/logo-original.png 2x"
                 alt="Print Today UK"
-                className="h-9 sm:h-11 w-auto max-w-[210px] object-contain block drop-shadow-2xs"
+                width={220}
+                height={54}
+                className="h-10 sm:h-12 w-auto max-w-[220px] object-contain block transition-transform group-hover:scale-[1.02]"
+                style={{ imageRendering: '-webkit-optimize-contrast' }}
                 onError={(e) => {
                   e.currentTarget.style.display = 'none';
                   const fallbackEl = document.getElementById('footer-brand-text-logo');
