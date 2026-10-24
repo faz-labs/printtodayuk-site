@@ -216,12 +216,12 @@ export function Footer() {
                 </button>
               </li>
               <li>
-                <a
-                  href="tel:03300103521"
+                <Link
+                  href="/contact-us"
                   className="hover:text-[#012169] transition-colors block"
                 >
                   Contact Us
-                </a>
+                </Link>
               </li>
               <li>
                 <button
@@ -253,10 +253,8 @@ export function Footer() {
               </li>
               {/* Studio Location */}
               <li className="pt-2 border-t border-slate-100">
-                <a
-                  href="https://www.google.com/maps/search/?api=1&query=75+Green+Street,+E7+8JF,+London,+United+Kingdom"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <Link
+                  href="/contact-us"
                   className="group block hover:text-[#012169] transition-colors"
                 >
                   <div className="font-bold text-slate-900 flex items-center gap-1.5 mb-1 text-xs">
@@ -267,7 +265,10 @@ export function Footer() {
                     75 Green Street, E7 8JF<br />
                     London, United Kingdom
                   </address>
-                </a>
+                  <span className="inline-block mt-1 text-[11px] font-semibold text-[#012169] group-hover:underline">
+                    View Map &amp; Studio Info →
+                  </span>
+                </Link>
               </li>
             </ul>
           </div>

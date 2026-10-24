@@ -10,6 +10,7 @@ import {
   Sparkle,
   ArrowRight,
   CheckCircle,
+  Lightning,
 } from '@phosphor-icons/react';
 import { useCallMe } from './CallMeContext';
 
@@ -96,26 +97,38 @@ export function UnderConstructionNoticeModal() {
                 </span>
                 <span className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-extrabold text-black bg-emerald-100 px-3.5 py-1.5 rounded-full border border-emerald-300">
                   <CheckCircle weight="fill" className="h-4 w-4 text-emerald-700" />
-                  <span>Studio Fully Open &amp; Printing</span>
+                  <span>Business as Usual · Fully Operational</span>
                 </span>
               </div>
 
               {/* Main Headline */}
               <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-black tracking-tight leading-snug">
-                Our Website is Under Construction, but{' '}
+                Our Website Is Being Upgraded —{' '}
                 <span className="text-[#012169] underline decoration-[#C8102E] decoration-4 underline-offset-6">
-                  Our Business is Fully Running!
+                  Business as Usual!
                 </span>
               </h2>
 
-              {/* Informative Body - 16px (text-base) in high-contrast black */}
-              <p className="mt-4 text-base sm:text-lg text-black font-medium leading-relaxed">
-                We are currently modernising our online checkout experience to serve you better. In the meantime,{' '}
-                <strong className="font-black text-black underline decoration-slate-300 underline-offset-2">
-                  our London production hub and print presses are running daily
-                </strong>{' '}
-                with express same-day dispatch and studio collections.
+              {/* Sub-headline */}
+              <p className="mt-3 text-lg sm:text-xl text-black font-extrabold leading-snug">
+                Print Today remains fully operational and ready to serve you!
               </p>
+
+              {/* Informative Body - 16px (text-base) in high-contrast black */}
+              <div className="mt-4 space-y-3 text-base text-black font-medium leading-relaxed">
+                <p>
+                  We are currently modernising our website to provide a faster, smarter and more seamless online ordering experience.
+                </p>
+                <p>
+                  In the meantime, our London printing and production facilities remain fully operational, delivering high-quality professional printing services with express turnaround times.
+                </p>
+                <div className="p-4 rounded-2xl bg-amber-50/90 border-2 border-amber-300/90 text-black font-semibold text-sm sm:text-base leading-relaxed flex items-start gap-3 shadow-xs">
+                  <Lightning weight="fill" className="h-5 w-5 text-[#C8102E] shrink-0 mt-0.5" />
+                  <div>
+                    <strong className="font-black text-black">PRINT TODAY</strong> offers express 1-hour delivery, available 24/7 in Central London, alongside same-day and overnight courier delivery services across Greater London, subject to availability.
+                  </div>
+                </div>
+              </div>
 
               {/* Call-to-Action Highlights Box */}
               <div className="mt-6 space-y-3">
