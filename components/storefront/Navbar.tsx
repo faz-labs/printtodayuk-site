@@ -555,7 +555,7 @@ export function Navbar({ initialCategories = [], initialProducts = [] }: NavbarP
 
         {/* ROW 2: More Products + Up to 8 CMS Categories (Centered per request) */}
         <div className="w-full bg-white border-t border-slate-100 shadow-xs relative z-20 hidden lg:block">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-center gap-6 xl:gap-8 h-11 overflow-x-auto no-scrollbar">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-center gap-4 xl:gap-7 h-11 overflow-x-auto no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
             {/* More Products Button (triggers AllProductsMegaMenu) */}
             <div
               className="relative h-full flex items-center shrink-0"
