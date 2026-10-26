@@ -103,8 +103,8 @@ export default function ContactUsPage() {
               <p className="text-base font-black text-slate-900">
                 0330 010 3521
               </p>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Mon–Sat 9:00 AM – 7:00 PM
+              <p className="text-xs text-slate-500 mt-0.5 leading-tight">
+                Mon–Fri 7am–8pm · Sat 10–6 · Sun 10–4
               </p>
             </div>
             <span className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-[#012169] group-hover:underline">
@@ -234,8 +234,9 @@ export default function ContactUsPage() {
                   <Clock weight="bold" className="h-4 w-4 text-[#012169] shrink-0 mt-0.5" />
                   <div>
                     <strong className="text-slate-900 block font-bold">Studio Opening Hours:</strong>
-                    <span className="block text-slate-700 font-medium">Monday – Saturday: 9:00 AM – 7:00 PM</span>
-                    <span className="text-slate-500">Sunday: Closed (Express rush dispatch by appointment)</span>
+                    <span className="block text-slate-700 font-medium">Monday – Friday: 7:00 AM – 8:00 PM</span>
+                    <span className="block text-slate-700 font-medium">Saturday: 10:00 AM – 6:00 PM</span>
+                    <span className="block text-slate-700 font-medium">Sunday: 10:00 AM – 4:00 PM</span>
                   </div>
                 </div>
               </div>

@@ -248,7 +248,7 @@ export function Navbar({ initialCategories = [], initialProducts = [] }: NavbarP
       name: 'Find a Studio',
       action: () =>
         setNoticeModal(
-          'London Production Hub: 75 Green St, E7 8JF, London. Walk-ins & same-day collection welcome Mon-Sat 9am - 7pm.'
+          'London Production Hub: 75 Green St, E7 8JF, London. Walk-ins & same-day collection welcome Mon-Fri 7am - 8pm, Sat 10am - 6pm, Sun 10am - 4pm.'
         ),
       icon: MapPin,
     },

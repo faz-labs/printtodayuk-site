@@ -11,6 +11,7 @@ import {
   ArrowRight,
   CheckCircle,
   Lightning,
+  Clock,
 } from '@phosphor-icons/react';
 import { useCallMe } from './CallMeContext';
 
@@ -175,8 +176,9 @@ export function UnderConstructionNoticeModal() {
                       </div>
                     </div>
                   </div>
-                  <div className="text-xs sm:text-sm text-blue-200 text-right font-medium hidden sm:block">
-                    Mon–Sat 9am–7pm
+                  <div className="text-xs text-blue-200 text-right font-medium hidden sm:block leading-tight">
+                    <div>Mon–Fri 7am–8pm</div>
+                    <div className="text-[11px] text-blue-300">Sat 10am–6pm · Sun 10am–4pm</div>
                   </div>
                 </a>
               </div>
@@ -207,6 +209,21 @@ export function UnderConstructionNoticeModal() {
                 <span>
                   <strong className="font-black text-black">Studio Location:</strong> 75 Green Street, E7 8JF, London, United Kingdom (Walk-ins &amp; express same-day collections welcome).
                 </span>
+              </div>
+
+              {/* Studio Opening Hours Bar */}
+              <div className="mt-3.5 p-3.5 sm:p-4 rounded-2xl bg-slate-100/90 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-black">
+                <div className="flex items-center gap-2 font-black text-xs sm:text-sm text-slate-900 shrink-0">
+                  <Clock weight="fill" className="h-4 w-4 text-[#012169]" />
+                  <span>Opening Hours:</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs sm:text-[13px] font-semibold text-slate-700">
+                  <span><strong className="text-black">Mon–Fri:</strong> 7:00 AM – 8:00 PM</span>
+                  <span className="hidden sm:inline text-slate-300">•</span>
+                  <span><strong className="text-black">Sat:</strong> 10:00 AM – 6:00 PM</span>
+                  <span className="hidden sm:inline text-slate-300">•</span>
+                  <span><strong className="text-black">Sun:</strong> 10:00 AM – 4:00 PM</span>
+                </div>
               </div>
             </div>
           </motion.div>

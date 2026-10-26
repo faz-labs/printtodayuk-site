@@ -15,6 +15,7 @@ import {
   Phone,
   Sparkle,
   MapPin,
+  Clock,
 } from '@phosphor-icons/react';
 import { useCallMe } from './CallMeContext';
 
@@ -270,6 +271,27 @@ export function Footer() {
                   </span>
                 </Link>
               </li>
+              {/* Studio Opening Hours */}
+              <li className="pt-2 border-t border-slate-100">
+                <div className="font-bold text-slate-900 flex items-center gap-1.5 mb-1.5 text-xs">
+                  <Clock weight="fill" className="h-3.5 w-3.5 text-[#012169] shrink-0" />
+                  <span>Opening Hours</span>
+                </div>
+                <div className="text-[12px] leading-relaxed text-slate-600 space-y-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium text-slate-700">Mon – Fri:</span>
+                    <span className="font-semibold text-slate-900">7:00 AM – 8:00 PM</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium text-slate-700">Sat:</span>
+                    <span className="font-semibold text-slate-900">10:00 AM – 6:00 PM</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium text-slate-700">Sun:</span>
+                    <span className="font-semibold text-slate-900">10:00 AM – 4:00 PM</span>
+                  </div>
+                </div>
+              </li>
             </ul>
           </div>
 
@@ -494,17 +516,26 @@ export function Footer() {
 
             <div className="hidden sm:block h-8 w-px bg-slate-200 shrink-0" />
 
-            <a
-              href="https://www.google.com/maps/search/?api=1&query=75+Green+Street,+E7+8JF,+London,+United+Kingdom"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-xs text-slate-600 hover:text-[#012169] transition-colors"
-            >
-              <MapPin weight="fill" className="h-4 w-4 text-[#C8102E] shrink-0" />
-              <span>
-                <strong className="text-slate-800">Studio:</strong> 75 Green Street, E7 8JF, London, United Kingdom
-              </span>
-            </a>
+            <div className="flex flex-col sm:flex-row items-center gap-3 text-xs text-slate-600">
+              <a
+                href="https://www.google.com/maps/search/?api=1&query=75+Green+Street,+E7+8JF,+London,+United+Kingdom"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 hover:text-[#012169] transition-colors"
+              >
+                <MapPin weight="fill" className="h-4 w-4 text-[#C8102E] shrink-0" />
+                <span>
+                  <strong className="text-slate-800">Studio:</strong> 75 Green Street, E7 8JF, London
+                </span>
+              </a>
+              <span className="hidden sm:inline text-slate-300">•</span>
+              <div className="inline-flex items-center gap-1.5 text-[11px] text-slate-600">
+                <Clock weight="fill" className="h-3.5 w-3.5 text-[#012169] shrink-0" />
+                <span>
+                  <strong>Mon–Fri:</strong> 7am–8pm · <strong>Sat:</strong> 10am–6pm · <strong>Sun:</strong> 10am–4pm
+                </span>
+              </div>
+            </div>
           </div>
 
           {/* Social Media Circular Buttons on Right (Exact 6 matching Solopress) */}

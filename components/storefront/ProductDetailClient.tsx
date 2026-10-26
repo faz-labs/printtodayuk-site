@@ -697,7 +697,7 @@ export function ProductDetailClient({
                     >
                       <p>
                         <strong>London Production Hub:</strong> 75 Green St, E7 8JF. Walk-ins and
-                        same-day collections welcome Mon-Sat 8am - 8pm.
+                        same-day collections welcome Mon-Fri 7am - 8pm, Sat 10am - 6pm, Sun 10am - 4pm.
                       </p>
                       <p className="text-[11px] text-slate-500">
                         Express London courier delivery dispatched daily directly to your office or
