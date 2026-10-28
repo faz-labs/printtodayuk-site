@@ -513,6 +513,9 @@ export function ProductForm({
           return;
         }
         payload.discountedPrice = parsedDiscount;
+      } else {
+        // Explicitly clear promotional strike-through price if empty
+        payload.discountedPrice = null as any;
       }
 
       await onSubmit(payload, initialProduct?.id);

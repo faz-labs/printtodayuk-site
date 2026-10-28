@@ -342,55 +342,77 @@ export function getTierBasePrice(
   // Base tier is index 0
   const baseTier = tiers[0];
   const anchorPrice =
-    typeof baseTier.price === 'number' && baseTier.price > 0
+    typeof baseTier.price === 'number' && !isNaN(baseTier.price) && baseTier.price > 0
       ? baseTier.price
+      : typeof baseTier.price === 'string' && parseFloat(baseTier.price) > 0
+      ? parseFloat(baseTier.price)
       : fallbackBasePrice;
 
   // Helper to compute exact standard price for a configured tier
   const getExactTierPrice = (t: QuantityTier, index: number): number => {
     if (index === 0) return anchorPrice;
-    if (typeof t.percentIncrease === 'number' && !isNaN(t.percentIncrease)) {
-      return anchorPrice * (1 + t.percentIncrease / 100);
+    const pct =
+      typeof t.percentIncrease === 'number'
+        ? t.percentIncrease
+        : typeof t.percentIncrease === 'string'
+        ? parseFloat(t.percentIncrease)
+        : NaN;
+    if (!isNaN(pct)) {
+      return anchorPrice * (1 + pct / 100);
     }
-    if (typeof t.price === 'number' && !isNaN(t.price) && t.price > 0) {
-      return t.price;
+    const fixedPrice =
+      typeof t.price === 'number'
+        ? t.price
+        : typeof t.price === 'string'
+        ? parseFloat(t.price)
+        : NaN;
+    if (!isNaN(fixedPrice) && fixedPrice > 0) {
+      return fixedPrice;
     }
     // Proportional fallback
-    return anchorPrice * Math.pow(t.quantity / (baseTier.quantity || 1), 0.42);
+    const q = Number(t.quantity);
+    const baseQ = Number(baseTier.quantity) || 1;
+    return anchorPrice * Math.pow(q / baseQ, 0.42);
   };
 
-  // 1. Exact match with a configured tier
-  const matchIdx = tiers.findIndex((t) => t.quantity === qty);
+  const numericQty = Number(qty);
+
+  // 1. Exact match with a configured tier (type-safe comparison)
+  const matchIdx = tiers.findIndex((t) => Number(t.quantity) === numericQty);
   if (matchIdx !== -1) {
     return getExactTierPrice(tiers[matchIdx], matchIdx);
   }
 
   // 2. Below first tier: pro-rate from first tier unit price
-  if (qty < tiers[0].quantity) {
+  const firstQty = Number(tiers[0].quantity) || safeMin;
+  if (numericQty < firstQty) {
     const firstPrice = getExactTierPrice(tiers[0], 0);
-    const unitPrice = firstPrice / Math.max(1, tiers[0].quantity);
-    return Math.max(1, unitPrice * qty);
+    const unitPrice = firstPrice / Math.max(1, firstQty);
+    return Math.max(1, unitPrice * numericQty);
   }
 
   // 3. Above last tier: pro-rate from last tier unit price
   const lastIdx = tiers.length - 1;
   const lastTier = tiers[lastIdx];
-  if (qty > lastTier.quantity) {
+  const lastQty = Number(lastTier.quantity);
+  if (numericQty > lastQty) {
     const lastPrice = getExactTierPrice(lastTier, lastIdx);
-    const unitPrice = lastPrice / Math.max(1, lastTier.quantity);
-    return unitPrice * qty;
+    const unitPrice = lastPrice / Math.max(1, lastQty);
+    return unitPrice * numericQty;
   }
 
   // 4. In-between two tiers: interpolate linearly
   for (let i = 0; i < tiers.length - 1; i++) {
     const tLower = tiers[i];
     const tUpper = tiers[i + 1];
-    if (qty >= tLower.quantity && qty <= tUpper.quantity) {
+    const qLower = Number(tLower.quantity);
+    const qUpper = Number(tUpper.quantity);
+    if (numericQty >= qLower && numericQty <= qUpper) {
       const pLower = getExactTierPrice(tLower, i);
       const pUpper = getExactTierPrice(tUpper, i + 1);
-      const span = tUpper.quantity - tLower.quantity;
+      const span = qUpper - qLower;
       if (span <= 0) return pLower;
-      const ratio = (qty - tLower.quantity) / span;
+      const ratio = (numericQty - qLower) / span;
       return pLower + (pUpper - pLower) * ratio;
     }
   }
@@ -428,7 +450,7 @@ export function generateDynamicPriceMatrix(
     quantityTiers && quantityTiers.length > 0
       ? quantityTiers
       : productQuantityTiers && productQuantityTiers.length > 0
-      ? productQuantityTiers.map((t) => t.quantity)
+      ? productQuantityTiers.map((t) => Number(t.quantity))
       : getProductQuantityTiers(safeMin, safeMax);
 
   // Turnaround speed multipliers
@@ -453,28 +475,22 @@ export function generateDynamicPriceMatrix(
       ? basePrice
       : 14.69;
 
-  // Aggregate total option percentage delta and total flat fee (Solopress additive model)
-  // e.g. Base £100 + Option A (+20%) + Option B (+30%) = 100% + 20% + 30% = 150% -> £150 total
+  // Aggregate total option percentage delta and total flat fee
   let totalPercentDelta = 0.0;
   let combinedFlatAddon = 0.0;
+
+  // If the product uses explicit merchant quantity tiers or CMS custom fields, do not inject hardcoded fallback modifiers
+  const hasExplicitTiers = Boolean(productQuantityTiers && productQuantityTiers.length > 0);
+  const skipHardcodedDefaults = isCMSCustomFieldProduct || hasExplicitTiers;
 
   for (const [field, val] of Object.entries(selectedOptions)) {
     // If the field is "Number of Sets", sets are multiplied separately via numberOfSets parameter
     if (field.toLowerCase().includes('set')) {
       continue;
     }
-    const mod = getIndustryDefaultModifier(field, val, isCMSCustomFieldProduct);
+    const mod = getIndustryDefaultModifier(field, val, skipHardcodedDefaults);
     totalPercentDelta += (mod.multiplier - 1.0);
-
-    // Solopress proportional scaling: If an admin specifies a flat amount (+£1 or +£2),
-    // convert it to a proportional delta against the base anchor at minQuantity.
-    if (mod.flatAddon !== 0) {
-      if (baseAnchorPrice > 0) {
-        totalPercentDelta += mod.flatAddon / baseAnchorPrice;
-      } else {
-        combinedFlatAddon += mod.flatAddon;
-      }
-    }
+    combinedFlatAddon += mod.flatAddon;
   }
 
   // Additive combined multiplier: Base (1.0) + sum of all option percentage deltas

@@ -9,6 +9,7 @@ import {
   setDoc,
   query,
   where,
+  deleteField,
 } from 'firebase/firestore';
 import { db, isConfigured } from './firebase';
 import {
@@ -322,14 +323,19 @@ export async function updateProduct(
   updates: Partial<Product>
 ): Promise<Product | null> {
   invalidateProductsCache();
-  const payload = {
+  const payload: any = {
     ...updates,
     updatedAt: Date.now(),
   };
 
+  const isDiscountCleared = updates.discountedPrice === null;
+
   if (isConfigured && db) {
     try {
-      const cleanData = cleanFirestoreData(payload);
+      const cleanData: any = cleanFirestoreData(payload);
+      if (isDiscountCleared) {
+        cleanData.discountedPrice = deleteField();
+      }
       const docRef = doc(db, 'products', id);
       await updateDoc(docRef, cleanData);
     } catch (error) {
@@ -342,6 +348,9 @@ export async function updateProduct(
   const index = local.findIndex((p) => p.id === id || p.slug === id);
   if (index !== -1) {
     local[index] = { ...local[index], ...payload };
+    if (isDiscountCleared) {
+      delete local[index].discountedPrice;
+    }
     saveLocalProducts(local);
     return local[index];
   }
