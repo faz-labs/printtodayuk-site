@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Product, ProductInput, CategoryConfig, CustomField } from '@/lib/types';
+import { Product, ProductInput, CategoryConfig, CustomField, QuantityTier } from '@/lib/types';
 import { slugify } from '@/lib/utils';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
@@ -29,6 +29,41 @@ interface ProductFormProps {
   categories: CategoryConfig[];
 }
 
+const TIER_PRESETS = {
+  flyers: [
+    { quantity: 25, price: 25.0 },
+    { quantity: 50, percentIncrease: 40 },
+    { quantity: 100, percentIncrease: 80 },
+    { quantity: 250, percentIncrease: 150 },
+    { quantity: 500, percentIncrease: 250 },
+    { quantity: 1000, percentIncrease: 400 },
+    { quantity: 2500, percentIncrease: 750 },
+    { quantity: 5000, percentIncrease: 1200 },
+  ],
+  businessCards: [
+    { quantity: 50, price: 18.0 },
+    { quantity: 100, percentIncrease: 35 },
+    { quantity: 250, percentIncrease: 85 },
+    { quantity: 500, percentIncrease: 140 },
+    { quantity: 1000, percentIncrease: 220 },
+  ],
+  banners: [
+    { quantity: 1, price: 29.0 },
+    { quantity: 2, percentIncrease: 70 },
+    { quantity: 5, percentIncrease: 250 },
+    { quantity: 10, percentIncrease: 550 },
+    { quantity: 25, percentIncrease: 1300 },
+  ],
+  booklets: [
+    { quantity: 25, price: 65.0 },
+    { quantity: 50, percentIncrease: 45 },
+    { quantity: 100, percentIncrease: 95 },
+    { quantity: 200, percentIncrease: 175 },
+    { quantity: 300, percentIncrease: 245 },
+    { quantity: 500, percentIncrease: 380 },
+  ],
+};
+
 export function ProductForm({
   isOpen,
   onClose,
@@ -41,12 +76,19 @@ export function ProductForm({
   const [description, setDescription] = useState('');
   const [images, setImages] = useState<string[]>([]);
   const [imageUrl, setImageUrl] = useState('');
-  const [price, setPrice] = useState<string>('25.00');
+  const [quantityTiers, setQuantityTiers] = useState<QuantityTier[]>([
+    { quantity: 25, price: 25.0 },
+    { quantity: 50, percentIncrease: 40 },
+    { quantity: 100, percentIncrease: 80 },
+    { quantity: 250, percentIncrease: 150 },
+    { quantity: 500, percentIncrease: 250 },
+    { quantity: 1000, percentIncrease: 400 },
+  ]);
+  const [sameDayIncreasePercent, setSameDayIncreasePercent] = useState<string>('35.4');
+  const [nextDayIncreasePercent, setNextDayIncreasePercent] = useState<string>('10');
   const [discountedPrice, setDiscountedPrice] = useState<string>('');
   const [category, setCategory] = useState<string>(categories[0]?.name || '');
   const [isSameDayAvailable, setIsSameDayAvailable] = useState(true);
-  const [minQuantity, setMinQuantity] = useState<string>('25');
-  const [maxQuantity, setMaxQuantity] = useState<string>('250000');
   const [maxSameDayQuantity, setMaxSameDayQuantity] = useState<string>('');
   const [maxNextDayQuantity, setMaxNextDayQuantity] = useState<string>('');
   const [features, setFeatures] = useState<string[]>([]);
@@ -76,14 +118,11 @@ export function ProductForm({
           : [];
       setImages(prodImages);
       setImageUrl(prodImages[0] || initialProduct.imageUrl || '');
-      setPrice(initialProduct.price.toString());
       setDiscountedPrice(
         initialProduct.discountedPrice ? initialProduct.discountedPrice.toString() : ''
       );
       setCategory(initialProduct.category || categories[0]?.name || '');
       setIsSameDayAvailable(initialProduct.isSameDayAvailable);
-      setMinQuantity(initialProduct.minQuantity ? initialProduct.minQuantity.toString() : '25');
-      setMaxQuantity(initialProduct.maxQuantity ? initialProduct.maxQuantity.toString() : '250000');
       setMaxSameDayQuantity(
         initialProduct.maxSameDayQuantity !== undefined && initialProduct.maxSameDayQuantity !== null
           ? initialProduct.maxSameDayQuantity.toString()
@@ -94,6 +133,30 @@ export function ProductForm({
           ? initialProduct.maxNextDayQuantity.toString()
           : ''
       );
+      setSameDayIncreasePercent(
+        initialProduct.sameDayIncreasePercent !== undefined && initialProduct.sameDayIncreasePercent !== null
+          ? initialProduct.sameDayIncreasePercent.toString()
+          : '35.4'
+      );
+      setNextDayIncreasePercent(
+        initialProduct.nextDayIncreasePercent !== undefined && initialProduct.nextDayIncreasePercent !== null
+          ? initialProduct.nextDayIncreasePercent.toString()
+          : '10'
+      );
+      if (initialProduct.quantityTiers && initialProduct.quantityTiers.length > 0) {
+        setQuantityTiers(initialProduct.quantityTiers);
+      } else {
+        const firstQty = initialProduct.minQuantity || 25;
+        const firstPrice = initialProduct.price || 14.69;
+        setQuantityTiers([
+          { quantity: firstQty, price: firstPrice },
+          { quantity: Math.max(firstQty * 2, 50), percentIncrease: 40 },
+          { quantity: Math.max(firstQty * 4, 100), percentIncrease: 80 },
+          { quantity: Math.max(firstQty * 10, 250), percentIncrease: 150 },
+          { quantity: Math.max(firstQty * 20, 500), percentIncrease: 250 },
+          { quantity: Math.max(firstQty * 40, 1000), percentIncrease: 400 },
+        ]);
+      }
       setFeatures(initialProduct.features || []);
       setCustomFields(initialProduct.customFields || []);
     } else {
@@ -103,14 +166,21 @@ export function ProductForm({
       setDescription('');
       setImages([]);
       setImageUrl('');
-      setPrice('14.69');
       setDiscountedPrice('');
       setCategory(categories[0]?.name || '');
       setIsSameDayAvailable(true);
-      setMinQuantity('25');
-      setMaxQuantity('250000');
       setMaxSameDayQuantity('');
       setMaxNextDayQuantity('');
+      setSameDayIncreasePercent('35.4');
+      setNextDayIncreasePercent('10');
+      setQuantityTiers([
+        { quantity: 25, price: 25.0 },
+        { quantity: 50, percentIncrease: 40 },
+        { quantity: 100, percentIncrease: 80 },
+        { quantity: 250, percentIncrease: 150 },
+        { quantity: 500, percentIncrease: 250 },
+        { quantity: 1000, percentIncrease: 400 },
+      ]);
       setFeatures([
         'Premium High Definition Print Quality',
         'Same-day London Dispatch Available',
@@ -306,13 +376,87 @@ export function ProductForm({
     setCustomFields([newField, ...customFields]);
   };
 
+  const handleApplyTierPreset = (presetKey: keyof typeof TIER_PRESETS) => {
+    const preset = TIER_PRESETS[presetKey];
+    const currentBasePrice = quantityTiers[0]?.price || preset[0].price;
+    const newTiers: QuantityTier[] = preset.map((t, idx) => {
+      if (idx === 0) {
+        return { quantity: t.quantity, price: currentBasePrice };
+      }
+      return { quantity: t.quantity, percentIncrease: t.percentIncrease };
+    });
+    setQuantityTiers(newTiers);
+  };
+
+  const handleAddTier = () => {
+    const lastTier = quantityTiers[quantityTiers.length - 1];
+    const nextQty = lastTier ? Math.round(lastTier.quantity * 2) : 25;
+    const nextPct =
+      lastTier && lastTier.percentIncrease !== undefined
+        ? Math.round(lastTier.percentIncrease * 1.5 + 20)
+        : 40;
+    setQuantityTiers([
+      ...quantityTiers,
+      { quantity: nextQty, percentIncrease: nextPct },
+    ]);
+  };
+
+  const handleUpdateTier = (
+    index: number,
+    field: 'quantity' | 'price' | 'percentIncrease',
+    val: string
+  ) => {
+    const num = val === '' ? undefined : parseFloat(val);
+    setQuantityTiers((prev) =>
+      prev.map((t, i) => {
+        if (i !== index) return t;
+        if (field === 'quantity') {
+          return { ...t, quantity: num !== undefined ? Math.max(1, Math.round(num)) : 1 };
+        }
+        if (field === 'price') {
+          return { ...t, price: num };
+        }
+        if (field === 'percentIncrease') {
+          return { ...t, percentIncrease: num };
+        }
+        return t;
+      })
+    );
+  };
+
+  const handleRemoveTier = (index: number) => {
+    if (quantityTiers.length <= 1) return;
+    setQuantityTiers((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const baseTierPrice = quantityTiers[0]?.price || 0;
+  const computedStandardPrice = (tier: QuantityTier, index: number): number => {
+    if (index === 0) return tier.price || 0;
+    const pct = tier.percentIncrease || 0;
+    return baseTierPrice * (1 + pct / 100);
+  };
+
+  const computedUnitPrice = (tier: QuantityTier, index: number): number => {
+    const total = computedStandardPrice(tier, index);
+    return tier.quantity > 0 ? total / tier.quantity : 0;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
-    const parsedPrice = parseFloat(price);
-    if (isNaN(parsedPrice) || parsedPrice <= 0) {
-      setError('Please provide a valid price greater than 0.');
+    if (!quantityTiers || quantityTiers.length === 0) {
+      setError('Please configure at least one quantity tier.');
+      return;
+    }
+
+    const firstTier = quantityTiers[0];
+    if (!firstTier.quantity || firstTier.quantity <= 0) {
+      setError('Base quantity (Tier 1) must be greater than 0.');
+      return;
+    }
+    if (typeof firstTier.price !== 'number' || isNaN(firstTier.price) || firstTier.price <= 0) {
+      setError('Please provide a valid Base Price (£) greater than 0 for Tier 1.');
       return;
     }
 
@@ -330,6 +474,15 @@ export function ProductForm({
         name: f.name.trim(),
       }));
 
+    // Sort tiers by quantity ascending to prevent order issues
+    const sortedTiers = [...quantityTiers].sort((a, b) => a.quantity - b.quantity);
+    const derivedBasePrice = sortedTiers[0].price || 14.69;
+    const derivedMinQty = sortedTiers[0].quantity;
+    const derivedMaxQty = sortedTiers[sortedTiers.length - 1].quantity;
+
+    const parsedSameDayPct = parseFloat(sameDayIncreasePercent);
+    const parsedNextDayPct = parseFloat(nextDayIncreasePercent);
+
     setIsSubmitting(true);
     try {
       const payload: ProductInput = {
@@ -338,13 +491,16 @@ export function ProductForm({
         description: description.trim(),
         imageUrl: finalImages[0],
         images: finalImages,
-        price: parsedPrice,
+        price: Number(derivedBasePrice.toFixed(2)),
         category: category || categories[0]?.name || 'General',
         isSameDayAvailable,
-        minQuantity: parseInt(minQuantity, 10) || 1,
-        maxQuantity: parseInt(maxQuantity, 10) || 250000,
+        minQuantity: derivedMinQty,
+        maxQuantity: derivedMaxQty,
         maxSameDayQuantity: maxSameDayQuantity.trim() !== '' ? parseInt(maxSameDayQuantity, 10) : undefined,
         maxNextDayQuantity: maxNextDayQuantity.trim() !== '' ? parseInt(maxNextDayQuantity, 10) : undefined,
+        sameDayIncreasePercent: !isNaN(parsedSameDayPct) ? parsedSameDayPct : 35.4,
+        nextDayIncreasePercent: !isNaN(parsedNextDayPct) ? parsedNextDayPct : 10,
+        quantityTiers: sortedTiers,
         features: features.length > 0 ? features : [],
         customFields: validCustomFields.length > 0 ? validCustomFields : [],
       };
@@ -435,78 +591,58 @@ export function ProductForm({
               </select>
             </div>
 
-            {/* Pricing & Quantity Limits */}
+            {/* Turnaround Speeds & Surcharge Rules */}
             <div className="space-y-3 p-4 rounded-2xl bg-slate-50 border border-slate-200">
-              <div className="font-bold text-xs uppercase tracking-wider text-slate-800">
-                Pricing & Order Quantity Rules
+              <div className="flex items-center justify-between">
+                <div className="font-bold text-xs uppercase tracking-wider text-slate-800">
+                  Turnaround Speeds & Cutoff Rules
+                </div>
+                <span className="text-[10px] text-slate-500 font-medium">
+                  Percentage surcharges over standard delivery
+                </span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Base Price (£) <span className="text-rose-500">*</span>
+                    Same-Day +%
                   </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    required
-                    value={price}
-                    onChange={(e) => setPrice(e.target.value)}
-                    placeholder="14.69"
-                    className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:outline-hidden focus:border-[#012169]"
-                  />
-                  <p className="text-[10px] text-slate-500 mt-1">
-                    Standard 3-5 working days price at Min Quantity.
-                  </p>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      value={sameDayIncreasePercent}
+                      onChange={(e) => setSameDayIncreasePercent(e.target.value)}
+                      placeholder="35.4"
+                      className="w-full h-9 pl-2.5 pr-6 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-900 focus:outline-hidden focus:border-[#012169]"
+                    />
+                    <span className="absolute right-2 top-2 text-xs font-bold text-slate-400 pointer-events-none">
+                      %
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-0.5">e.g. 35.4% or 40%</p>
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Discounted Price (£) (Optional)
+                    1-Day +%
                   </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={discountedPrice}
-                    onChange={(e) => setDiscountedPrice(e.target.value)}
-                    placeholder="12.50"
-                    className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:outline-hidden focus:border-[#012169]"
-                  />
-                  <p className="text-[10px] text-slate-500 mt-1">
-                    Promotional strike-through price.
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Min Quantity
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={minQuantity}
-                    onChange={(e) => setMinQuantity(e.target.value)}
-                    placeholder="25"
-                    className="w-full h-9 px-2.5 rounded-xl border border-slate-200 bg-white text-xs text-slate-900 focus:outline-hidden focus:border-[#012169]"
-                  />
-                  <p className="text-[10px] text-slate-400 mt-0.5">e.g. 1 or 25</p>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Max Quantity
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={maxQuantity}
-                    onChange={(e) => setMaxQuantity(e.target.value)}
-                    placeholder="250000"
-                    className="w-full h-9 px-2.5 rounded-xl border border-slate-200 bg-white text-xs text-slate-900 focus:outline-hidden focus:border-[#012169]"
-                  />
-                  <p className="text-[10px] text-slate-400 mt-0.5">Up to 250k</p>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      value={nextDayIncreasePercent}
+                      onChange={(e) => setNextDayIncreasePercent(e.target.value)}
+                      placeholder="10"
+                      className="w-full h-9 pl-2.5 pr-6 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-900 focus:outline-hidden focus:border-[#012169]"
+                    />
+                    <span className="absolute right-2 top-2 text-xs font-bold text-slate-400 pointer-events-none">
+                      %
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-0.5">e.g. 10% or 15%</p>
                 </div>
 
                 <div>
@@ -537,6 +673,213 @@ export function ProductForm({
                     className="w-full h-9 px-2.5 rounded-xl border border-slate-200 bg-white text-xs text-slate-900 focus:outline-hidden focus:border-[#012169]"
                   />
                   <p className="text-[10px] text-slate-400 mt-0.5">0 = disabled</p>
+                </div>
+              </div>
+
+              {/* Optional Discounted Reference Price */}
+              <div className="pt-1 border-t border-slate-200/60">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-700">
+                    Promotional Strike-Through Price (£) (Optional)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={discountedPrice}
+                    onChange={(e) => setDiscountedPrice(e.target.value)}
+                    placeholder="e.g. 19.99"
+                    className="w-36 h-8 px-2.5 rounded-xl border border-slate-200 bg-white text-xs text-slate-900 focus:outline-hidden focus:border-[#012169]"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Dynamic Quantity Tiers & Base Price Engine Matrix */}
+            <div className="space-y-3 p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <div className="font-bold text-xs uppercase tracking-wider text-slate-900 flex items-center gap-2">
+                    <span>Quantity Tiers & Pricing Engine</span>
+                    <span className="px-2 py-0.5 rounded-full bg-blue-50 text-[#012169] text-[10px] font-bold">
+                      {quantityTiers.length} Steps
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Tier 1 sets the initial Base Price (£). Tier 2+ set the % increase over base price.
+                  </p>
+                </div>
+
+                {/* Presets Button Bar */}
+                <div className="flex items-center gap-1 flex-wrap">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase mr-0.5">Preset:</span>
+                  <button
+                    type="button"
+                    onClick={() => handleApplyTierPreset('flyers')}
+                    className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[10px] font-bold transition-colors cursor-pointer"
+                  >
+                    Flyers
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleApplyTierPreset('businessCards')}
+                    className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[10px] font-bold transition-colors cursor-pointer"
+                  >
+                    Cards
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleApplyTierPreset('banners')}
+                    className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[10px] font-bold transition-colors cursor-pointer"
+                  >
+                    Banners
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleApplyTierPreset('booklets')}
+                    className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[10px] font-bold transition-colors cursor-pointer"
+                  >
+                    Booklets
+                  </button>
+                </div>
+              </div>
+
+              {/* Quantity Tiers Table */}
+              <div className="border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider">
+                        <th className="py-2.5 px-3 w-14">Tier</th>
+                        <th className="py-2.5 px-3 min-w-[100px]">Quantity</th>
+                        <th className="py-2.5 px-3 min-w-[150px]">Base £ / % Increase</th>
+                        <th className="py-2.5 px-3 min-w-[110px]">Calculated Price</th>
+                        <th className="py-2.5 px-3 min-w-[90px]">Unit Price</th>
+                        <th className="py-2.5 px-2 w-10 text-center"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 bg-white">
+                      {quantityTiers.map((tier, idx) => {
+                        const isBaseTier = idx === 0;
+                        const standardTotal = computedStandardPrice(tier, idx);
+                        const unitPrice = computedUnitPrice(tier, idx);
+
+                        return (
+                          <tr key={idx} className={isBaseTier ? 'bg-blue-50/25' : 'hover:bg-slate-50/50'}>
+                            {/* Step # */}
+                            <td className="py-2 px-3">
+                              <span
+                                className={`inline-flex items-center justify-center font-bold px-2 py-0.5 rounded text-[10px] ${
+                                  isBaseTier
+                                    ? 'bg-[#012169] text-white font-black'
+                                    : 'bg-slate-100 text-slate-700'
+                                }`}
+                              >
+                                {isBaseTier ? 'Base' : `#${idx + 1}`}
+                              </span>
+                            </td>
+
+                            {/* Quantity Input */}
+                            <td className="py-2 px-3">
+                              <input
+                                type="number"
+                                min="1"
+                                value={tier.quantity}
+                                onChange={(e) => handleUpdateTier(idx, 'quantity', e.target.value)}
+                                placeholder={isBaseTier ? '25' : '50'}
+                                className="w-full h-8 px-2 rounded-lg border border-slate-200 text-xs font-bold text-slate-900 bg-white focus:outline-hidden focus:border-[#012169]"
+                              />
+                            </td>
+
+                            {/* Price (Tier 1) or % Increase (Tier 2+) */}
+                            <td className="py-2 px-3">
+                              {isBaseTier ? (
+                                <div className="relative">
+                                  <span className="absolute left-2.5 top-1.5 text-xs font-bold text-slate-400 pointer-events-none">
+                                    £
+                                  </span>
+                                  <input
+                                    type="number"
+                                    step="0.01"
+                                    min="0.01"
+                                    required
+                                    value={tier.price ?? ''}
+                                    onChange={(e) => handleUpdateTier(idx, 'price', e.target.value)}
+                                    placeholder="25.00"
+                                    className="w-full h-8 pl-6 pr-2 rounded-lg border border-blue-300 text-xs font-bold text-[#012169] bg-white focus:outline-hidden focus:border-[#012169] focus:ring-1 focus:ring-[#012169]"
+                                  />
+                                </div>
+                              ) : (
+                                <div className="relative">
+                                  <input
+                                    type="number"
+                                    step="0.1"
+                                    min="0"
+                                    value={tier.percentIncrease ?? ''}
+                                    onChange={(e) => handleUpdateTier(idx, 'percentIncrease', e.target.value)}
+                                    placeholder="40"
+                                    className="w-full h-8 pl-2.5 pr-7 rounded-lg border border-slate-200 text-xs font-bold text-slate-900 bg-white focus:outline-hidden focus:border-[#012169]"
+                                  />
+                                  <span className="absolute right-2.5 top-1.5 text-xs font-bold text-slate-400 pointer-events-none">
+                                    %
+                                  </span>
+                                </div>
+                              )}
+                            </td>
+
+                            {/* Computed Standard Total (£) */}
+                            <td className="py-2 px-3 font-bold text-xs text-slate-900">
+                              <span>£{standardTotal.toFixed(2)}</span>
+                              {isBaseTier ? (
+                                <span className="block text-[9px] text-slate-400 font-normal">
+                                  Starting base
+                                </span>
+                              ) : tier.percentIncrease !== undefined ? (
+                                <span className="block text-[9px] text-emerald-600 font-semibold">
+                                  +{tier.percentIncrease}% over base
+                                </span>
+                              ) : null}
+                            </td>
+
+                            {/* Computed Unit Price (£/ea) */}
+                            <td className="py-2 px-3 font-semibold text-xs text-slate-600">
+                              <span>£{unitPrice.toFixed(3)}</span>
+                              <span className="text-[10px] text-slate-400 font-normal"> / ea</span>
+                            </td>
+
+                            {/* Delete button */}
+                            <td className="py-2 px-2 text-center">
+                              {!isBaseTier && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveTier(idx)}
+                                  className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors cursor-pointer"
+                                  title="Remove this tier"
+                                >
+                                  <Trash className="h-4 w-4" />
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Add Step Button Bar */}
+                <div className="p-2.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={handleAddTier}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#012169] text-white text-xs font-bold rounded-lg hover:bg-[#0A358C] transition-colors cursor-pointer shadow-xs"
+                  >
+                    <Plus weight="bold" className="h-3.5 w-3.5" />
+                    <span>Add Quantity Step</span>
+                  </button>
+
+                  <span className="text-[11px] text-slate-500">
+                    Standard 3-5 days delivery base price
+                  </span>
                 </div>
               </div>
             </div>

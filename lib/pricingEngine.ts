@@ -3,7 +3,7 @@
  * Supports formula-based matrix generation, speed multipliers, option modifiers,
  * working-day due date calculation, and item/total weight estimations.
  */
-
+import { QuantityTier } from '@/lib/types';
 export interface DeliverySpeedOption {
   id: 'same_day' | 'next_day' | 'standard';
   title: string;
@@ -325,8 +325,83 @@ export function getProductQuantityTiers(
 }
 
 /**
+ * Computes base price for any given quantity based on explicit merchant-configured Quantity Tiers
+ * or falls back to commercial bulk economies of scale logarithmic curve.
+ */
+export function getTierBasePrice(
+  qty: number,
+  tiers: QuantityTier[] | undefined,
+  fallbackBasePrice: number,
+  safeMin: number = 25
+): number {
+  if (!tiers || tiers.length === 0) {
+    const scalingFactor = Math.pow(qty / safeMin, 0.42);
+    return fallbackBasePrice * scalingFactor;
+  }
+
+  // Base tier is index 0
+  const baseTier = tiers[0];
+  const anchorPrice =
+    typeof baseTier.price === 'number' && baseTier.price > 0
+      ? baseTier.price
+      : fallbackBasePrice;
+
+  // Helper to compute exact standard price for a configured tier
+  const getExactTierPrice = (t: QuantityTier, index: number): number => {
+    if (index === 0) return anchorPrice;
+    if (typeof t.percentIncrease === 'number' && !isNaN(t.percentIncrease)) {
+      return anchorPrice * (1 + t.percentIncrease / 100);
+    }
+    if (typeof t.price === 'number' && !isNaN(t.price) && t.price > 0) {
+      return t.price;
+    }
+    // Proportional fallback
+    return anchorPrice * Math.pow(t.quantity / (baseTier.quantity || 1), 0.42);
+  };
+
+  // 1. Exact match with a configured tier
+  const matchIdx = tiers.findIndex((t) => t.quantity === qty);
+  if (matchIdx !== -1) {
+    return getExactTierPrice(tiers[matchIdx], matchIdx);
+  }
+
+  // 2. Below first tier: pro-rate from first tier unit price
+  if (qty < tiers[0].quantity) {
+    const firstPrice = getExactTierPrice(tiers[0], 0);
+    const unitPrice = firstPrice / Math.max(1, tiers[0].quantity);
+    return Math.max(1, unitPrice * qty);
+  }
+
+  // 3. Above last tier: pro-rate from last tier unit price
+  const lastIdx = tiers.length - 1;
+  const lastTier = tiers[lastIdx];
+  if (qty > lastTier.quantity) {
+    const lastPrice = getExactTierPrice(lastTier, lastIdx);
+    const unitPrice = lastPrice / Math.max(1, lastTier.quantity);
+    return unitPrice * qty;
+  }
+
+  // 4. In-between two tiers: interpolate linearly
+  for (let i = 0; i < tiers.length - 1; i++) {
+    const tLower = tiers[i];
+    const tUpper = tiers[i + 1];
+    if (qty >= tLower.quantity && qty <= tUpper.quantity) {
+      const pLower = getExactTierPrice(tLower, i);
+      const pUpper = getExactTierPrice(tUpper, i + 1);
+      const span = tUpper.quantity - tLower.quantity;
+      if (span <= 0) return pLower;
+      const ratio = (qty - tLower.quantity) / span;
+      return pLower + (pUpper - pLower) * ratio;
+    }
+  }
+
+  return anchorPrice;
+}
+
+/**
  * Generates an entire dynamic price matrix for any product and any combination of options.
  * Base price represents the cost of `minQuantity` items on Standard delivery.
+ * When `productQuantityTiers` are defined, uses explicit merchant tiers and Base Price + % logic.
  */
 export function generateDynamicPriceMatrix(
   basePrice: number,
@@ -337,23 +412,46 @@ export function generateDynamicPriceMatrix(
   maxSameDayQuantity?: number,
   isCMSCustomFieldProduct: boolean = false,
   maxQuantity?: number,
-  maxNextDayQuantity?: number
+  maxNextDayQuantity?: number,
+  sameDayIncreasePercent?: number,
+  nextDayIncreasePercent?: number,
+  productQuantityTiers?: QuantityTier[]
 ): MatrixRow[] {
   const safeMin = Math.max(1, minQuantity || 25);
   const safeMax = maxQuantity && maxQuantity >= safeMin ? maxQuantity : 250000;
+
+  // Determine tiers:
+  // 1. If explicit quantityTiers array passed (e.g. custom quantity single-element array [customQty]), use that.
+  // 2. Otherwise if product has explicit merchant configured quantityTiers, use those quantities!
+  // 3. Otherwise generate candidate tiers based on safeMin and safeMax.
   const tiers =
     quantityTiers && quantityTiers.length > 0
       ? quantityTiers
+      : productQuantityTiers && productQuantityTiers.length > 0
+      ? productQuantityTiers.map((t) => t.quantity)
       : getProductQuantityTiers(safeMin, safeMax);
 
   // Turnaround speed multipliers
-  // Base price in CMS is anchored at 3-5 working days (Standard delivery)
-  const SPEED_SAME_DAY = 1.354; // Same Day express (+35.4%)
-  const SPEED_NEXT_DAY = 1.074; // 1 Working day (+7.4%)
-  const SPEED_STANDARD = 1.0;   // 3-5 Working days (Standard = 100% of base price)
+  // Configured via CMS product fields with industry standard fallbacks
+  const sameDayPct =
+    typeof sameDayIncreasePercent === 'number' && !isNaN(sameDayIncreasePercent)
+      ? sameDayIncreasePercent
+      : 35.4;
+  const SPEED_SAME_DAY = 1.0 + sameDayPct / 100;
+
+  const nextDayPct =
+    typeof nextDayIncreasePercent === 'number' && !isNaN(nextDayIncreasePercent)
+      ? nextDayIncreasePercent
+      : 7.4;
+  const SPEED_NEXT_DAY = 1.0 + nextDayPct / 100;
 
   // Reference base anchor: product price set in CMS at minQuantity on standard delivery
-  const baseAnchorPrice = basePrice && basePrice > 0 ? basePrice : 14.69;
+  const baseAnchorPrice =
+    productQuantityTiers && productQuantityTiers.length > 0 && typeof productQuantityTiers[0].price === 'number' && productQuantityTiers[0].price > 0
+      ? productQuantityTiers[0].price
+      : basePrice && basePrice > 0
+      ? basePrice
+      : 14.69;
 
   // Aggregate total option percentage delta and total flat fee (Solopress additive model)
   // e.g. Base £100 + Option A (+20%) + Option B (+30%) = 100% + 20% + 30% = 150% -> £150 total
@@ -370,7 +468,6 @@ export function generateDynamicPriceMatrix(
 
     // Solopress proportional scaling: If an admin specifies a flat amount (+£1 or +£2),
     // convert it to a proportional delta against the base anchor at minQuantity.
-    // This ensures at minQuantity it adds EXACTLY £1.00 or £2.00, and scales naturally with higher volumes.
     if (mod.flatAddon !== 0) {
       if (baseAnchorPrice > 0) {
         totalPercentDelta += mod.flatAddon / baseAnchorPrice;
@@ -381,15 +478,11 @@ export function generateDynamicPriceMatrix(
   }
 
   // Additive combined multiplier: Base (1.0) + sum of all option percentage deltas
-  // e.g. Base £100 + 20% + 30% = 1.0 + 0.20 + 0.30 = 1.50
   const combinedMultiplier = Math.max(0.05, 1.0 + totalPercentDelta);
 
   return tiers.map((qty) => {
-    // Commercial bulk economies of scale logarithmic curve:
-    // P(q) = Base * (q / safeMin)^0.42
-    // At qty = safeMin (e.g. 25), scalingFactor = 1.0
-    const scalingFactor = Math.pow(qty / safeMin, 0.42);
-    const rawBasePrice = baseAnchorPrice * scalingFactor;
+    // Compute raw standard tier price (either through explicit merchant tiers or scaling curve)
+    const rawBasePrice = getTierBasePrice(qty, productQuantityTiers, baseAnchorPrice, safeMin);
 
     // Apply combined options multiplier & flat addon
     const adjustedStandard = (rawBasePrice * combinedMultiplier + combinedFlatAddon) * numberOfSets;
@@ -456,7 +549,10 @@ export function calculateCustomQuantityPrice(
   maxSameDayQuantity?: number,
   isCMSCustomFieldProduct: boolean = false,
   maxQuantity?: number,
-  maxNextDayQuantity?: number
+  maxNextDayQuantity?: number,
+  sameDayIncreasePercent?: number,
+  nextDayIncreasePercent?: number,
+  productQuantityTiers?: QuantityTier[]
 ): {
   sameDay: number;
   nextDay: number;
@@ -475,7 +571,10 @@ export function calculateCustomQuantityPrice(
     maxSameDayQuantity,
     isCMSCustomFieldProduct,
     maxQuantity,
-    maxNextDayQuantity
+    maxNextDayQuantity,
+    sameDayIncreasePercent,
+    nextDayIncreasePercent,
+    productQuantityTiers
   );
   if (matrix.length === 0) return null;
 

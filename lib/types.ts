@@ -10,6 +10,12 @@ export interface CustomField {
   defaultValue?: string;
 }
 
+export interface QuantityTier {
+  quantity: number;
+  price?: number;            // Explicit price in £ (used for first tier / base price)
+  percentIncrease?: number;  // % increase from base price (used for tier 2, 3, etc.)
+}
+
 export interface Product {
   id?: string;
   title: string;
@@ -26,6 +32,9 @@ export interface Product {
   maxQuantity?: number;
   maxSameDayQuantity?: number;
   maxNextDayQuantity?: number;
+  sameDayIncreasePercent?: number;  // Turnaround surcharge % for same day (e.g. 35.4%)
+  nextDayIncreasePercent?: number;  // Turnaround surcharge % for 1 working day (e.g. 10%)
+  quantityTiers?: QuantityTier[];   // Merchant-defined explicit quantity tiers
   features?: string[];
   customFields?: CustomField[];
   createdAt: number;

@@ -143,6 +143,9 @@ export function ProductDetailClient({
 
   // MATRIX SELECTION STATE
   const [selectedQuantity, setSelectedQuantity] = useState<number>(() => {
+    if (initialProduct?.quantityTiers && initialProduct.quantityTiers.length > 0) {
+      return initialProduct.quantityTiers[0].quantity;
+    }
     return initialProduct?.minQuantity && initialProduct.minQuantity > 0
       ? initialProduct.minQuantity
       : 25;
@@ -175,10 +178,14 @@ export function ProductDetailClient({
   }, []);
 
   useEffect(() => {
-    if (product?.minQuantity && product.minQuantity > 0) {
-      setSelectedQuantity((prev) => (prev < product.minQuantity! ? product.minQuantity! : prev));
+    const firstQty =
+      product?.quantityTiers && product.quantityTiers.length > 0
+        ? product.quantityTiers[0].quantity
+        : product?.minQuantity;
+    if (firstQty && firstQty > 0) {
+      setSelectedQuantity((prev) => (prev < firstQty ? firstQty : prev));
     }
-  }, [product?.minQuantity]);
+  }, [product?.quantityTiers, product?.minQuantity]);
 
   // Accordion state for Left Column Pill Buttons
   const [activeAccordion, setActiveAccordion] = useState<string | null>(null);
@@ -252,9 +259,24 @@ export function ProductDetailClient({
       product?.maxSameDayQuantity,
       hasCMSFields,
       effectiveMaxQty,
-      product?.maxNextDayQuantity
+      product?.maxNextDayQuantity,
+      product?.sameDayIncreasePercent,
+      product?.nextDayIncreasePercent,
+      product?.quantityTiers
     );
-  }, [basePriceAnchor, activeOptions, physicalNumberOfSets, product?.minQuantity, product?.maxSameDayQuantity, product?.maxNextDayQuantity, hasCMSFields, effectiveMaxQty]);
+  }, [
+    basePriceAnchor,
+    activeOptions,
+    physicalNumberOfSets,
+    product?.minQuantity,
+    product?.maxSameDayQuantity,
+    product?.maxNextDayQuantity,
+    hasCMSFields,
+    effectiveMaxQty,
+    product?.sameDayIncreasePercent,
+    product?.nextDayIncreasePercent,
+    product?.quantityTiers,
+  ]);
 
   // Custom Quantity dynamic price calculation
   const isCustomQuantityExceedsMax = Boolean(
@@ -295,9 +317,26 @@ export function ProductDetailClient({
       product?.maxSameDayQuantity,
       hasCMSFields,
       effectiveMaxQty,
-      product?.maxNextDayQuantity
+      product?.maxNextDayQuantity,
+      product?.sameDayIncreasePercent,
+      product?.nextDayIncreasePercent,
+      product?.quantityTiers
     );
-  }, [isCustomQuantityActive, customQuantityNumber, basePriceAnchor, activeOptions, physicalNumberOfSets, product?.minQuantity, product?.maxSameDayQuantity, product?.maxNextDayQuantity, hasCMSFields, effectiveMaxQty]);
+  }, [
+    isCustomQuantityActive,
+    customQuantityNumber,
+    basePriceAnchor,
+    activeOptions,
+    physicalNumberOfSets,
+    product?.minQuantity,
+    product?.maxSameDayQuantity,
+    product?.maxNextDayQuantity,
+    hasCMSFields,
+    effectiveMaxQty,
+    product?.sameDayIncreasePercent,
+    product?.nextDayIncreasePercent,
+    product?.quantityTiers,
+  ]);
 
   // Active Size and Stock names used for Dynamic Weight Calculation
   const activeSizeName = useMemo(() => {
