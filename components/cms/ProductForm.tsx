@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Product, ProductInput, CategoryConfig, CustomField, QuantityTier } from '@/lib/types';
 import { slugify } from '@/lib/utils';
+import { cleanOptionDisplayName } from '@/lib/pricingEngine';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { MultiImageUploader } from './MultiImageUploader';
@@ -19,6 +20,8 @@ import {
   CaretUp,
   CaretDown,
   Check,
+  Copy,
+  Globe,
 } from '@phosphor-icons/react';
 
 interface ProductFormProps {
@@ -102,6 +105,17 @@ export function ProductForm({
     optionIndex: number;
     value: string;
   } | null>(null);
+
+  // Approach B: Variant-Specific Quantity Tiers
+  const [variantQuantityTiers, setVariantQuantityTiers] = useState<Record<string, QuantityTier[]>>({});
+  const [activeVariantTab, setActiveVariantTab] = useState<string>('default');
+  const [selectedVariantToAdd, setSelectedVariantToAdd] = useState<string>('');
+
+  // Approach C: Route1 One-Click Auto-Fill Tool
+  const [route1Url, setRoute1Url] = useState<string>('');
+  const [isImportingRoute1, setIsImportingRoute1] = useState<boolean>(false);
+  const [importSuccessMsg, setImportSuccessMsg] = useState<string>('');
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -157,6 +171,9 @@ export function ProductForm({
           { quantity: Math.max(firstQty * 40, 1000), percentIncrease: 400 },
         ]);
       }
+      setVariantQuantityTiers(initialProduct.variantQuantityTiers || {});
+      setActiveVariantTab('default');
+      setSelectedVariantToAdd('');
       setFeatures(initialProduct.features || []);
       setCustomFields(initialProduct.customFields || []);
     } else {
@@ -181,6 +198,9 @@ export function ProductForm({
         { quantity: 500, percentIncrease: 250 },
         { quantity: 1000, percentIncrease: 400 },
       ]);
+      setVariantQuantityTiers({});
+      setActiveVariantTab('default');
+      setSelectedVariantToAdd('');
       setFeatures([
         'Premium High Definition Print Quality',
         'Same-day London Dispatch Available',
@@ -188,6 +208,8 @@ export function ProductForm({
       setCustomFields([]);
     }
     setActiveNewOptionText({});
+    setRoute1Url('');
+    setImportSuccessMsg('');
     setError('');
   }, [initialProduct, isOpen, categories]);
 
@@ -376,27 +398,47 @@ export function ProductForm({
     setCustomFields([newField, ...customFields]);
   };
 
+  // Active tiers getter and updater (Approach B)
+  const currentTiers: QuantityTier[] =
+    activeVariantTab === 'default'
+      ? quantityTiers
+      : variantQuantityTiers[activeVariantTab] || [];
+
+  const updateCurrentTiers = (
+    updater: QuantityTier[] | ((prev: QuantityTier[]) => QuantityTier[])
+  ) => {
+    if (activeVariantTab === 'default') {
+      setQuantityTiers(updater);
+    } else {
+      setVariantQuantityTiers((prev) => {
+        const current = prev[activeVariantTab] || [];
+        const next = typeof updater === 'function' ? updater(current) : updater;
+        return { ...prev, [activeVariantTab]: next };
+      });
+    }
+  };
+
   const handleApplyTierPreset = (presetKey: keyof typeof TIER_PRESETS) => {
     const preset = TIER_PRESETS[presetKey];
-    const currentBasePrice = quantityTiers[0]?.price || preset[0].price;
+    const currentBasePrice = currentTiers[0]?.price || preset[0].price;
     const newTiers: QuantityTier[] = preset.map((t, idx) => {
       if (idx === 0) {
         return { quantity: t.quantity, price: currentBasePrice };
       }
       return { quantity: t.quantity, percentIncrease: t.percentIncrease };
     });
-    setQuantityTiers(newTiers);
+    updateCurrentTiers(newTiers);
   };
 
   const handleAddTier = () => {
-    const lastTier = quantityTiers[quantityTiers.length - 1];
+    const lastTier = currentTiers[currentTiers.length - 1];
     const nextQty = lastTier ? Math.round(lastTier.quantity * 2) : 25;
     const nextPct =
       lastTier && lastTier.percentIncrease !== undefined
         ? Math.round(lastTier.percentIncrease * 1.5 + 20)
         : 40;
-    setQuantityTiers([
-      ...quantityTiers,
+    updateCurrentTiers((prev) => [
+      ...prev,
       { quantity: nextQty, percentIncrease: nextPct },
     ]);
   };
@@ -407,7 +449,7 @@ export function ProductForm({
     val: string
   ) => {
     const num = val === '' ? undefined : parseFloat(val);
-    setQuantityTiers((prev) =>
+    updateCurrentTiers((prev) =>
       prev.map((t, i) => {
         if (i !== index) return t;
         if (field === 'quantity') {
@@ -425,11 +467,11 @@ export function ProductForm({
   };
 
   const handleRemoveTier = (index: number) => {
-    if (quantityTiers.length <= 1) return;
-    setQuantityTiers((prev) => prev.filter((_, i) => i !== index));
+    if (currentTiers.length <= 1) return;
+    updateCurrentTiers((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const baseTierPrice = quantityTiers[0]?.price || 0;
+  const baseTierPrice = currentTiers[0]?.price || 0;
   const computedStandardPrice = (tier: QuantityTier, index: number): number => {
     if (index === 0) return tier.price || 0;
     const pct = tier.percentIncrease || 0;
@@ -439,6 +481,72 @@ export function ProductForm({
   const computedUnitPrice = (tier: QuantityTier, index: number): number => {
     const total = computedStandardPrice(tier, index);
     return tier.quantity > 0 ? total / tier.quantity : 0;
+  };
+
+  const availableVariantOptions = customFields
+    .flatMap((f) => f.options.map((o) => cleanOptionDisplayName(o)))
+    .filter((o) => o && o.trim().length > 0 && !variantQuantityTiers[o]);
+
+  // Approach C: Route1 One-Click Auto-Fill Handler
+  const handleImportRoute1 = async () => {
+    if (!route1Url.trim()) {
+      setError('Please enter a Route1Print product URL to import.');
+      return;
+    }
+    setIsImportingRoute1(true);
+    setError('');
+    setImportSuccessMsg('');
+
+    try {
+      const res = await fetch('/api/admin/scrape-route1', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: route1Url.trim() }),
+      });
+
+      const result = await res.json();
+      if (!res.ok || !result.success) {
+        throw new Error(result.error || 'Failed to import Route1 product');
+      }
+
+      const d = result.data;
+      if (d.title) {
+        setTitle(d.title);
+        setSlug(slugify(d.title));
+      }
+      if (d.category) setCategory(d.category);
+      if (d.description) setDescription(d.description);
+      if (d.images && d.images.length > 0) {
+        setImages(d.images);
+        setImageUrl(d.images[0]);
+      }
+      if (d.customFields && d.customFields.length > 0) {
+        setCustomFields(d.customFields);
+      }
+      if (d.quantityTiers && d.quantityTiers.length > 0) {
+        setQuantityTiers(d.quantityTiers);
+      }
+      if (d.sameDayIncreasePercent !== undefined) {
+        setSameDayIncreasePercent(String(d.sameDayIncreasePercent));
+      }
+      if (d.nextDayIncreasePercent !== undefined) {
+        setNextDayIncreasePercent(String(d.nextDayIncreasePercent));
+      }
+      if (d.maxSameDayQuantity !== undefined) {
+        setMaxSameDayQuantity(String(d.maxSameDayQuantity));
+      }
+      if (d.maxNextDayQuantity !== undefined) {
+        setMaxNextDayQuantity(String(d.maxNextDayQuantity));
+      }
+
+      setImportSuccessMsg(
+        `⚡ Imported "${d.title}" from Route1: ${d.quantityTiers?.length || 0} quantity tiers, ${d.customFields?.length || 0} dropdown fields, and turnaround rules!`
+      );
+    } catch (err: any) {
+      setError(err.message || 'Error importing product from Route1.');
+    } finally {
+      setIsImportingRoute1(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -501,6 +609,10 @@ export function ProductForm({
         sameDayIncreasePercent: !isNaN(parsedSameDayPct) ? parsedSameDayPct : 35.4,
         nextDayIncreasePercent: !isNaN(parsedNextDayPct) ? parsedNextDayPct : 10,
         quantityTiers: sortedTiers,
+        variantQuantityTiers:
+          variantQuantityTiers && Object.keys(variantQuantityTiers).length > 0
+            ? variantQuantityTiers
+            : undefined,
         features: features.length > 0 ? features : [],
         customFields: validCustomFields.length > 0 ? validCustomFields : [],
       };
@@ -541,6 +653,68 @@ export function ProductForm({
             {error}
           </div>
         )}
+
+        {/* Approach C: Route1 One-Click Auto-Fill Tool */}
+        <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-blue-50/90 via-indigo-50/50 to-slate-50 border border-blue-200/80 shadow-2xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2.5">
+            <div className="flex items-center gap-2">
+              <span className="p-1.5 rounded-lg bg-[#012169] text-white shadow-xs">
+                <Lightning weight="fill" className="h-4 w-4 text-amber-300" />
+              </span>
+              <div>
+                <span className="text-xs font-black text-slate-900 tracking-tight flex items-center gap-1.5">
+                  <span>Approach C: Auto-Import from Route1Print</span>
+                  <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-100 text-[#012169] uppercase">
+                    One-Click Clone
+                  </span>
+                </span>
+                <p className="text-[11px] text-slate-500 font-medium">
+                  Paste any Route1Print URL to auto-fill title, images, dropdown options, turnaround %, and exact quantity tiers
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-2">
+            <div className="relative flex-1">
+              <span className="absolute left-3 top-2.5 text-slate-400">
+                <Globe className="h-4 w-4" />
+              </span>
+              <input
+                type="url"
+                value={route1Url}
+                onChange={(e) => setRoute1Url(e.target.value)}
+                placeholder="https://www.route1print.co.uk/banners-and-pop-ups/wide-roller-banners"
+                className="w-full h-9 pl-9 pr-3 rounded-xl border border-slate-300 bg-white text-xs text-slate-900 focus:outline-hidden focus:border-[#012169] focus:ring-1 focus:ring-[#012169]"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={handleImportRoute1}
+              disabled={isImportingRoute1}
+              className="px-4 h-9 rounded-xl bg-[#012169] hover:bg-[#00174c] text-white text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 shrink-0 cursor-pointer disabled:opacity-60"
+            >
+              {isImportingRoute1 ? (
+                <>
+                  <span className="h-3.5 w-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span>Fetching Route1 Data...</span>
+                </>
+              ) : (
+                <>
+                  <Sparkle weight="bold" className="h-3.5 w-3.5 text-amber-300" />
+                  <span>Fetch & Auto-Fill</span>
+                </>
+              )}
+            </button>
+          </div>
+
+          {importSuccessMsg && (
+            <div className="mt-2.5 p-2 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 font-semibold flex items-center gap-2">
+              <Check weight="bold" className="h-4 w-4 text-emerald-600 shrink-0" />
+              <span>{importSuccessMsg}</span>
+            </div>
+          )}
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
           {/* ================= LEFT COLUMN: General Info, Pricing Rules, Description ================= */}
@@ -746,6 +920,124 @@ export function ProductForm({
                 </div>
               </div>
 
+              {/* Approach B: Variant-Specific Tier Matrix Switcher */}
+              <div className="p-3 rounded-xl bg-slate-100/70 border border-slate-200 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                    <SlidersHorizontal weight="bold" className="h-3.5 w-3.5 text-[#012169]" />
+                    <span>Approach B: Dedicated Pricing Tables per Variant</span>
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-medium">
+                    {activeVariantTab === 'default'
+                      ? 'Editing Default Base Table'
+                      : `Editing Custom Table for: ${activeVariantTab}`}
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setActiveVariantTab('default')}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      activeVariantTab === 'default'
+                        ? 'bg-[#012169] text-white shadow-xs'
+                        : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
+                    ★ Default / Base Tiers
+                  </button>
+
+                  {Object.keys(variantQuantityTiers).map((vKey) => (
+                    <div key={vKey} className="inline-flex items-center">
+                      <button
+                        type="button"
+                        onClick={() => setActiveVariantTab(vKey)}
+                        className={`px-2.5 py-1 rounded-l-lg text-xs font-bold transition-all cursor-pointer ${
+                          activeVariantTab === vKey
+                            ? 'bg-[#012169] text-white shadow-xs'
+                            : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        {vKey}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const updated = { ...variantQuantityTiers };
+                          delete updated[vKey];
+                          setVariantQuantityTiers(updated);
+                          if (activeVariantTab === vKey) setActiveVariantTab('default');
+                        }}
+                        className={`px-1.5 py-1 rounded-r-lg text-xs transition-colors cursor-pointer border-y border-r ${
+                          activeVariantTab === vKey
+                            ? 'bg-[#012169] text-white/80 hover:text-rose-200 border-[#012169]'
+                            : 'bg-white text-slate-400 hover:text-rose-600 border-slate-200'
+                        }`}
+                        title="Delete variant table"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+
+                  {/* Add Variant Button */}
+                  {availableVariantOptions.length > 0 && (
+                    <div className="flex items-center gap-1">
+                      <select
+                        value={selectedVariantToAdd}
+                        onChange={(e) => setSelectedVariantToAdd(e.target.value)}
+                        className="h-7 px-2 rounded-lg border border-slate-300 bg-white text-[11px] font-semibold text-slate-700 focus:outline-hidden"
+                      >
+                        <option value="">-- Add variant table for option... --</option>
+                        {availableVariantOptions.map((opt) => (
+                          <option key={opt} value={opt}>
+                            {opt}
+                          </option>
+                        ))}
+                      </select>
+                      {selectedVariantToAdd && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!selectedVariantToAdd) return;
+                            setVariantQuantityTiers((prev) => ({
+                              ...prev,
+                              [selectedVariantToAdd]: JSON.parse(JSON.stringify(quantityTiers)),
+                            }));
+                            setActiveVariantTab(selectedVariantToAdd);
+                            setSelectedVariantToAdd('');
+                          }}
+                          className="h-7 px-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold flex items-center gap-1 cursor-pointer"
+                        >
+                          <Plus className="h-3 w-3" />
+                          <span>Create Table</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {activeVariantTab !== 'default' && (
+                  <div className="flex items-center justify-between pt-1 text-[11px]">
+                    <span className="text-blue-700 font-semibold">
+                      Custom matrix for: <strong>{activeVariantTab}</strong>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setVariantQuantityTiers((prev) => ({
+                          ...prev,
+                          [activeVariantTab]: JSON.parse(JSON.stringify(quantityTiers)),
+                        }));
+                      }}
+                      className="text-xs text-[#012169] hover:underline font-bold cursor-pointer"
+                    >
+                      📋 Reset / Copy from Default Tiers
+                    </button>
+                  </div>
+                )}
+              </div>
+
               {/* Quantity Tiers Table */}
               <div className="border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
                 <div className="overflow-x-auto">
@@ -761,7 +1053,7 @@ export function ProductForm({
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 bg-white">
-                      {quantityTiers.map((tier, idx) => {
+                      {currentTiers.map((tier, idx) => {
                         const isBaseTier = idx === 0;
                         const standardTotal = computedStandardPrice(tier, idx);
                         const unitPrice = computedUnitPrice(tier, idx);
@@ -1187,7 +1479,7 @@ export function ProductForm({
                         </div>
 
                         {/* Add option input */}
-                        <div className="flex gap-1.5 mb-2">
+                        <div className="flex gap-1.5 mb-1.5">
                           <input
                             type="text"
                             value={activeNewOptionText[field.id] || ''}
@@ -1203,7 +1495,7 @@ export function ProductForm({
                                 handleAddOptionToField(field.id);
                               }
                             }}
-                            placeholder="Add option (e.g. A4 +35%, Double Sided +10%, Matt Lamination +£12)..."
+                            placeholder="Add option (e.g. 2000 x 1500mm +£9.00/ea, Matt Lamination +15%, Setup +£10)..."
                             className="flex-1 h-8 px-2.5 rounded-lg border border-slate-200 text-xs text-slate-900 focus:outline-hidden focus:border-[#012169]"
                           />
                           <button
@@ -1213,6 +1505,44 @@ export function ProductForm({
                           >
                             <Plus className="h-3 w-3" />
                             <span>Add</span>
+                          </button>
+                        </div>
+
+                        {/* Approach A Quick Surcharge Helpers */}
+                        <div className="flex items-center gap-1.5 mb-2 text-[10px] flex-wrap">
+                          <span className="text-slate-400 font-medium">Approach A Helpers:</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const curr = activeNewOptionText[field.id] || '';
+                              setActiveNewOptionText({ ...activeNewOptionText, [field.id]: curr ? `${curr} +15%` : '+15%' });
+                            }}
+                            className="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold cursor-pointer"
+                            title="Multiplies base price by +15%"
+                          >
+                            +% (Percent)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const curr = activeNewOptionText[field.id] || '';
+                              setActiveNewOptionText({ ...activeNewOptionText, [field.id]: curr ? `${curr} +£9.00/ea` : '+£9.00/ea' });
+                            }}
+                            className="px-1.5 py-0.5 rounded bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold border border-emerald-200 cursor-pointer"
+                            title="Adds fee per unit (prevents price inflation at high quantities)"
+                          >
+                            +£/ea (Per-Unit)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const curr = activeNewOptionText[field.id] || '';
+                              setActiveNewOptionText({ ...activeNewOptionText, [field.id]: curr ? `${curr} +£10.00` : '+£10.00' });
+                            }}
+                            className="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold cursor-pointer"
+                            title="Adds a fixed one-time order fee"
+                          >
+                            +£ (Flat Fee)
                           </button>
                         </div>
 

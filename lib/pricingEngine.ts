@@ -119,11 +119,12 @@ export function calculatePrintWeight(
  *   "Matt Lamination +£12.00", "Matt Lamination (+£12)", "Matt Lamination +£12"
  *   "2 Sets (+100%)", "3 Sets (+200%)"
  */
-export function parseOptionModifier(optionText: string): { multiplier: number; flatAddon: number } {
+export function parseOptionModifier(optionText: string): { multiplier: number; flatAddon: number; unitAddon: number } {
   let multiplier = 1.0;
   let flatAddon = 0;
+  let unitAddon = 0;
 
-  if (!optionText) return { multiplier, flatAddon };
+  if (!optionText) return { multiplier, flatAddon, unitAddon };
 
   // 1. Percentage match (Parenthesized e.g. "(+30%)", "(-20%)", "(+ 30%)")
   const parenPercentMatch = optionText.match(/\(\s*([+-]?)\s*(\d+(?:\.\d+)?)\s*%\s*\)/);
@@ -145,36 +146,50 @@ export function parseOptionModifier(optionText: string): { multiplier: number; f
     }
   }
 
-  // 2. Flat fee match (e.g. "(+£12.50)", "(+£12)", "+£12", "+ £12", "(-£5)")
-  const parenFlatMatch = optionText.match(/\(\s*([+-]?)\s*[£$]\s*(\d+(?:\.\d+)?)\s*\)/);
-  if (parenFlatMatch) {
-    const sign = parenFlatMatch[1] === '-' ? -1 : 1;
-    const num = parseFloat(parenFlatMatch[2]);
+  // 2. Per-unit fee match (e.g. "+£9.00/ea", "+£9/unit", "(+£9.00/ea)", "+£9 each", "+£9 per unit")
+  const unitMatch = optionText.match(/([+-]?)\s*[£$]\s*(\d+(?:\.\d+)?)\s*(?:\/|\s*per\s*)?(?:ea|unit|each|piece|item)/i);
+  if (unitMatch) {
+    const sign = unitMatch[1] === '-' ? -1 : 1;
+    const num = parseFloat(unitMatch[2]);
     if (!isNaN(num)) {
-      flatAddon = sign * num;
+      unitAddon = sign * num;
     }
   } else {
-    const unparenFlatMatch = optionText.match(/([+-])\s*[£$]\s*(\d+(?:\.\d+)?)/);
-    if (unparenFlatMatch) {
-      const sign = unparenFlatMatch[1] === '-' ? -1 : 1;
-      const num = parseFloat(unparenFlatMatch[2]);
+    // 3. Flat fee match (e.g. "(+£12.50)", "(+£12)", "+£12", "+ £12", "(-£5)")
+    const parenFlatMatch = optionText.match(/\(\s*([+-]?)\s*[£$]\s*(\d+(?:\.\d+)?)\s*\)/);
+    if (parenFlatMatch) {
+      const sign = parenFlatMatch[1] === '-' ? -1 : 1;
+      const num = parseFloat(parenFlatMatch[2]);
       if (!isNaN(num)) {
         flatAddon = sign * num;
+      }
+    } else {
+      const unparenFlatMatch = optionText.match(/([+-])\s*[£$]\s*(\d+(?:\.\d+)?)/);
+      if (unparenFlatMatch) {
+        const sign = unparenFlatMatch[1] === '-' ? -1 : 1;
+        const num = parseFloat(unparenFlatMatch[2]);
+        if (!isNaN(num)) {
+          flatAddon = sign * num;
+        }
       }
     }
   }
 
-  return { multiplier, flatAddon };
+  return { multiplier, flatAddon, unitAddon };
 }
 
 /**
- * Strips pricing modifiers (+30%, -30%, (+30%), +£12, etc.) from option names
- * so the customer on the storefront NEVER sees pricing adjustment text (e.g. they see "A4" or "Matt Lamination").
+ * Strips pricing modifiers (+30%, -30%, (+30%), +£12, +£9.00/ea, etc.) from option names
+ * so the customer on the storefront NEVER sees pricing adjustment text (e.g. they see "A4" or "2000 x 1500mm").
  * The background pricing engine still uses the raw option value to compute the correct multiplier/add-on.
  */
 export function cleanOptionDisplayName(optionText: string): string {
   if (!optionText) return '';
   let cleaned = optionText.trim();
+
+  // Strip per-unit fee modifiers e.g. "(+£9.00/ea)", "+£9.00/ea", "+£9/unit", "+£9 each"
+  cleaned = cleaned.replace(/\s*\(\s*[+-]?\s*[£$]\s*\d+(?:\.\d+)?\s*(?:\/|\s*per\s*)?(?:ea|unit|each|piece|item)\s*\)/gi, '');
+  cleaned = cleaned.replace(/\s*[+-]?\s*[£$]\s*\d+(?:\.\d+)?\s*(?:\/|\s*per\s*)?(?:ea|unit|each|piece|item)/gi, '');
 
   // Strip parenthesized percentage modifiers e.g. "(+30%)", "(-30%)", "(+ 30%)", "(30%)"
   cleaned = cleaned.replace(/\s*\(\s*[+-]?\s*\d+(?:\.\d+)?\s*%\s*\)/gi, '');
@@ -202,24 +217,24 @@ export function cleanOptionDisplayName(optionText: string): string {
 
 /**
  * Computes option modifiers.
- * For CMS configured custom fields, ONLY explicit modifiers (+30%, -30%, etc.) written by the admin apply.
+ * For CMS configured custom fields, ONLY explicit modifiers (+30%, -30%, +£9.00/ea, etc.) written by the admin apply.
  * Generic fallbacks are only applied for legacy products with no CMS fields.
  */
 export function getIndustryDefaultModifier(
   fieldName: string,
   optionValue: string,
   isCMSCustomField: boolean = false
-): { multiplier: number; flatAddon: number } {
-  // 1. Explicit modifier written in option text (+30%, -30%, +£12) always takes precedence
+): { multiplier: number; flatAddon: number; unitAddon: number } {
+  // 1. Explicit modifier written in option text (+30%, -30%, +£12, +£9.00/ea) always takes precedence
   const explicit = parseOptionModifier(optionValue);
-  if (explicit.multiplier !== 1 || explicit.flatAddon !== 0) {
+  if (explicit.multiplier !== 1 || explicit.flatAddon !== 0 || explicit.unitAddon !== 0) {
     return explicit;
   }
 
   // If this product uses CMS custom fields, do NOT inject hardcoded industry multipliers!
   // Options only affect price if the admin explicitly specified +X% or -X% or +£X.
   if (isCMSCustomField) {
-    return { multiplier: 1.0, flatAddon: 0 };
+    return { multiplier: 1.0, flatAddon: 0, unitAddon: 0 };
   }
 
   const f = fieldName.toLowerCase();
@@ -227,44 +242,44 @@ export function getIndustryDefaultModifier(
 
   // 2. Printed Sides (Fallback only)
   if (f.includes('side') || opt.includes('single sided') || opt.includes('double sided')) {
-    if (opt.includes('double')) return { multiplier: 1.25, flatAddon: 0 };
-    return { multiplier: 1.0, flatAddon: 0 };
+    if (opt.includes('double')) return { multiplier: 1.25, flatAddon: 0, unitAddon: 0 };
+    return { multiplier: 1.0, flatAddon: 0, unitAddon: 0 };
   }
 
   // 3. Finished Size (Fallback only)
   if (f.includes('size')) {
-    if (opt.includes('a6') || opt.includes('dl')) return { multiplier: 0.85, flatAddon: 0 };
-    if (opt.includes('a5')) return { multiplier: 1.0, flatAddon: 0 };
-    if (opt.includes('a4')) return { multiplier: 1.45, flatAddon: 0 };
-    if (opt.includes('a3')) return { multiplier: 1.95, flatAddon: 0 };
+    if (opt.includes('a6') || opt.includes('dl')) return { multiplier: 0.85, flatAddon: 0, unitAddon: 0 };
+    if (opt.includes('a5')) return { multiplier: 1.0, flatAddon: 0, unitAddon: 0 };
+    if (opt.includes('a4')) return { multiplier: 1.45, flatAddon: 0, unitAddon: 0 };
+    if (opt.includes('a3')) return { multiplier: 1.95, flatAddon: 0, unitAddon: 0 };
   }
 
   // 4. Stock / Paper GSM (Fallback only)
   if (f.includes('stock') || f.includes('paper')) {
-    if (opt.includes('130gsm')) return { multiplier: 0.95, flatAddon: 0 };
-    if (opt.includes('150gsm') || opt.includes('170gsm')) return { multiplier: 1.0, flatAddon: 0 };
-    if (opt.includes('250gsm') || opt.includes('300gsm')) return { multiplier: 1.18, flatAddon: 0 };
+    if (opt.includes('130gsm')) return { multiplier: 0.95, flatAddon: 0, unitAddon: 0 };
+    if (opt.includes('150gsm') || opt.includes('170gsm')) return { multiplier: 1.0, flatAddon: 0, unitAddon: 0 };
+    if (opt.includes('250gsm') || opt.includes('300gsm')) return { multiplier: 1.18, flatAddon: 0, unitAddon: 0 };
     if (opt.includes('350gsm') || opt.includes('400gsm') || opt.includes('450gsm')) {
-      return { multiplier: 1.35, flatAddon: 0 };
+      return { multiplier: 1.35, flatAddon: 0, unitAddon: 0 };
     }
   }
 
   // 5. Lamination (Fallback only)
   if (f.includes('lamination') || f.includes('finish')) {
     if (opt.includes('no lamination') || opt.includes('none') || opt.includes('uncoated')) {
-      return { multiplier: 1.0, flatAddon: 0 };
+      return { multiplier: 1.0, flatAddon: 0, unitAddon: 0 };
     }
-    if (opt.includes('matt') || opt.includes('gloss')) return { multiplier: 1.15, flatAddon: 12.0 };
-    if (opt.includes('soft touch') || opt.includes('velvet')) return { multiplier: 1.22, flatAddon: 16.0 };
+    if (opt.includes('matt') || opt.includes('gloss')) return { multiplier: 1.15, flatAddon: 12.0, unitAddon: 0 };
+    if (opt.includes('soft touch') || opt.includes('velvet')) return { multiplier: 1.22, flatAddon: 16.0, unitAddon: 0 };
   }
 
   // 6. Embellishment (Fallback only)
   if (f.includes('embellish') || f.includes('foil') || f.includes('spot uv')) {
-    if (opt.includes('no embellish') || opt.includes('none')) return { multiplier: 1.0, flatAddon: 0 };
-    if (opt.includes('foil') || opt.includes('spot uv')) return { multiplier: 1.25, flatAddon: 24.0 };
+    if (opt.includes('no embellish') || opt.includes('none')) return { multiplier: 1.0, flatAddon: 0, unitAddon: 0 };
+    if (opt.includes('foil') || opt.includes('spot uv')) return { multiplier: 1.25, flatAddon: 24.0, unitAddon: 0 };
   }
 
-  return { multiplier: 1.0, flatAddon: 0 };
+  return { multiplier: 1.0, flatAddon: 0, unitAddon: 0 };
 }
 
 /**
@@ -437,20 +452,49 @@ export function generateDynamicPriceMatrix(
   maxNextDayQuantity?: number,
   sameDayIncreasePercent?: number,
   nextDayIncreasePercent?: number,
-  productQuantityTiers?: QuantityTier[]
+  productQuantityTiers?: QuantityTier[],
+  variantQuantityTiers?: Record<string, QuantityTier[]>
 ): MatrixRow[] {
   const safeMin = Math.max(1, minQuantity || 25);
   const safeMax = maxQuantity && maxQuantity >= safeMin ? maxQuantity : 250000;
 
+  // Approach B: Resolve active variant-specific quantity tiers if defined for selected options
+  let activeProductTiers = productQuantityTiers;
+  if (variantQuantityTiers && Object.keys(variantQuantityTiers).length > 0) {
+    for (const [field, val] of Object.entries(selectedOptions)) {
+      const cleanVal = cleanOptionDisplayName(val).toLowerCase().trim();
+      const rawVal = val.toLowerCase().trim();
+      const fieldVal = `${field}: ${cleanVal}`.toLowerCase().trim();
+
+      for (const [variantKey, vTiers] of Object.entries(variantQuantityTiers)) {
+        if (!vTiers || vTiers.length === 0) continue;
+        const k = variantKey.toLowerCase().trim();
+        const cleanK = cleanOptionDisplayName(variantKey).toLowerCase().trim();
+
+        if (
+          k === cleanVal ||
+          k === rawVal ||
+          cleanK === cleanVal ||
+          k === fieldVal ||
+          (cleanVal && cleanK && (cleanVal.includes(cleanK) || cleanK.includes(cleanVal)))
+        ) {
+          activeProductTiers = vTiers;
+          break;
+        }
+      }
+      if (activeProductTiers !== productQuantityTiers) break;
+    }
+  }
+
   // Determine tiers:
   // 1. If explicit quantityTiers array passed (e.g. custom quantity single-element array [customQty]), use that.
-  // 2. Otherwise if product has explicit merchant configured quantityTiers, use those quantities!
+  // 2. Otherwise if active configured quantityTiers exist, use those quantities!
   // 3. Otherwise generate candidate tiers based on safeMin and safeMax.
   const tiers =
     quantityTiers && quantityTiers.length > 0
       ? quantityTiers
-      : productQuantityTiers && productQuantityTiers.length > 0
-      ? productQuantityTiers.map((t) => Number(t.quantity))
+      : activeProductTiers && activeProductTiers.length > 0
+      ? activeProductTiers.map((t) => Number(t.quantity))
       : getProductQuantityTiers(safeMin, safeMax);
 
   // Turnaround speed multipliers
@@ -469,18 +513,19 @@ export function generateDynamicPriceMatrix(
 
   // Reference base anchor: product price set in CMS at minQuantity on standard delivery
   const baseAnchorPrice =
-    productQuantityTiers && productQuantityTiers.length > 0 && typeof productQuantityTiers[0].price === 'number' && productQuantityTiers[0].price > 0
-      ? productQuantityTiers[0].price
+    activeProductTiers && activeProductTiers.length > 0 && typeof activeProductTiers[0].price === 'number' && activeProductTiers[0].price > 0
+      ? activeProductTiers[0].price
       : basePrice && basePrice > 0
       ? basePrice
       : 14.69;
 
-  // Aggregate total option percentage delta and total flat fee
+  // Aggregate total option percentage delta, total flat fee, and total per-unit fee (Approach A)
   let totalPercentDelta = 0.0;
   let combinedFlatAddon = 0.0;
+  let combinedUnitAddon = 0.0;
 
   // If the product uses explicit merchant quantity tiers or CMS custom fields, do not inject hardcoded fallback modifiers
-  const hasExplicitTiers = Boolean(productQuantityTiers && productQuantityTiers.length > 0);
+  const hasExplicitTiers = Boolean(activeProductTiers && activeProductTiers.length > 0);
   const skipHardcodedDefaults = isCMSCustomFieldProduct || hasExplicitTiers;
 
   for (const [field, val] of Object.entries(selectedOptions)) {
@@ -495,6 +540,7 @@ export function generateDynamicPriceMatrix(
     const mod = getIndustryDefaultModifier(field, val, skipHardcodedDefaults);
     totalPercentDelta += (mod.multiplier - 1.0);
     combinedFlatAddon += mod.flatAddon;
+    combinedUnitAddon += mod.unitAddon;
   }
 
   // Additive combined multiplier: Base (1.0) + sum of all option percentage deltas
@@ -502,10 +548,11 @@ export function generateDynamicPriceMatrix(
 
   return tiers.map((qty) => {
     // Compute raw standard tier price (either through explicit merchant tiers or scaling curve)
-    const rawBasePrice = getTierBasePrice(qty, productQuantityTiers, baseAnchorPrice, safeMin);
+    const rawBasePrice = getTierBasePrice(qty, activeProductTiers, baseAnchorPrice, safeMin);
 
-    // Apply combined options multiplier & flat addon
-    const adjustedStandard = (rawBasePrice * combinedMultiplier + combinedFlatAddon) * numberOfSets;
+    // Apply combined options multiplier, flat addon, and per-unit addon (Approach A)
+    const adjustedStandard =
+      (rawBasePrice * combinedMultiplier + combinedFlatAddon + combinedUnitAddon * qty) * numberOfSets;
 
     // Apply delivery speeds
     const priceStandard = Number(adjustedStandard.toFixed(2));
@@ -572,7 +619,8 @@ export function calculateCustomQuantityPrice(
   maxNextDayQuantity?: number,
   sameDayIncreasePercent?: number,
   nextDayIncreasePercent?: number,
-  productQuantityTiers?: QuantityTier[]
+  productQuantityTiers?: QuantityTier[],
+  variantQuantityTiers?: Record<string, QuantityTier[]>
 ): {
   sameDay: number;
   nextDay: number;
@@ -594,7 +642,8 @@ export function calculateCustomQuantityPrice(
     maxNextDayQuantity,
     sameDayIncreasePercent,
     nextDayIncreasePercent,
-    productQuantityTiers
+    productQuantityTiers,
+    variantQuantityTiers
   );
   if (matrix.length === 0) return null;
 

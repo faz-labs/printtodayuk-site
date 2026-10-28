@@ -268,7 +268,8 @@ export function ProductDetailClient({
       product?.maxNextDayQuantity,
       product?.sameDayIncreasePercent,
       product?.nextDayIncreasePercent,
-      product?.quantityTiers
+      product?.quantityTiers,
+      product?.variantQuantityTiers
     );
   }, [
     basePriceAnchor,
@@ -282,6 +283,7 @@ export function ProductDetailClient({
     product?.sameDayIncreasePercent,
     product?.nextDayIncreasePercent,
     product?.quantityTiers,
+    product?.variantQuantityTiers,
   ]);
 
   // Custom Quantity dynamic price calculation
@@ -298,6 +300,7 @@ export function ProductDetailClient({
     parseInt(customQuantityInput.trim(), 10) > 0 &&
     !isCustomQuantityExceedsMax
   );
+
   const customQuantityNumber = isCustomQuantityActive
     ? parseInt(customQuantityInput.trim(), 10)
     : 0;
@@ -326,7 +329,8 @@ export function ProductDetailClient({
       product?.maxNextDayQuantity,
       product?.sameDayIncreasePercent,
       product?.nextDayIncreasePercent,
-      product?.quantityTiers
+      product?.quantityTiers,
+      product?.variantQuantityTiers
     );
   }, [
     isCustomQuantityActive,
@@ -342,6 +346,7 @@ export function ProductDetailClient({
     product?.sameDayIncreasePercent,
     product?.nextDayIncreasePercent,
     product?.quantityTiers,
+    product?.variantQuantityTiers,
   ]);
 
   // Active Size and Stock names used for Dynamic Weight Calculation

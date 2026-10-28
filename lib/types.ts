@@ -35,6 +35,7 @@ export interface Product {
   sameDayIncreasePercent?: number;  // Turnaround surcharge % for same day (e.g. 35.4%)
   nextDayIncreasePercent?: number;  // Turnaround surcharge % for 1 working day (e.g. 10%)
   quantityTiers?: QuantityTier[];   // Merchant-defined explicit quantity tiers
+  variantQuantityTiers?: Record<string, QuantityTier[]>; // Variant-specific quantity tiers (e.g. key is "2000 x 1500mm")
   features?: string[];
   customFields?: CustomField[];
   createdAt: number;
