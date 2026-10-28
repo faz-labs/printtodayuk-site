@@ -486,9 +486,9 @@ export function Footer() {
                 src="/images/logo.png"
                 srcSet="/images/logo.png 1x, /images/logo@2x.png 2x"
                 alt="Print Today UK"
-                width={220}
-                height={56}
-                className="h-10 sm:h-12 w-auto max-w-[220px] object-contain block transition-transform group-hover:scale-[1.02]"
+                width={170}
+                height={44}
+                className="h-8 sm:h-9.5 w-auto max-w-[165px] object-contain block transition-transform group-hover:scale-[1.02]"
                 style={{ imageRendering: '-webkit-optimize-contrast' }}
                 onError={(e) => {
                   e.currentTarget.style.display = 'none';

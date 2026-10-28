@@ -274,9 +274,9 @@ export function Navbar({ initialCategories = [], initialProducts = [] }: NavbarP
                   src="/images/logo.png"
                   srcSet="/images/logo.png 1x, /images/logo@2x.png 2x"
                   alt="Print Today UK"
-                  width={220}
-                  height={56}
-                  className="h-11 sm:h-13 w-auto max-w-[220px] object-contain block transition-transform group-hover:scale-[1.02]"
+                  width={190}
+                  height={48}
+                  className="h-9 sm:h-10.5 w-auto max-w-[185px] object-contain block transition-transform group-hover:scale-[1.02]"
                   style={{ imageRendering: '-webkit-optimize-contrast' }}
                   onError={(e) => {
                     e.currentTarget.style.display = 'none';
