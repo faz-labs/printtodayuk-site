@@ -231,12 +231,15 @@ export function ProductDetailClient({
   // Dynamic Physical Number of Sets: parsed from CMS dropdown if defined, otherwise 1
   const physicalNumberOfSets = useMemo(() => {
     if (hasCMSFields && product?.customFields) {
-      const setKey = Object.keys(customFieldValues).find((k) => k.toLowerCase().includes('set'));
+      const setKey = Object.keys(customFieldValues).find(
+        (k) => /\bsets?\b/i.test(k) && !k.toLowerCase().includes('cassette') && !k.toLowerCase().includes('offset')
+      );
       if (setKey) {
         const val = customFieldValues[setKey] || '';
-        const numMatch = val.match(/(\d+)/);
-        if (numMatch) {
-          return Math.max(1, parseInt(numMatch[1], 10));
+        const match = val.match(/(\d+)\s*sets?/i) || val.match(/^(\d+)$/);
+        if (match) {
+          const parsed = parseInt(match[1], 10);
+          return isNaN(parsed) || parsed < 1 ? 1 : Math.min(parsed, 100);
         }
       }
       return 1;

@@ -485,7 +485,11 @@ export function generateDynamicPriceMatrix(
 
   for (const [field, val] of Object.entries(selectedOptions)) {
     // If the field is "Number of Sets", sets are multiplied separately via numberOfSets parameter
-    if (field.toLowerCase().includes('set')) {
+    const isSetField =
+      /\bsets?\b/i.test(field) &&
+      !field.toLowerCase().includes('cassette') &&
+      !field.toLowerCase().includes('offset');
+    if (isSetField) {
       continue;
     }
     const mod = getIndustryDefaultModifier(field, val, skipHardcodedDefaults);
