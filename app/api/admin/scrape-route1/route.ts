@@ -3,6 +3,12 @@ import { execSync } from 'child_process';
 
 export const dynamic = 'force-dynamic';
 
+function normalizeStr(s: any): string {
+  return String(s || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+}
+
 // Helper to map URL path/slug to store categories
 function mapRoute1Category(path: string): string {
   const p = path.toLowerCase();
@@ -17,6 +23,54 @@ function mapRoute1Category(path: string): string {
   if (p.includes('merchandise') || p.includes('bag')) return 'Merchandise';
   if (p.includes('point-of-sale') || p.includes('pos')) return 'Point of Sale';
   return 'Roller Banners';
+}
+
+function resolveAttributeSelections(attributes: any[], searchParams: URLSearchParams): Record<string, number> {
+  const selections: Record<string, number> = {};
+
+  for (const attr of attributes) {
+    const attrNameNorm = normalizeStr(attr.attributeName || '');
+    const attrDisplayNorm = normalizeStr(attr.attributeDisplayName || '');
+    
+    let matchedOptId: number | null = null;
+
+    // Check each query param in URL
+    for (const [key, val] of searchParams.entries()) {
+      const cleanKey = normalizeStr(key.replace(/-\d{1,2}$/, ''));
+      if (
+        cleanKey === attrNameNorm || 
+        cleanKey === attrDisplayNorm || 
+        attrNameNorm.includes(cleanKey) || 
+        cleanKey.includes(attrNameNorm)
+      ) {
+        // Strip trailing route1 duplicate counters like -2, -3 from val
+        const cleanVal = normalizeStr(val.replace(/-\d{1,2}$/, ''));
+        const matched = attr.options?.find((opt: any) => {
+          const optNorm = normalizeStr(opt.name || opt.displayName || '');
+          return (
+            optNorm === cleanVal || 
+            optNorm.replace(/mm$|gsm$/, '') === cleanVal ||
+            optNorm.replace(/mm$|gsm$/, '') === cleanVal.replace(/mm$|gsm$/, '')
+          );
+        });
+        if (matched) {
+          matchedOptId = matched.optionID;
+          break;
+        }
+      }
+    }
+
+    // Default to first option if not matched by query param
+    if (!matchedOptId && attr.options && attr.options.length > 0) {
+      matchedOptId = attr.options[0].optionID;
+    }
+
+    if (matchedOptId) {
+      selections[String(attr.attributeID)] = matchedOptId;
+    }
+  }
+
+  return selections;
 }
 
 function scrapeSolopress(url: string) {
@@ -142,7 +196,7 @@ export async function POST(req: NextRequest) {
         console.warn('Route1 bundle API fetch failed:', e);
       }
 
-      // 2. Fetch Route1 HTML to extract LD+JSON priceGrid
+      // 2. Fetch Route1 HTML to extract LD+JSON priceGrid (fallback)
       let htmlText = '';
       try {
         const htmlRes = await fetch(url, {
@@ -158,15 +212,15 @@ export async function POST(req: NextRequest) {
         console.warn('Route1 HTML fetch failed:', e);
       }
 
-      // Extract ip:priceGrid from HTML LD+JSON
-      let priceGrid: any = null;
+      // Extract ip:priceGrid from HTML LD+JSON for fallback
+      let fallbackPriceGrid: any = null;
       const jsonLdMatches = htmlText.match(/<script type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi) || [];
       for (const match of jsonLdMatches) {
         const content = match.replace(/<\/?script[^>]*>/gi, '').trim();
         try {
           const parsed = JSON.parse(content);
           if (parsed['ip:priceGrid']) {
-            priceGrid = parsed['ip:priceGrid'];
+            fallbackPriceGrid = parsed['ip:priceGrid'];
             break;
           }
         } catch (e) {}
@@ -207,45 +261,185 @@ export async function POST(req: NextRequest) {
 
       // Extract Custom Fields (Dropdowns)
       const customFields: Array<{ id: string; name: string; options: string[]; required?: boolean }> = [];
-      if (bundleData?.preview?.attributes && Array.isArray(bundleData.preview.attributes)) {
-        const skipNames = ['quantity', 'turnaround', 'sets', 'binding', 'banding', 'cut type', 'file copies'];
-        for (const attr of bundleData.preview.attributes) {
-          const displayName = attr.attributeDisplayName || attr.attributeName || '';
-          const lowerName = displayName.toLowerCase();
+      const attributes = bundleData?.preview?.attributes && Array.isArray(bundleData.preview.attributes)
+        ? bundleData.preview.attributes
+        : [];
 
-          // Skip non-option fields
-          if (skipNames.some((s) => lowerName.includes(s))) continue;
+      const skipNames = ['quantity', 'turnaround', 'sets', 'binding', 'banding', 'cut type', 'file copies'];
+      for (const attr of attributes) {
+        const displayName = attr.attributeDisplayName || attr.attributeName || '';
+        const lowerName = displayName.toLowerCase();
 
-          const optionsList: string[] = [];
-          if (attr.options && Array.isArray(attr.options)) {
-            for (const opt of attr.options) {
-              const optName = opt.displayName || opt.name || '';
-              if (optName && !optionsList.includes(optName)) {
-                optionsList.push(optName);
-              }
+        // Skip non-option fields
+        if (skipNames.some((s) => lowerName.includes(s))) continue;
+
+        const optionsList: string[] = [];
+        if (attr.options && Array.isArray(attr.options)) {
+          for (const opt of attr.options) {
+            const optName = opt.displayName || opt.name || '';
+            if (optName && !optionsList.includes(optName)) {
+              optionsList.push(optName);
             }
           }
+        }
 
-          if (optionsList.length > 0) {
-            customFields.push({
-              id: `field_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
-              name: displayName,
-              options: optionsList,
-              required: true,
-            });
-          }
+        if (optionsList.length > 0) {
+          customFields.push({
+            id: `field_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+            name: displayName,
+            options: optionsList,
+            required: true,
+          });
         }
       }
 
-      // Extract Quantity Tiers & Turnaround Speeds from priceGrid
+      // Resolve user's selected variant options from URL query parameters!
+      const resolvedSelections = resolveAttributeSelections(attributes, urlObj.searchParams);
+
+      const qtyAttr = attributes.find((a: any) =>
+        (a.attributeName || a.attributeDisplayName || '').toLowerCase().includes('quantity')
+      );
+      const turnaroundAttr = attributes.find((a: any) =>
+        (a.attributeName || a.attributeDisplayName || '').toLowerCase().includes('turnaround')
+      );
+
       const quantityTiers: Array<{ quantity: number; price?: number; percentIncrease?: number }> = [];
       let sameDayIncreasePercent = 35.4;
       let nextDayIncreasePercent = 10.0;
       let basePrice = 14.69;
 
-      if (priceGrid && priceGrid.rows && Array.isArray(priceGrid.rows) && priceGrid.rows.length > 0) {
-        // Find turnaround IDs
-        const turnarounds = priceGrid.turnarounds || [];
+      let batchSucceeded = false;
+
+      // 3. FULL LIVE PRICING BATCH FETCH: Fetch ALL quantities (30 to 50 rows!) via Route1 Pricing Batch API
+      if (qtyAttr && turnaroundAttr && bundleData?.page?.productID) {
+        try {
+          const productID = bundleData.page.productID;
+          const productPageID = bundleData.page.id;
+          const brandID = bundleData.page.brandID || 1;
+
+          const standardTurnaround =
+            turnaroundAttr.options?.find((t: any) => /3-4|3-5|standard|economy/i.test(t.name || t.displayName)) ||
+            turnaroundAttr.options?.[turnaroundAttr.options.length - 1];
+          const sameDayTurnaround = turnaroundAttr.options?.find((t: any) =>
+            /same\s*day|express/i.test(t.name || t.displayName)
+          );
+          const nextDayTurnaround = turnaroundAttr.options?.find((t: any) =>
+            /1\s*work|next\s*day/i.test(t.name || t.displayName)
+          );
+
+          const standardTurnaroundId = standardTurnaround?.optionID || 817;
+
+          // Collect other selections (paper size, cassette, finish, etc.)
+          const otherOptionIds = Object.entries(resolvedSelections)
+            .filter(([attrId]) => Number(attrId) !== qtyAttr.attributeID && Number(attrId) !== turnaroundAttr.attributeID)
+            .map(([, optId]) => optId);
+
+          const validQuantities: number[] = [];
+          const batchItems: any[] = [];
+
+          // Generate batch requests for ALL quantities
+          for (const opt of qtyAttr.options || []) {
+            const qty = parseInt(opt.name || opt.displayName, 10);
+            if (isNaN(qty) || qty < 1) continue;
+
+            validQuantities.push(qty);
+            batchItems.push({
+              productID,
+              productPageID,
+              brandID,
+              attributeOptionIDs: [opt.optionID, standardTurnaroundId, ...otherOptionIds],
+              quantity: qty,
+            });
+          }
+
+          // Also query Qty 1 for Same Day and Next Day to get exact turnaround surcharges
+          if (sameDayTurnaround && qtyAttr.options?.[0]) {
+            batchItems.push({
+              productID,
+              productPageID,
+              brandID,
+              attributeOptionIDs: [qtyAttr.options[0].optionID, sameDayTurnaround.optionID, ...otherOptionIds],
+              quantity: validQuantities[0] || 1,
+            });
+          }
+
+          if (nextDayTurnaround && qtyAttr.options?.[0]) {
+            batchItems.push({
+              productID,
+              productPageID,
+              brandID,
+              attributeOptionIDs: [qtyAttr.options[0].optionID, nextDayTurnaround.optionID, ...otherOptionIds],
+              quantity: validQuantities[0] || 1,
+            });
+          }
+
+          if (batchItems.length > 0) {
+            const batchRes = await fetch('https://product.route1print.co.uk/pricecalculation/batch', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+              },
+              body: JSON.stringify(batchItems),
+            });
+
+            if (batchRes.ok) {
+              const batchJson = await batchRes.json();
+              const results = batchJson?.results || [];
+
+              if (Array.isArray(results) && results.length >= validQuantities.length) {
+                // Populate ALL quantity tiers!
+                for (let i = 0; i < validQuantities.length; i++) {
+                  const qty = validQuantities[i];
+                  const r = results[i];
+                  const price = r && r.success && r.finalPrice > 0 ? Number(r.finalPrice) : 0;
+                  if (price <= 0) continue;
+
+                  if (quantityTiers.length === 0) {
+                    basePrice = price;
+                    quantityTiers.push({
+                      quantity: qty,
+                      price: Number(basePrice.toFixed(2)),
+                    });
+                  } else {
+                    const pct = Number((((price - basePrice) / basePrice) * 100).toFixed(1));
+                    quantityTiers.push({
+                      quantity: qty,
+                      percentIncrease: Math.max(0, pct),
+                    });
+                  }
+                }
+
+                // Check same day surcharge %
+                const sameDayResult = results[validQuantities.length];
+                if (sameDayResult && sameDayResult.success && sameDayResult.finalPrice > basePrice) {
+                  sameDayIncreasePercent = Number(
+                    (((sameDayResult.finalPrice - basePrice) / basePrice) * 100).toFixed(1)
+                  );
+                }
+
+                // Check next day surcharge %
+                const nextDayResult = results[validQuantities.length + 1];
+                if (nextDayResult && nextDayResult.success && nextDayResult.finalPrice > basePrice) {
+                  nextDayIncreasePercent = Number(
+                    (((nextDayResult.finalPrice - basePrice) / basePrice) * 100).toFixed(1)
+                  );
+                }
+
+                if (quantityTiers.length > 0) {
+                  batchSucceeded = true;
+                }
+              }
+            }
+          }
+        } catch (batchErr) {
+          console.warn('Route1 batch price calculation failed, falling back to static priceGrid:', batchErr);
+        }
+      }
+
+      // 4. Fallback to HTML LD+JSON priceGrid if batch calculation failed
+      if (!batchSucceeded && fallbackPriceGrid && fallbackPriceGrid.rows && Array.isArray(fallbackPriceGrid.rows)) {
+        const turnarounds = fallbackPriceGrid.turnarounds || [];
         const sameDayTurnaround = turnarounds.find((t: any) => /same\s*day|express/i.test(t.label));
         const nextDayTurnaround = turnarounds.find((t: any) => /1\s*work|next\s*day/i.test(t.label));
         const standardTurnaround =
@@ -256,12 +450,10 @@ export async function POST(req: NextRequest) {
         const nextDayId = nextDayTurnaround?.id;
         const standardId = standardTurnaround?.id;
 
-        // First row defines the base price anchor
-        const firstRow = priceGrid.rows[0];
+        const firstRow = fallbackPriceGrid.rows[0];
         const row0Standard = standardId && firstRow.prices?.[standardId] ? Number(firstRow.prices[standardId]) : 0;
         basePrice = row0Standard > 0 ? row0Standard : 14.69;
 
-        // Calculate turnaround % increase relative to standard
         if (firstRow.prices) {
           const row0SameDay = sameDayId ? Number(firstRow.prices[sameDayId]) : 0;
           const row0NextDay = nextDayId ? Number(firstRow.prices[nextDayId]) : 0;
@@ -274,9 +466,8 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        // Build explicit quantity tiers
-        for (let i = 0; i < priceGrid.rows.length; i++) {
-          const row = priceGrid.rows[i];
+        for (let i = 0; i < fallbackPriceGrid.rows.length; i++) {
+          const row = fallbackPriceGrid.rows[i];
           const qty = Number(row.quantity);
           if (isNaN(qty) || qty < 1) continue;
 

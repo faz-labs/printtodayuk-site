@@ -1218,9 +1218,9 @@ export function ProductForm({
 
               {/* Quantity Tiers Table */}
               <div className="border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto max-h-[460px] overflow-y-auto">
                   <table className="w-full text-left text-xs border-collapse">
-                    <thead>
+                    <thead className="sticky top-0 z-10 bg-slate-50 shadow-2xs">
                       <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider">
                         <th className="py-2.5 px-3 w-14">Tier</th>
                         <th className="py-2.5 px-3 min-w-[100px]">Quantity</th>
