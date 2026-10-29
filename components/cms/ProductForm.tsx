@@ -124,6 +124,13 @@ export function ProductForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
+  // Keep target selector synced with active variant tab
+  useEffect(() => {
+    if (activeVariantTab) {
+      setImportTarget(activeVariantTab);
+    }
+  }, [activeVariantTab]);
+
   useEffect(() => {
     if (initialProduct) {
       setTitle(initialProduct.title);
@@ -530,8 +537,9 @@ export function ProductForm({
             [target]: d.quantityTiers,
           }));
           setActiveVariantTab(target);
+          const baseFormatted = d.price ? ` (Base: £${Number(d.price).toFixed(2)})` : '';
           setImportSuccessMsg(
-            `⚡ Successfully imported ${d.quantityTiers.length} price tiers directly into variant table "${target}"!`
+            `⚡ Successfully imported ${d.quantityTiers.length} price tiers${baseFormatted} for "${d.matchedVariantName || target}" directly into variant table "${target}"!`
           );
         } else {
           throw new Error('No quantity tiers found in the provided URL.');
@@ -616,8 +624,9 @@ export function ProductForm({
           ...prev,
           [variantName]: d.quantityTiers,
         }));
+        const baseFormatted = d.price ? ` (Base: £${Number(d.price).toFixed(2)})` : '';
         setVariantImportMsg(
-          `⚡ Imported ${d.quantityTiers.length} price tiers directly into variant table "${variantName}"!`
+          `⚡ Imported ${d.quantityTiers.length} price tiers${baseFormatted} for "${d.matchedVariantName || variantName}" directly into variant table "${variantName}"!`
         );
       } else {
         throw new Error('No quantity tiers found in the provided URL.');
@@ -786,8 +795,14 @@ export function ProductForm({
           <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
             {/* Target Matrix Selector (if variant tables exist) */}
             {Object.keys(variantQuantityTiers).length > 0 && (
-              <div className="shrink-0 flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-xl border border-slate-200">
-                <span className="text-[10px] font-bold text-slate-500 uppercase">Apply to:</span>
+              <div
+                className={`shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-xl border transition-colors ${
+                  importTarget !== 'default'
+                    ? 'bg-blue-50 border-blue-200 text-blue-900 ring-1 ring-blue-300'
+                    : 'bg-white border-slate-200 text-slate-700'
+                }`}
+              >
+                <span className="text-[10px] font-bold uppercase tracking-wider">Target:</span>
                 <select
                   value={importTarget}
                   onChange={(e) => setImportTarget(e.target.value)}

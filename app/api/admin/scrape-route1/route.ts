@@ -25,52 +25,114 @@ function mapRoute1Category(path: string): string {
   return 'Roller Banners';
 }
 
-function resolveAttributeSelections(attributes: any[], searchParams: URLSearchParams): Record<string, number> {
-  const selections: Record<string, number> = {};
+function extractTokens(str: string): string[] {
+  const norm = String(str || '').toLowerCase();
+  const tokens: string[] = [];
 
+  // Match standard paper sizes (a0, a1, a2, a3, a4, a5, a6, a7, dl)
+  const paperMatches = norm.match(/\b(a\d|dl)\b/gi);
+  if (paperMatches) tokens.push(...paperMatches.map((p) => p.toLowerCase()));
+
+  // Match dimensions like 1500mm, 1200mm, 1500, 1200, 1.5m, 1m, 2m, 85x55
+  const numMatches = norm.match(/\d+(?:\.\d+)?(?:mm|m|in)?/gi);
+  if (numMatches) {
+    for (const n of numMatches) {
+      const clean = n.replace(/[^0-9.]/g, '');
+      if (clean && clean !== '0') tokens.push(clean);
+    }
+  }
+
+  const words = norm.replace(/[^a-z0-9]+/g, ' ').trim().split(/\s+/);
+  for (const w of words) {
+    if (w.length >= 3 && !tokens.includes(w)) tokens.push(w);
+  }
+
+  return Array.from(new Set(tokens));
+}
+
+function resolveAttributeSelections(
+  attributes: any[],
+  searchParams: URLSearchParams
+): { selections: Record<string, number>; matchedVariantName: string; matchedTokens: Set<string> } {
+  const selections: Record<string, number> = {};
+  const explicitlyMatchedAttrIds = new Set<number>();
+  const matchedTokens = new Set<string>();
+  let matchedVariantName = '';
+
+  // Phase 1: Match attributes explicitly provided in URL searchParams
   for (const attr of attributes) {
     const attrNameNorm = normalizeStr(attr.attributeName || '');
     const attrDisplayNorm = normalizeStr(attr.attributeDisplayName || '');
-    
-    let matchedOptId: number | null = null;
+    let matchedOpt: any = null;
 
-    // Check each query param in URL
     for (const [key, val] of searchParams.entries()) {
       const cleanKey = normalizeStr(key.replace(/-\d{1,2}$/, ''));
       if (
-        cleanKey === attrNameNorm || 
-        cleanKey === attrDisplayNorm || 
-        attrNameNorm.includes(cleanKey) || 
+        cleanKey === attrNameNorm ||
+        cleanKey === attrDisplayNorm ||
+        attrNameNorm.includes(cleanKey) ||
         cleanKey.includes(attrNameNorm)
       ) {
-        // Strip trailing route1 duplicate counters like -2, -3 from val
         const cleanVal = normalizeStr(val.replace(/-\d{1,2}$/, ''));
-        const matched = attr.options?.find((opt: any) => {
-          const optNorm = normalizeStr(opt.name || opt.displayName || '');
+        const found = attr.options?.find((opt: any) => {
+          const optNorm = normalizeStr(opt.displayName || opt.name || '');
+          const optSlugNorm = normalizeStr(opt.optionSlug || '');
           return (
-            optNorm === cleanVal || 
+            optNorm === cleanVal ||
+            optSlugNorm === cleanVal ||
             optNorm.replace(/mm$|gsm$/, '') === cleanVal ||
-            optNorm.replace(/mm$|gsm$/, '') === cleanVal.replace(/mm$|gsm$/, '')
+            optSlugNorm.replace(/-\d{1,2}$/, '') === cleanVal
           );
         });
-        if (matched) {
-          matchedOptId = matched.optionID;
+        if (found) {
+          matchedOpt = found;
+          explicitlyMatchedAttrIds.add(attr.attributeID);
           break;
         }
       }
     }
 
-    // Default to first option if not matched by query param
-    if (!matchedOptId && attr.options && attr.options.length > 0) {
-      matchedOptId = attr.options[0].optionID;
-    }
-
-    if (matchedOptId) {
-      selections[String(attr.attributeID)] = matchedOptId;
+    if (matchedOpt) {
+      selections[String(attr.attributeID)] = matchedOpt.optionID;
+      const optStr = `${matchedOpt.displayName || ''} ${matchedOpt.optionSlug || ''}`;
+      extractTokens(optStr).forEach((t) => matchedTokens.add(t));
+      if (/size|dimension/i.test(attr.attributeName || attr.attributeDisplayName)) {
+        matchedVariantName = matchedOpt.displayName || matchedOpt.name || '';
+      }
     }
   }
 
-  return selections;
+  // Phase 2: For attributes NOT explicitly in URL, harmoniously match dependent options (e.g. Size -> Finishing/Cassette)
+  for (const attr of attributes) {
+    if (explicitlyMatchedAttrIds.has(attr.attributeID)) continue;
+    if (!attr.options || attr.options.length === 0) continue;
+
+    let bestOpt: any = null;
+    let maxMatchScore = 0;
+
+    for (const opt of attr.options) {
+      const optText = `${opt.displayName || ''} ${opt.optionSlug || ''}`.toLowerCase();
+      let score = 0;
+      for (const token of matchedTokens) {
+        if (token.length >= 2 && optText.includes(token)) {
+          // Numbers or paper sizes (like 1500 or a4) are strong indicators of size harmony
+          score += /^\d+$/.test(token) || /^a\d$/.test(token) ? 5 : 1;
+        }
+      }
+      if (score > maxMatchScore) {
+        maxMatchScore = score;
+        bestOpt = opt;
+      }
+    }
+
+    if (bestOpt && maxMatchScore > 0) {
+      selections[String(attr.attributeID)] = bestOpt.optionID;
+    } else {
+      selections[String(attr.attributeID)] = attr.options[0].optionID;
+    }
+  }
+
+  return { selections, matchedVariantName, matchedTokens };
 }
 
 function scrapeSolopress(url: string) {
@@ -294,7 +356,10 @@ export async function POST(req: NextRequest) {
       }
 
       // Resolve user's selected variant options from URL query parameters!
-      const resolvedSelections = resolveAttributeSelections(attributes, urlObj.searchParams);
+      const { selections: resolvedSelections, matchedVariantName } = resolveAttributeSelections(
+        attributes,
+        urlObj.searchParams
+      );
 
       const qtyAttr = attributes.find((a: any) =>
         (a.attributeName || a.attributeDisplayName || '').toLowerCase().includes('quantity')
@@ -330,55 +395,128 @@ export async function POST(req: NextRequest) {
           const standardTurnaroundId = standardTurnaround?.optionID || 817;
 
           // Collect other selections (paper size, cassette, finish, etc.)
-          const otherOptionIds = Object.entries(resolvedSelections)
+          let otherOptionIds = Object.entries(resolvedSelections)
             .filter(([attrId]) => Number(attrId) !== qtyAttr.attributeID && Number(attrId) !== turnaroundAttr.attributeID)
             .map(([, optId]) => optId);
 
           const validQuantities: number[] = [];
-          const batchItems: any[] = [];
-
-          // Generate batch requests for ALL quantities
           for (const opt of qtyAttr.options || []) {
-            const qty = parseInt(opt.name || opt.displayName, 10);
+            const qty = parseInt(opt.displayName || opt.name, 10);
             if (isNaN(qty) || qty < 1) continue;
-
             validQuantities.push(qty);
-            batchItems.push({
-              productID,
-              productPageID,
-              brandID,
-              attributeOptionIDs: [opt.optionID, standardTurnaroundId, ...otherOptionIds],
-              quantity: qty,
-            });
           }
 
-          // Also query Qty 1 for Same Day and Next Day to get exact turnaround surcharges
-          if (sameDayTurnaround && qtyAttr.options?.[0]) {
-            batchItems.push({
-              productID,
-              productPageID,
-              brandID,
-              attributeOptionIDs: [qtyAttr.options[0].optionID, sameDayTurnaround.optionID, ...otherOptionIds],
-              quantity: validQuantities[0] || 1,
-            });
+          // Step 3a: Quick Trial Batch Check to verify combination compatibility
+          const trialQty = validQuantities[0] || 1;
+          const trialItem = {
+            productID,
+            productPageID,
+            brandID,
+            attributeOptionIDs: [qtyAttr.options[0].optionID, standardTurnaroundId, ...otherOptionIds],
+            quantity: trialQty,
+          };
+
+          let trialRes = await fetch('https://product.route1print.co.uk/pricecalculation/batch', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'User-Agent':
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+            },
+            body: JSON.stringify([trialItem]),
+          });
+
+          let trialJson = trialRes.ok ? await trialRes.json() : null;
+          let trialResult = trialJson?.results?.[0];
+
+          // Step 3b: Auto-healer if trial combination failed
+          // Never change the user's selected size or quantity, but heal any secondary conflicting attributes (e.g. cassette size or finishing)
+          if (!trialResult?.success) {
+            console.warn(
+              `Trial combination rejected: ${trialResult?.errorMessage || 'Unknown error'}. Running auto-healer...`
+            );
+            for (const attr of attributes) {
+              if (attr.attributeID === qtyAttr.attributeID || attr.attributeID === turnaroundAttr.attributeID) continue;
+              if (/size|dimension/i.test(attr.attributeName || attr.attributeDisplayName)) continue; // PROTECT SIZE!
+
+              const currentOptId = otherOptionIds.find((id) => attr.options.some((o: any) => o.optionID === id));
+
+              for (const opt of attr.options) {
+                if (opt.optionID === currentOptId) continue;
+                const testOtherIds = otherOptionIds.map((id) => (id === currentOptId ? opt.optionID : id));
+                const retryRes = await fetch('https://product.route1print.co.uk/pricecalculation/batch', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'User-Agent':
+                      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+                  },
+                  body: JSON.stringify([
+                    {
+                      productID,
+                      productPageID,
+                      brandID,
+                      attributeOptionIDs: [qtyAttr.options[0].optionID, standardTurnaroundId, ...testOtherIds],
+                      quantity: trialQty,
+                    },
+                  ]),
+                });
+
+                const retryJson = retryRes.ok ? await retryRes.json() : null;
+                if (retryJson?.results?.[0]?.success) {
+                  console.log(`Auto-healer resolved conflict: ${attr.attributeName} -> ${opt.displayName}`);
+                  otherOptionIds = testOtherIds;
+                  trialResult = retryJson.results[0];
+                  break;
+                }
+              }
+              if (trialResult?.success) break;
+            }
           }
 
-          if (nextDayTurnaround && qtyAttr.options?.[0]) {
-            batchItems.push({
-              productID,
-              productPageID,
-              brandID,
-              attributeOptionIDs: [qtyAttr.options[0].optionID, nextDayTurnaround.optionID, ...otherOptionIds],
-              quantity: validQuantities[0] || 1,
-            });
-          }
+          // Step 3c: Execute Full Batch for ALL quantities now that combination is guaranteed valid
+          if (trialResult?.success) {
+            const batchItems: any[] = [];
+            for (let i = 0; i < validQuantities.length; i++) {
+              const qty = validQuantities[i];
+              const opt = qtyAttr.options[i];
+              if (!opt) continue;
+              batchItems.push({
+                productID,
+                productPageID,
+                brandID,
+                attributeOptionIDs: [opt.optionID, standardTurnaroundId, ...otherOptionIds],
+                quantity: qty,
+              });
+            }
 
-          if (batchItems.length > 0) {
+            // Also query Qty 1 for Same Day and Next Day to get exact turnaround surcharges
+            if (sameDayTurnaround && qtyAttr.options?.[0]) {
+              batchItems.push({
+                productID,
+                productPageID,
+                brandID,
+                attributeOptionIDs: [qtyAttr.options[0].optionID, sameDayTurnaround.optionID, ...otherOptionIds],
+                quantity: validQuantities[0] || 1,
+              });
+            }
+
+            if (nextDayTurnaround && qtyAttr.options?.[0]) {
+              batchItems.push({
+                productID,
+                productPageID,
+                brandID,
+                attributeOptionIDs: [qtyAttr.options[0].optionID, nextDayTurnaround.optionID, ...otherOptionIds],
+                quantity: validQuantities[0] || 1,
+              });
+            }
+
             const batchRes = await fetch('https://product.route1print.co.uk/pricecalculation/batch', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+                'User-Agent':
+                  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
               },
               body: JSON.stringify(batchItems),
             });
@@ -437,8 +575,8 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // 4. Fallback to HTML LD+JSON priceGrid if batch calculation failed
-      if (!batchSucceeded && fallbackPriceGrid && fallbackPriceGrid.rows && Array.isArray(fallbackPriceGrid.rows)) {
+      // 4. Fallback to HTML LD+JSON priceGrid ONLY IF no explicit variant was requested
+      if (!batchSucceeded && !matchedVariantName && fallbackPriceGrid && fallbackPriceGrid.rows && Array.isArray(fallbackPriceGrid.rows)) {
         const turnarounds = fallbackPriceGrid.turnarounds || [];
         const sameDayTurnaround = turnarounds.find((t: any) => /same\s*day|express/i.test(t.label));
         const nextDayTurnaround = turnarounds.find((t: any) => /1\s*work|next\s*day/i.test(t.label));
@@ -513,6 +651,7 @@ export async function POST(req: NextRequest) {
           maxNextDayQuantity: 100,
           sourceUrl: url,
           source: 'route1',
+          matchedVariantName: matchedVariantName || undefined,
         },
       });
     }
