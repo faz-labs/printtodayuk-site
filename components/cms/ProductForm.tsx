@@ -111,10 +111,15 @@ export function ProductForm({
   const [activeVariantTab, setActiveVariantTab] = useState<string>('default');
   const [selectedVariantToAdd, setSelectedVariantToAdd] = useState<string>('');
 
-  // Approach C: Route1 One-Click Auto-Fill Tool
+  // Approach C & Universal Auto-Fill Tool
   const [route1Url, setRoute1Url] = useState<string>('');
   const [isImportingRoute1, setIsImportingRoute1] = useState<boolean>(false);
   const [importSuccessMsg, setImportSuccessMsg] = useState<string>('');
+  const [importMode, setImportMode] = useState<'matrix_only' | 'full'>('matrix_only');
+  const [importTarget, setImportTarget] = useState<string>('default');
+  const [variantImportUrl, setVariantImportUrl] = useState<string>('');
+  const [isImportingVariant, setIsImportingVariant] = useState<boolean>(false);
+  const [variantImportMsg, setVariantImportMsg] = useState<string>('');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -210,6 +215,10 @@ export function ProductForm({
     setActiveNewOptionText({});
     setRoute1Url('');
     setImportSuccessMsg('');
+    setVariantImportUrl('');
+    setVariantImportMsg('');
+    setImportMode(initialProduct ? 'matrix_only' : 'full');
+    setImportTarget('default');
     setError('');
   }, [initialProduct, isOpen, categories]);
 
@@ -487,10 +496,11 @@ export function ProductForm({
     .flatMap((f) => f.options.map((o) => cleanOptionDisplayName(o)))
     .filter((o) => o && o.trim().length > 0 && !variantQuantityTiers[o]);
 
-  // Approach C: Route1 One-Click Auto-Fill Handler
-  const handleImportRoute1 = async () => {
-    if (!route1Url.trim()) {
-      setError('Please enter a Route1Print product URL to import.');
+  // Approach C & Universal One-Click Auto-Fill Handler
+  const handleImportRoute1 = async (targetOverride?: string) => {
+    const urlToFetch = route1Url.trim();
+    if (!urlToFetch) {
+      setError('Please enter a product URL (Route1 or Solopress) to import.');
       return;
     }
     setIsImportingRoute1(true);
@@ -501,28 +511,35 @@ export function ProductForm({
       const res = await fetch('/api/admin/scrape-route1', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: route1Url.trim() }),
+        body: JSON.stringify({ url: urlToFetch }),
       });
 
       const result = await res.json();
       if (!res.ok || !result.success) {
-        throw new Error(result.error || 'Failed to import Route1 product');
+        throw new Error(result.error || 'Failed to import product data');
       }
 
       const d = result.data;
-      if (d.title) {
-        setTitle(d.title);
-        setSlug(slugify(d.title));
+      const target = targetOverride || importTarget;
+
+      // Case A: Import into a specific Variant Table (Approach B)
+      if (target !== 'default') {
+        if (d.quantityTiers && d.quantityTiers.length > 0) {
+          setVariantQuantityTiers((prev) => ({
+            ...prev,
+            [target]: d.quantityTiers,
+          }));
+          setActiveVariantTab(target);
+          setImportSuccessMsg(
+            `⚡ Successfully imported ${d.quantityTiers.length} price tiers directly into variant table "${target}"!`
+          );
+        } else {
+          throw new Error('No quantity tiers found in the provided URL.');
+        }
+        return;
       }
-      if (d.category) setCategory(d.category);
-      if (d.description) setDescription(d.description);
-      if (d.images && d.images.length > 0) {
-        setImages(d.images);
-        setImageUrl(d.images[0]);
-      }
-      if (d.customFields && d.customFields.length > 0) {
-        setCustomFields(d.customFields);
-      }
+
+      // Case B: Import into Default / Base Matrix
       if (d.quantityTiers && d.quantityTiers.length > 0) {
         setQuantityTiers(d.quantityTiers);
       }
@@ -539,13 +556,76 @@ export function ProductForm({
         setMaxNextDayQuantity(String(d.maxNextDayQuantity));
       }
 
-      setImportSuccessMsg(
-        `⚡ Imported "${d.title}" from Route1: ${d.quantityTiers?.length || 0} quantity tiers, ${d.customFields?.length || 0} dropdown fields, and turnaround rules!`
-      );
+      // If Full Mode (New Product Mode)
+      if (importMode === 'full') {
+        if (d.title) {
+          setTitle(d.title);
+          setSlug(slugify(d.title));
+        }
+        if (d.category) setCategory(d.category);
+        if (d.description) setDescription(d.description);
+        if (d.images && d.images.length > 0) {
+          setImages(d.images);
+          setImageUrl(d.images[0]);
+        }
+        if (d.customFields && d.customFields.length > 0) {
+          setCustomFields(d.customFields);
+        }
+        setImportSuccessMsg(
+          `⚡ Full Product Cloned: "${d.title}" with ${d.quantityTiers?.length || 0} tiers, ${d.customFields?.length || 0} dropdown fields, images, and turnaround rules!`
+        );
+      } else {
+        // Price Matrix Only Mode (Existing Product Mode)
+        setImportSuccessMsg(
+          `⚡ Price Matrix Updated! Kept your Title, Description, Images, and Custom Options safe, and synced ${d.quantityTiers?.length || 0} price tiers and turnaround rates.`
+        );
+      }
     } catch (err: any) {
-      setError(err.message || 'Error importing product from Route1.');
+      setError(err.message || 'Error importing product data.');
     } finally {
       setIsImportingRoute1(false);
+    }
+  };
+
+  // Approach B: Direct Variant Matrix Importer
+  const handleImportForVariant = async (variantName: string) => {
+    const urlToFetch = variantImportUrl.trim();
+    if (!urlToFetch) {
+      setError(`Please enter a URL to import prices for variant "${variantName}".`);
+      return;
+    }
+    setIsImportingVariant(true);
+    setError('');
+    setVariantImportMsg('');
+
+    try {
+      const res = await fetch('/api/admin/scrape-route1', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: urlToFetch }),
+      });
+
+      const result = await res.json();
+      if (!res.ok || !result.success) {
+        throw new Error(result.error || `Failed to import prices for variant "${variantName}"`);
+      }
+
+      const d = result.data;
+      if (d.quantityTiers && d.quantityTiers.length > 0) {
+        setVariantQuantityTiers((prev) => ({
+          ...prev,
+          [variantName]: d.quantityTiers,
+        }));
+        setVariantImportMsg(
+          `⚡ Imported ${d.quantityTiers.length} price tiers directly into variant table "${variantName}"!`
+        );
+      } else {
+        throw new Error('No quantity tiers found in the provided URL.');
+      }
+    } catch (err: any) {
+      setError(err.message || `Error importing prices for "${variantName}".`);
+    } finally {
+      setIsImportingVariant(false);
     }
   };
 
@@ -654,28 +734,75 @@ export function ProductForm({
           </div>
         )}
 
-        {/* Approach C: Route1 One-Click Auto-Fill Tool */}
-        <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-blue-50/90 via-indigo-50/50 to-slate-50 border border-blue-200/80 shadow-2xs">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2.5">
+        {/* Universal One-Click Auto-Fill Tool */}
+        <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-blue-50/90 via-indigo-50/50 to-slate-50 border border-blue-200/80 shadow-2xs space-y-2.5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <span className="p-1.5 rounded-lg bg-[#012169] text-white shadow-xs">
                 <Lightning weight="fill" className="h-4 w-4 text-amber-300" />
               </span>
               <div>
-                <span className="text-xs font-black text-slate-900 tracking-tight flex items-center gap-1.5">
-                  <span>Approach C: Auto-Import from Route1Print</span>
+                <span className="text-xs font-black text-slate-900 tracking-tight flex items-center gap-1.5 flex-wrap">
+                  <span>Universal One-Click Auto-Fill (Route1 / Solopress)</span>
                   <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-100 text-[#012169] uppercase">
-                    One-Click Clone
+                    Universal Importer
                   </span>
                 </span>
                 <p className="text-[11px] text-slate-500 font-medium">
-                  Paste any Route1Print URL to auto-fill title, images, dropdown options, turnaround %, and exact quantity tiers
+                  Paste any product URL from Route1Print or Solopress to instantly sync prices & details
                 </p>
               </div>
             </div>
+
+            {/* Mode Switcher */}
+            <div className="flex items-center gap-1 bg-white p-0.5 rounded-xl border border-slate-200 self-start sm:self-auto shrink-0">
+              <button
+                type="button"
+                onClick={() => setImportMode('matrix_only')}
+                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                  importMode === 'matrix_only'
+                    ? 'bg-[#012169] text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+                title="Only updates pricing tiers and turnaround surcharges. Keeps your existing Title, Images, Description, and Dropdowns safe!"
+              >
+                📊 Price Matrix Only (Existing Product)
+              </button>
+              <button
+                type="button"
+                onClick={() => setImportMode('full')}
+                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                  importMode === 'full'
+                    ? 'bg-[#012169] text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+                title="Overwrites Title, Description, Images, Dropdown Fields, and Pricing Matrix (Great for new products)"
+              >
+                📦 Full Product Clone
+              </button>
+            </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-2">
+          <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+            {/* Target Matrix Selector (if variant tables exist) */}
+            {Object.keys(variantQuantityTiers).length > 0 && (
+              <div className="shrink-0 flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-xl border border-slate-200">
+                <span className="text-[10px] font-bold text-slate-500 uppercase">Apply to:</span>
+                <select
+                  value={importTarget}
+                  onChange={(e) => setImportTarget(e.target.value)}
+                  className="h-7 text-xs font-bold text-[#012169] bg-transparent focus:outline-hidden cursor-pointer"
+                >
+                  <option value="default">★ Default Base Matrix</option>
+                  {Object.keys(variantQuantityTiers).map((k) => (
+                    <option key={k} value={k}>
+                      Variant: {k}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <div className="relative flex-1">
               <span className="absolute left-3 top-2.5 text-slate-400">
                 <Globe className="h-4 w-4" />
@@ -684,32 +811,39 @@ export function ProductForm({
                 type="url"
                 value={route1Url}
                 onChange={(e) => setRoute1Url(e.target.value)}
-                placeholder="https://www.route1print.co.uk/banners-and-pop-ups/wide-roller-banners"
+                placeholder="Paste URL (e.g. https://www.route1print.co.uk/... or https://www.solopress.com/...)"
                 className="w-full h-9 pl-9 pr-3 rounded-xl border border-slate-300 bg-white text-xs text-slate-900 focus:outline-hidden focus:border-[#012169] focus:ring-1 focus:ring-[#012169]"
               />
             </div>
+
             <button
               type="button"
-              onClick={handleImportRoute1}
+              onClick={() => handleImportRoute1()}
               disabled={isImportingRoute1}
               className="px-4 h-9 rounded-xl bg-[#012169] hover:bg-[#00174c] text-white text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 shrink-0 cursor-pointer disabled:opacity-60"
             >
               {isImportingRoute1 ? (
                 <>
                   <span className="h-3.5 w-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  <span>Fetching Route1 Data...</span>
+                  <span>Fetching Data...</span>
                 </>
               ) : (
                 <>
                   <Sparkle weight="bold" className="h-3.5 w-3.5 text-amber-300" />
-                  <span>Fetch & Auto-Fill</span>
+                  <span>
+                    {importTarget !== 'default'
+                      ? `Import to "${importTarget}"`
+                      : importMode === 'matrix_only'
+                      ? 'Update Price Matrix'
+                      : 'Fetch & Auto-Fill'}
+                  </span>
                 </>
               )}
             </button>
           </div>
 
           {importSuccessMsg && (
-            <div className="mt-2.5 p-2 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 font-semibold flex items-center gap-2">
+            <div className="mt-1 p-2 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 font-semibold flex items-center gap-2">
               <Check weight="bold" className="h-4 w-4 text-emerald-600 shrink-0" />
               <span>{importSuccessMsg}</span>
             </div>
@@ -1018,22 +1152,66 @@ export function ProductForm({
                 </div>
 
                 {activeVariantTab !== 'default' && (
-                  <div className="flex items-center justify-between pt-1 text-[11px]">
-                    <span className="text-blue-700 font-semibold">
-                      Custom matrix for: <strong>{activeVariantTab}</strong>
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setVariantQuantityTiers((prev) => ({
-                          ...prev,
-                          [activeVariantTab]: JSON.parse(JSON.stringify(quantityTiers)),
-                        }));
-                      }}
-                      className="text-xs text-[#012169] hover:underline font-bold cursor-pointer"
-                    >
-                      📋 Reset / Copy from Default Tiers
-                    </button>
+                  <div className="pt-2 border-t border-slate-200/80 space-y-2">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="text-blue-700 font-bold flex items-center gap-1.5">
+                        <Lightning weight="fill" className="h-3.5 w-3.5 text-amber-500" />
+                        <span>Dedicated Pricing Matrix for: <strong>{activeVariantTab}</strong></span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setVariantQuantityTiers((prev) => ({
+                            ...prev,
+                            [activeVariantTab]: JSON.parse(JSON.stringify(quantityTiers)),
+                          }));
+                        }}
+                        className="text-xs text-[#012169] hover:underline font-bold cursor-pointer"
+                      >
+                        📋 Copy from Default Tiers
+                      </button>
+                    </div>
+
+                    {/* Instant Variant Link Importer */}
+                    <div className="p-2.5 rounded-xl bg-white border border-blue-200 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shadow-2xs">
+                      <div className="relative flex-1">
+                        <span className="absolute left-2.5 top-2 text-slate-400">
+                          <Globe className="h-3.5 w-3.5" />
+                        </span>
+                        <input
+                          type="url"
+                          value={variantImportUrl}
+                          onChange={(e) => setVariantImportUrl(e.target.value)}
+                          placeholder={`Paste Route1 / Solopress link for ${activeVariantTab}...`}
+                          className="w-full h-8 pl-8 pr-2 rounded-lg border border-slate-200 text-xs text-slate-900 bg-slate-50 focus:bg-white focus:outline-hidden focus:border-[#012169]"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleImportForVariant(activeVariantTab)}
+                        disabled={isImportingVariant}
+                        className="px-3 h-8 rounded-lg bg-[#012169] hover:bg-[#00174c] text-white text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 shrink-0 cursor-pointer disabled:opacity-60"
+                      >
+                        {isImportingVariant ? (
+                          <>
+                            <span className="h-3 w-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            <span>Fetching...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Sparkle weight="bold" className="h-3 w-3 text-amber-300" />
+                            <span>Import to this Variant Table</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                    {variantImportMsg && (
+                      <div className="p-2 rounded-lg bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 font-semibold flex items-center gap-1.5">
+                        <Check weight="bold" className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                        <span>{variantImportMsg}</span>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
