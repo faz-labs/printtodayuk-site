@@ -559,12 +559,6 @@ export function generateDynamicPriceMatrix(
     const priceNextDay = Number((adjustedStandard * SPEED_NEXT_DAY).toFixed(2));
     const priceSameDay = Number((adjustedStandard * SPEED_SAME_DAY).toFixed(2));
 
-    // Strikethrough discount for marketing (shows on select tiers like 100 units)
-    const isSpecialDiscountTier = qty === 100 || (safeMin < 10 && qty === 10);
-    const rrpSameDay = isSpecialDiscountTier ? Number((priceSameDay * 1.11).toFixed(2)) : undefined;
-    const rrpNextDay = isSpecialDiscountTier ? Number((priceNextDay * 1.11).toFixed(2)) : undefined;
-    const rrpStandard = isSpecialDiscountTier ? Number((priceStandard * 1.11).toFixed(2)) : undefined;
-
     // Check same-day feasibility: if cutoff limit is specified (including 0), qty must be <= maxSameDayQuantity
     const isSameDayFeasible =
       typeof maxSameDayQuantity === 'number'
@@ -581,22 +575,19 @@ export function generateDynamicPriceMatrix(
       quantity: qty,
       sameDay: {
         price: priceSameDay,
-        rrpPrice: rrpSameDay,
-        isDiscounted: isSpecialDiscountTier,
+        isDiscounted: false,
         unitPrice: Number((priceSameDay / (qty * numberOfSets)).toFixed(3)),
         isAvailable: isSameDayFeasible,
       },
       nextDay: {
         price: priceNextDay,
-        rrpPrice: rrpNextDay,
-        isDiscounted: isSpecialDiscountTier,
+        isDiscounted: false,
         unitPrice: Number((priceNextDay / (qty * numberOfSets)).toFixed(3)),
         isAvailable: isNextDayFeasible,
       },
       standard: {
         price: priceStandard,
-        rrpPrice: rrpStandard,
-        isDiscounted: isSpecialDiscountTier,
+        isDiscounted: false,
         unitPrice: Number((priceStandard / (qty * numberOfSets)).toFixed(3)),
         isAvailable: true,
       },
