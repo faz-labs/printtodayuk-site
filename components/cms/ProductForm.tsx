@@ -1129,41 +1129,79 @@ export function ProductForm({
                     </div>
                   ))}
 
-                  {/* Add Variant Button */}
-                  {availableVariantOptions.length > 0 && (
-                    <div className="flex items-center gap-1">
-                      <select
+                  {/* Add / Create Variant Table Bar (Supports single options and compound combinations like A6 - 170gsm - DSP) */}
+                  <div className="flex flex-wrap items-center gap-1.5 w-full pt-1">
+                    <div className="relative flex-1 min-w-[220px]">
+                      <input
+                        type="text"
                         value={selectedVariantToAdd}
                         onChange={(e) => setSelectedVariantToAdd(e.target.value)}
-                        className="h-7 px-2 rounded-lg border border-slate-300 bg-white text-[11px] font-semibold text-slate-700 focus:outline-hidden"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            if (selectedVariantToAdd.trim()) {
+                              const name = selectedVariantToAdd.trim();
+                              setVariantQuantityTiers((prev) => ({
+                                ...prev,
+                                [name]: JSON.parse(JSON.stringify(quantityTiers)),
+                              }));
+                              setActiveVariantTab(name);
+                              setSelectedVariantToAdd('');
+                            }
+                          }
+                        }}
+                        placeholder="Type variant name (e.g. A6, or compound: A6 - 170gsm - DSP)..."
+                        className="w-full h-8 px-2.5 rounded-lg border border-slate-300 bg-white text-xs font-semibold text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:border-[#012169] focus:ring-1 focus:ring-[#012169]"
+                      />
+                    </div>
+
+                    {/* Quick Pick Dropdown */}
+                    {availableVariantOptions.length > 0 && (
+                      <select
+                        value=""
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (!val) return;
+                          setSelectedVariantToAdd((prev) =>
+                            prev.trim() ? `${prev.trim()} - ${val}` : val
+                          );
+                        }}
+                        className="h-8 px-2 rounded-lg border border-slate-300 bg-slate-50 text-[11px] font-semibold text-slate-700 focus:outline-hidden cursor-pointer"
+                        title="Pick an option to insert or chain"
                       >
-                        <option value="">-- Add variant table for option... --</option>
+                        <option value="">+ Pick Option to Append</option>
                         {availableVariantOptions.map((opt) => (
                           <option key={opt} value={opt}>
                             {opt}
                           </option>
                         ))}
                       </select>
-                      {selectedVariantToAdd && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (!selectedVariantToAdd) return;
-                            setVariantQuantityTiers((prev) => ({
-                              ...prev,
-                              [selectedVariantToAdd]: JSON.parse(JSON.stringify(quantityTiers)),
-                            }));
-                            setActiveVariantTab(selectedVariantToAdd);
-                            setSelectedVariantToAdd('');
-                          }}
-                          className="h-7 px-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold flex items-center gap-1 cursor-pointer"
-                        >
-                          <Plus className="h-3 w-3" />
-                          <span>Create Table</span>
-                        </button>
-                      )}
-                    </div>
-                  )}
+                    )}
+
+                    <button
+                      type="button"
+                      disabled={!selectedVariantToAdd.trim()}
+                      onClick={() => {
+                        const name = selectedVariantToAdd.trim();
+                        if (!name) return;
+                        if (variantQuantityTiers[name]) {
+                          setActiveVariantTab(name);
+                          setSelectedVariantToAdd('');
+                          return;
+                        }
+                        setVariantQuantityTiers((prev) => ({
+                          ...prev,
+                          [name]: JSON.parse(JSON.stringify(quantityTiers)),
+                        }));
+                        setActiveVariantTab(name);
+                        setSelectedVariantToAdd('');
+                      }}
+                      className="h-8 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shrink-0 shadow-2xs"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      <span>Create Table</span>
+                    </button>
+                  </div>
                 </div>
 
                 {activeVariantTab !== 'default' && (

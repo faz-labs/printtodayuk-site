@@ -435,6 +435,106 @@ export function getTierBasePrice(
   return anchorPrice;
 }
 
+function normalizeToken(token: string): string {
+  const t = String(token || '').toLowerCase().trim();
+  if (t === 'dsp' || t === 'ds' || t === 'double') return 'double sided';
+  if (t === 'ssp' || t === 'ss' || t === 'single') return 'single sided';
+  return t;
+}
+
+/**
+ * Resolves the most specific matching quantity tier table from variantQuantityTiers.
+ * Supports both single keys (e.g. "A6", "170gsm") and compound multi-attribute keys
+ * (e.g. "A6 - 170gsm - DSP", "A5 | 250gsm | Double Sided").
+ */
+export function resolveActiveVariantTiers(
+  selectedOptions: Record<string, string>,
+  variantQuantityTiers?: Record<string, QuantityTier[]>,
+  defaultTiers?: QuantityTier[]
+): QuantityTier[] | undefined {
+  if (!variantQuantityTiers || Object.keys(variantQuantityTiers).length === 0) {
+    return defaultTiers;
+  }
+
+  // Pre-process customer selections into normalized search tokens
+  const customerTokens: string[] = [];
+  for (const [field, val] of Object.entries(selectedOptions)) {
+    const cleanVal = cleanOptionDisplayName(val).toLowerCase().trim();
+    customerTokens.push(cleanVal);
+    customerTokens.push(`${field}: ${cleanVal}`.toLowerCase().trim());
+    if (cleanVal.includes('double')) customerTokens.push('dsp', 'double sided');
+    if (cleanVal.includes('single')) customerTokens.push('ssp', 'single sided');
+
+    const parts = cleanVal.split(/[\s,()/-]+/).filter(Boolean);
+    for (const p of parts) {
+      customerTokens.push(p);
+    }
+  }
+
+  let bestMatchedTiers = defaultTiers;
+  let highestScore = 0;
+
+  for (const [variantKey, vTiers] of Object.entries(variantQuantityTiers)) {
+    if (!vTiers || vTiers.length === 0) continue;
+
+    const cleanK = cleanOptionDisplayName(variantKey).toLowerCase().trim();
+    const rawK = variantKey.toLowerCase().trim();
+
+    // Split compound key by delimiters: ' - ', ' | ', '/', ','
+    const keyParts = variantKey
+      .split(/\s*[-|/,]\s*/)
+      .map((k) => k.trim())
+      .filter(Boolean);
+
+    if (keyParts.length > 1) {
+      // Compound key: ALL parts must match a selection
+      let allPartsMatch = true;
+      let matchScore = 0;
+
+      for (const part of keyParts) {
+        const cleanPart = cleanOptionDisplayName(part).toLowerCase().trim();
+        const normPart = normalizeToken(cleanPart);
+
+        const matched = customerTokens.some((ct) => {
+          const normCt = normalizeToken(ct);
+          return normCt === normPart || normCt.includes(normPart) || normPart.includes(normCt);
+        });
+
+        if (matched) {
+          matchScore += 1;
+        } else {
+          allPartsMatch = false;
+          break;
+        }
+      }
+
+      if (allPartsMatch && matchScore > highestScore) {
+        highestScore = matchScore;
+        bestMatchedTiers = vTiers;
+      }
+    } else {
+      // Single key (e.g. "A6" or "170gsm")
+      const matched = customerTokens.some((ct) => {
+        const normCt = normalizeToken(ct);
+        const normK = normalizeToken(cleanK);
+        return (
+          rawK === ct ||
+          cleanK === ct ||
+          normK === normCt ||
+          (normK.length >= 2 && (normCt.includes(normK) || normK.includes(normCt)))
+        );
+      });
+
+      if (matched && highestScore === 0) {
+        highestScore = 1;
+        bestMatchedTiers = vTiers;
+      }
+    }
+  }
+
+  return bestMatchedTiers;
+}
+
 /**
  * Generates an entire dynamic price matrix for any product and any combination of options.
  * Base price represents the cost of `minQuantity` items on Standard delivery.
@@ -458,33 +558,12 @@ export function generateDynamicPriceMatrix(
   const safeMin = Math.max(1, minQuantity || 25);
   const safeMax = maxQuantity && maxQuantity >= safeMin ? maxQuantity : 250000;
 
-  // Approach B: Resolve active variant-specific quantity tiers if defined for selected options
-  let activeProductTiers = productQuantityTiers;
-  if (variantQuantityTiers && Object.keys(variantQuantityTiers).length > 0) {
-    for (const [field, val] of Object.entries(selectedOptions)) {
-      const cleanVal = cleanOptionDisplayName(val).toLowerCase().trim();
-      const rawVal = val.toLowerCase().trim();
-      const fieldVal = `${field}: ${cleanVal}`.toLowerCase().trim();
-
-      for (const [variantKey, vTiers] of Object.entries(variantQuantityTiers)) {
-        if (!vTiers || vTiers.length === 0) continue;
-        const k = variantKey.toLowerCase().trim();
-        const cleanK = cleanOptionDisplayName(variantKey).toLowerCase().trim();
-
-        if (
-          k === cleanVal ||
-          k === rawVal ||
-          cleanK === cleanVal ||
-          k === fieldVal ||
-          (cleanVal && cleanK && (cleanVal.includes(cleanK) || cleanK.includes(cleanVal)))
-        ) {
-          activeProductTiers = vTiers;
-          break;
-        }
-      }
-      if (activeProductTiers !== productQuantityTiers) break;
-    }
-  }
+  // Approach B: Resolve active variant-specific quantity tiers (supports compound keys like A6-170gsm-DSP)
+  const activeProductTiers = resolveActiveVariantTiers(
+    selectedOptions,
+    variantQuantityTiers,
+    productQuantityTiers
+  );
 
   // Determine tiers:
   // 1. If explicit quantityTiers array passed (e.g. custom quantity single-element array [customQty]), use that.
