@@ -1069,12 +1069,12 @@ export function ProductForm({
                 </div>
               </div>
 
-              {/* Approach B: Variant-Specific Tier Matrix Switcher */}
+              {/* Variant-Specific Tier Matrix Switcher */}
               <div className="p-3 rounded-xl bg-slate-100/70 border border-slate-200 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
                     <SlidersHorizontal weight="bold" className="h-3.5 w-3.5 text-[#012169]" />
-                    <span>Approach B: Dedicated Pricing Tables per Variant</span>
+                    <span>Dedicated Pricing Tables per Variant</span>
                   </span>
                   <span className="text-[10px] text-slate-500 font-medium">
                     {activeVariantTab === 'default'
@@ -1530,25 +1530,6 @@ export function ProductForm({
                 </button>
               </div>
 
-              {/* Dynamic Pricing Engine Tip Banner */}
-              <div className="p-3 bg-blue-50/90 border border-blue-200/90 rounded-xl text-xs text-blue-950 space-y-1.5">
-                <div className="font-bold flex items-center gap-1.5 text-[#012169] text-xs">
-                  <Sparkle weight="fill" className="h-4 w-4 text-amber-500" />
-                  <span>Dynamic Pricing Engine & Custom Dropdowns</span>
-                </div>
-                <div className="text-[11px] text-slate-600 leading-relaxed space-y-1">
-                  <p>
-                    • <strong>Base Price Anchor:</strong> The product price above is set for the <strong>Minimum Quantity on 3-5 Working Days</strong> (Standard Turnaround).
-                  </p>
-                  <p>
-                    • <strong>Dropdown Price Modifiers:</strong> Add percentage adjustments such as <code className="bg-white px-1.5 py-0.5 rounded border border-blue-200 font-bold text-[#012169]">+30%</code>, <code className="bg-white px-1.5 py-0.5 rounded border border-blue-200 font-bold text-[#012169]">-30%</code>, or <code className="bg-white px-1.5 py-0.5 rounded border border-blue-200 font-bold text-[#012169]">+£12</code> to any option (e.g. <em>A4 +30%</em>, <em>A6 -30%</em>).
-                  </p>
-                  <p>
-                    • <strong>Customer View:</strong> The percentage/surcharge text is <strong>never visible</strong> to storefront customers — they only see clean labels (e.g. <em>A4</em>, <em>Matt Lamination</em>).
-                  </p>
-                </div>
-              </div>
-
               {/* Quick 1-Click Presets */}
               <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-1">
@@ -1726,7 +1707,7 @@ export function ProductForm({
                                 handleAddOptionToField(field.id);
                               }
                             }}
-                            placeholder="Add option (e.g. 2000 x 1500mm +£9.00/ea, Matt Lamination +15%, Setup +£10)..."
+                            placeholder="Add option name (e.g. A4, Matt Lamination, 170gsm Silk)..."
                             className="flex-1 h-8 px-2.5 rounded-lg border border-slate-200 text-xs text-slate-900 focus:outline-hidden focus:border-[#012169]"
                           />
                           <button
@@ -1736,44 +1717,6 @@ export function ProductForm({
                           >
                             <Plus className="h-3 w-3" />
                             <span>Add</span>
-                          </button>
-                        </div>
-
-                        {/* Approach A Quick Surcharge Helpers */}
-                        <div className="flex items-center gap-1.5 mb-2 text-[10px] flex-wrap">
-                          <span className="text-slate-400 font-medium">Approach A Helpers:</span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const curr = activeNewOptionText[field.id] || '';
-                              setActiveNewOptionText({ ...activeNewOptionText, [field.id]: curr ? `${curr} +15%` : '+15%' });
-                            }}
-                            className="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold cursor-pointer"
-                            title="Multiplies base price by +15%"
-                          >
-                            +% (Percent)
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const curr = activeNewOptionText[field.id] || '';
-                              setActiveNewOptionText({ ...activeNewOptionText, [field.id]: curr ? `${curr} +£9.00/ea` : '+£9.00/ea' });
-                            }}
-                            className="px-1.5 py-0.5 rounded bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold border border-emerald-200 cursor-pointer"
-                            title="Adds fee per unit (prevents price inflation at high quantities)"
-                          >
-                            +£/ea (Per-Unit)
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const curr = activeNewOptionText[field.id] || '';
-                              setActiveNewOptionText({ ...activeNewOptionText, [field.id]: curr ? `${curr} +£10.00` : '+£10.00' });
-                            }}
-                            className="px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold cursor-pointer"
-                            title="Adds a fixed one-time order fee"
-                          >
-                            +£ (Flat Fee)
                           </button>
                         </div>
 
