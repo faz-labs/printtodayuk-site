@@ -33,8 +33,8 @@ interface ProductManagerProps {
   isAddModalOpen?: boolean;
   onOpenAddModal?: () => void;
   onCloseAddModal?: () => void;
-  onCreateProduct: (input: ProductInput) => Promise<void>;
-  onUpdateProduct: (id: string, input: Partial<Product> | ProductInput) => Promise<void>;
+  onCreateProduct: (input: ProductInput) => Promise<Product | void>;
+  onUpdateProduct: (id: string, input: Partial<Product> | ProductInput) => Promise<Product | void>;
   onDeleteProduct: (id: string) => Promise<void>;
   onRefreshData?: () => Promise<void>;
 }
@@ -255,12 +255,17 @@ export function ProductManager({
       if (id) {
         await onUpdateProduct(id, data);
         showNotification('success', `Product "${data.title}" updated successfully.`);
+        setEditingProduct((prev) => (prev ? ({ ...prev, ...data, id } as Product) : null));
       } else {
-        await onCreateProduct(data);
+        const created = await onCreateProduct(data);
         showNotification('success', `Product "${data.title}" created successfully.`);
+        if (created && typeof created === 'object' && 'id' in created) {
+          setEditingProduct(created as Product);
+        }
       }
-      setIsFormOpen(false);
-      setEditingProduct(null);
+      // Note: Modal intentionally remains open per user request so the merchant
+      // can immediately continue re-editing. Closing only happens when the user
+      // explicitly clicks Close/Cancel and confirms via the confirmation popup.
     } catch (err: any) {
       showNotification('error', err.message || 'Failed to save product.');
       throw err;
@@ -513,7 +518,10 @@ export function ProductManager({
       {/* Form Modal */}
       <ProductForm
         isOpen={isFormOpen}
-        onClose={() => setIsFormOpen(false)}
+        onClose={() => {
+          setIsFormOpen(false);
+          setEditingProduct(null);
+        }}
         onSubmit={handleFormSubmit}
         initialProduct={editingProduct}
         categories={categories}

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Product, ProductInput, CategoryConfig, CustomField, QuantityTier } from '@/lib/types';
 import { slugify } from '@/lib/utils';
 import { cleanOptionDisplayName } from '@/lib/pricingEngine';
@@ -20,6 +21,8 @@ import {
   CaretUp,
   CaretDown,
   Check,
+  CheckCircle,
+  WarningCircle,
   Copy,
   Globe,
 } from '@phosphor-icons/react';
@@ -67,6 +70,53 @@ const TIER_PRESETS = {
   ],
 };
 
+/**
+ * Extracts and maps variant string tokens into matching CustomField option selections.
+ * Allows easy exchanging of variant options and duplication of existing tables.
+ */
+function parseVariantToFieldSelections(
+  variantName: string,
+  fields: CustomField[]
+): Record<string, string> {
+  const selections: Record<string, string> = {};
+  if (!variantName || variantName === 'default') {
+    return selections;
+  }
+
+  const rawParts = variantName
+    .split(/\s*[-–—/|,]\s*/)
+    .map((p) => cleanOptionDisplayName(p).trim().toLowerCase())
+    .filter(Boolean);
+
+  const cleanVarName = cleanOptionDisplayName(variantName).toLowerCase();
+
+  fields.forEach((f) => {
+    // 1. Try exact match against split parts
+    let found = f.options.find((opt) => {
+      const cleanOpt = cleanOptionDisplayName(opt).trim().toLowerCase();
+      return rawParts.includes(cleanOpt);
+    });
+
+    // 2. Try substring or contains match against parts or full variant string
+    if (!found) {
+      found = f.options.find((opt) => {
+        const cleanOpt = cleanOptionDisplayName(opt).trim().toLowerCase();
+        if (!cleanOpt) return false;
+        return (
+          rawParts.some((p) => p === cleanOpt || p.includes(cleanOpt) || cleanOpt.includes(p)) ||
+          cleanVarName.includes(cleanOpt)
+        );
+      });
+    }
+
+    if (found) {
+      selections[f.id] = cleanOptionDisplayName(found).trim();
+    }
+  });
+
+  return selections;
+}
+
 export function ProductForm({
   isOpen,
   onClose,
@@ -110,6 +160,9 @@ export function ProductForm({
   const [variantQuantityTiers, setVariantQuantityTiers] = useState<Record<string, QuantityTier[]>>({});
   const [activeVariantTab, setActiveVariantTab] = useState<string>('default');
   const [selectedVariantToAdd, setSelectedVariantToAdd] = useState<string>('');
+  const [isVariantPickerOpen, setIsVariantPickerOpen] = useState(false);
+  const [pickerSelections, setPickerSelections] = useState<Record<string, string>>({});
+  const [copySourceTable, setCopySourceTable] = useState<string>('default');
 
   // Approach C & Universal Auto-Fill Tool
   const [route1Url, setRoute1Url] = useState<string>('');
@@ -123,6 +176,60 @@ export function ProductForm({
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [showConfirmClose, setShowConfirmClose] = useState(false);
+  const [saveSuccessMsg, setSaveSuccessMsg] = useState('');
+
+  const handleRequestClose = () => {
+    setShowConfirmClose(true);
+  };
+
+  const handleConfirmClose = () => {
+    setShowConfirmClose(false);
+    setSaveSuccessMsg('');
+    setError('');
+    onClose();
+  };
+
+  const handleCancelClose = () => {
+    setShowConfirmClose(false);
+  };
+
+  // Intercept Escape when confirmation dialog is active to dismiss popup rather than exiting
+  useEffect(() => {
+    if (!showConfirmClose) return;
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        setShowConfirmClose(false);
+      }
+    };
+    window.addEventListener('keydown', handleEscape, { capture: true });
+    return () => window.removeEventListener('keydown', handleEscape, { capture: true });
+  }, [showConfirmClose]);
+
+  // Intercept Escape when variant options picker is open to close picker without closing product modal
+  useEffect(() => {
+    if (!isVariantPickerOpen) return;
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        setIsVariantPickerOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleEscape, { capture: true });
+    return () => window.removeEventListener('keydown', handleEscape, { capture: true });
+  }, [isVariantPickerOpen]);
+
+  // Auto-hide success notification after 6 seconds
+  useEffect(() => {
+    if (!saveSuccessMsg) return;
+    const timer = setTimeout(() => {
+      setSaveSuccessMsg('');
+    }, 6000);
+    return () => clearTimeout(timer);
+  }, [saveSuccessMsg]);
 
   // Keep target selector synced with active variant tab
   useEffect(() => {
@@ -503,6 +610,103 @@ export function ProductForm({
     .flatMap((f) => f.options.map((o) => cleanOptionDisplayName(o)))
     .filter((o) => o && o.trim().length > 0 && !variantQuantityTiers[o]);
 
+  // Dynamic composed variant key from steady picker selections
+  const composedVariantKey = customFields
+    .map((f) => pickerSelections[f.id])
+    .filter(Boolean)
+    .join(' - ');
+
+  // Open Steady Variant Options Picker
+  const handleOpenVariantPicker = (baseKey?: string, sourceTable?: string) => {
+    const source = sourceTable || (activeVariantTab !== 'default' ? activeVariantTab : 'default');
+    setCopySourceTable(source);
+
+    const keyToParse =
+      baseKey ||
+      selectedVariantToAdd.trim() ||
+      (activeVariantTab !== 'default' ? activeVariantTab : '');
+
+    const initialSelections = parseVariantToFieldSelections(keyToParse, customFields);
+    setPickerSelections(initialSelections);
+    setIsVariantPickerOpen(true);
+  };
+
+  // Start Copying an Existing Table for a new variant
+  const handleStartCopyVariant = (sourceKey: string) => {
+    setCopySourceTable(sourceKey);
+    const initialSelections = parseVariantToFieldSelections(
+      sourceKey !== 'default' ? sourceKey : '',
+      customFields
+    );
+    setPickerSelections(initialSelections);
+    if (sourceKey !== 'default') {
+      setSelectedVariantToAdd(sourceKey);
+    }
+    setIsVariantPickerOpen(true);
+  };
+
+  // Toggle or Exchange an Option for a specific Dropdown Field in the Steady Picker
+  const handleTogglePickerOption = (fieldId: string, optionValue: string) => {
+    const cleanVal = cleanOptionDisplayName(optionValue).trim();
+    setPickerSelections((prev) => {
+      if (prev[fieldId] === cleanVal) {
+        const next = { ...prev };
+        delete next[fieldId];
+        return next;
+      }
+      return {
+        ...prev,
+        [fieldId]: cleanVal,
+      };
+    });
+  };
+
+  // Apply Selections into Input and Close Picker
+  const handlePickerDone = () => {
+    if (composedVariantKey) {
+      setSelectedVariantToAdd(composedVariantKey);
+    }
+    setIsVariantPickerOpen(false);
+  };
+
+  // Create Variant Table with cloned pricing tiers
+  const handleCreateVariantTable = (targetName?: string) => {
+    const name = (targetName || selectedVariantToAdd).trim();
+    if (!name) return;
+
+    if (variantQuantityTiers[name]) {
+      setActiveVariantTab(name);
+      setSelectedVariantToAdd('');
+      setIsVariantPickerOpen(false);
+      return;
+    }
+
+    // Determine source pricing tiers to clone from
+    let sourceTiers: QuantityTier[] = quantityTiers;
+    if (copySourceTable && copySourceTable !== 'default' && variantQuantityTiers[copySourceTable]) {
+      sourceTiers = variantQuantityTiers[copySourceTable];
+    } else if (activeVariantTab !== 'default' && variantQuantityTiers[activeVariantTab]) {
+      sourceTiers = variantQuantityTiers[activeVariantTab];
+    }
+
+    setVariantQuantityTiers((prev) => ({
+      ...prev,
+      [name]: JSON.parse(JSON.stringify(sourceTiers)),
+    }));
+    setActiveVariantTab(name);
+    setSelectedVariantToAdd('');
+    setIsVariantPickerOpen(false);
+  };
+
+  // One-click Done & Create Table directly from steady picker
+  const handlePickerDoneAndCreate = () => {
+    if (composedVariantKey) {
+      handleCreateVariantTable(composedVariantKey);
+    } else {
+      setIsVariantPickerOpen(false);
+    }
+  };
+
   // Approach C & Universal One-Click Auto-Fill Handler
   const handleImportRoute1 = async (targetOverride?: string) => {
     const urlToFetch = route1Url.trim();
@@ -720,28 +924,52 @@ export function ProductForm({
       }
 
       await onSubmit(payload, initialProduct?.id);
-      onClose();
+      setError('');
+      setSaveSuccessMsg(
+        initialProduct
+          ? `Product "${payload.title}" updated successfully! You can continue making changes or close when finished.`
+          : `Product "${payload.title}" created successfully! You can continue making changes or close when finished.`
+      );
     } catch (err: any) {
       setError(err.message || 'Failed to save product.');
+      setSaveSuccessMsg('');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title={initialProduct ? 'Edit Product' : 'Add New Product'}
-      description="Update product information, custom dropdown fields, pricing, and category filters."
-      maxWidth="7xl"
-    >
-      <form onSubmit={handleSubmit} className="space-y-6 max-h-[82vh] overflow-y-auto pr-1">
-        {error && (
-          <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-600 font-semibold">
-            {error}
-          </div>
-        )}
+    <>
+      <Modal
+        isOpen={isOpen}
+        onClose={handleRequestClose}
+        title={initialProduct ? 'Edit Product' : 'Add New Product'}
+        description="Update product information, custom dropdown fields, pricing, and category filters."
+        maxWidth="7xl"
+      >
+        <form onSubmit={handleSubmit} className="space-y-6 max-h-[82vh] overflow-y-auto pr-1">
+          {saveSuccessMsg && (
+            <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 font-semibold flex items-center justify-between gap-3 shadow-2xs">
+              <div className="flex items-center gap-2">
+                <CheckCircle weight="fill" className="h-5 w-5 text-emerald-600 shrink-0" />
+                <span>{saveSuccessMsg}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSaveSuccessMsg('')}
+                className="text-emerald-700 hover:text-emerald-950 p-1 rounded-lg hover:bg-emerald-100 transition-colors cursor-pointer shrink-0"
+                title="Dismiss"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+
+          {error && (
+            <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-600 font-semibold">
+              {error}
+            </div>
+          )}
 
         {/* Universal One-Click Auto-Fill Tool */}
         <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-blue-50/90 via-indigo-50/50 to-slate-50 border border-blue-200/80 shadow-2xs space-y-2.5">
@@ -1097,17 +1325,29 @@ export function ProductForm({
                   </button>
 
                   {Object.keys(variantQuantityTiers).map((vKey) => (
-                    <div key={vKey} className="inline-flex items-center">
+                    <div key={vKey} className="inline-flex items-center shadow-2xs rounded-lg overflow-hidden border border-slate-200">
                       <button
                         type="button"
                         onClick={() => setActiveVariantTab(vKey)}
-                        className={`px-2.5 py-1 rounded-l-lg text-xs font-bold transition-all cursor-pointer ${
+                        className={`px-2.5 py-1 text-xs font-bold transition-all cursor-pointer ${
                           activeVariantTab === vKey
-                            ? 'bg-[#012169] text-white shadow-xs'
-                            : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+                            ? 'bg-[#012169] text-white'
+                            : 'bg-white text-slate-700 hover:bg-slate-50'
                         }`}
                       >
                         {vKey}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleStartCopyVariant(vKey)}
+                        className={`px-1.5 py-1 text-xs transition-colors cursor-pointer border-l ${
+                          activeVariantTab === vKey
+                            ? 'bg-[#012169] text-amber-300 hover:text-white border-white/20'
+                            : 'bg-white text-slate-400 hover:text-indigo-600 border-slate-200'
+                        }`}
+                        title={`Copy "${vKey}" table to create a new variant with exchanged values`}
+                      >
+                        <Copy className="h-3 w-3" />
                       </button>
                       <button
                         type="button"
@@ -1117,9 +1357,9 @@ export function ProductForm({
                           setVariantQuantityTiers(updated);
                           if (activeVariantTab === vKey) setActiveVariantTab('default');
                         }}
-                        className={`px-1.5 py-1 rounded-r-lg text-xs transition-colors cursor-pointer border-y border-r ${
+                        className={`px-1.5 py-1 rounded-r-lg text-xs transition-colors cursor-pointer border-l ${
                           activeVariantTab === vKey
-                            ? 'bg-[#012169] text-white/80 hover:text-rose-200 border-[#012169]'
+                            ? 'bg-[#012169] text-white/80 hover:text-rose-200 border-white/20'
                             : 'bg-white text-slate-400 hover:text-rose-600 border-slate-200'
                         }`}
                         title="Delete variant table"
@@ -1129,8 +1369,8 @@ export function ProductForm({
                     </div>
                   ))}
 
-                  {/* Add / Create Variant Table Bar (Supports single options and compound combinations like A6 - 170gsm - DSP) */}
-                  <div className="flex flex-wrap items-center gap-1.5 w-full pt-1">
+                  {/* Add / Create Variant Table Bar with Steady Options Picker */}
+                  <div className="flex flex-wrap items-center gap-1.5 w-full pt-1.5">
                     <div className="relative flex-1 min-w-[220px]">
                       <input
                         type="text"
@@ -1140,63 +1380,54 @@ export function ProductForm({
                           if (e.key === 'Enter') {
                             e.preventDefault();
                             if (selectedVariantToAdd.trim()) {
-                              const name = selectedVariantToAdd.trim();
-                              setVariantQuantityTiers((prev) => ({
-                                ...prev,
-                                [name]: JSON.parse(JSON.stringify(quantityTiers)),
-                              }));
-                              setActiveVariantTab(name);
-                              setSelectedVariantToAdd('');
+                              handleCreateVariantTable(selectedVariantToAdd.trim());
                             }
                           }
                         }}
-                        placeholder="Type variant name (e.g. A6, or compound: A6 - 170gsm - DSP)..."
-                        className="w-full h-8 px-2.5 rounded-lg border border-slate-300 bg-white text-xs font-semibold text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:border-[#012169] focus:ring-1 focus:ring-[#012169]"
+                        placeholder="Type variant name, or click 'Pick' to choose options..."
+                        className="w-full h-8.5 pl-3 pr-20 rounded-lg border border-slate-300 bg-white text-xs font-semibold text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:border-[#012169] focus:ring-1 focus:ring-[#012169]"
                       />
+                      <button
+                        type="button"
+                        onClick={() => handleOpenVariantPicker()}
+                        className="absolute right-1 top-1 bottom-1 px-2.5 rounded-md bg-blue-50 hover:bg-[#012169] hover:text-white text-[#012169] text-[11px] font-bold flex items-center gap-1 transition-all cursor-pointer border border-blue-200 shadow-2xs"
+                        title="Open steady options picker to select and exchange values"
+                      >
+                        <SlidersHorizontal weight="bold" className="h-3 w-3" />
+                        <span>Pick</span>
+                      </button>
                     </div>
 
-                    {/* Quick Pick Dropdown */}
-                    {availableVariantOptions.length > 0 && (
-                      <select
-                        value=""
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          if (!val) return;
-                          setSelectedVariantToAdd((prev) =>
-                            prev.trim() ? `${prev.trim()} - ${val}` : val
-                          );
-                        }}
-                        className="h-8 px-2 rounded-lg border border-slate-300 bg-slate-50 text-[11px] font-semibold text-slate-700 focus:outline-hidden cursor-pointer"
-                        title="Pick an option to insert or chain"
+                    {/* Steady Multi-Option Picker Button */}
+                    <button
+                      type="button"
+                      onClick={() => handleOpenVariantPicker()}
+                      className="h-8.5 px-3 rounded-lg border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-[#012169] text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shrink-0 shadow-2xs"
+                      title="Open steady list where you select each value and click Done"
+                    >
+                      <Sparkle weight="fill" className="h-3.5 w-3.5 text-indigo-600" />
+                      <span>Select Options...</span>
+                    </button>
+
+                    {/* Duplicate Active Table Shortcut Button */}
+                    {activeVariantTab !== 'default' && (
+                      <button
+                        type="button"
+                        onClick={() => handleStartCopyVariant(activeVariantTab)}
+                        className="h-8.5 px-3 rounded-lg border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-900 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shrink-0 shadow-2xs"
+                        title={`Duplicate current table "${activeVariantTab}" and exchange values`}
                       >
-                        <option value="">+ Pick Option to Append</option>
-                        {availableVariantOptions.map((opt) => (
-                          <option key={opt} value={opt}>
-                            {opt}
-                          </option>
-                        ))}
-                      </select>
+                        <Copy className="h-3.5 w-3.5 text-amber-700" />
+                        <span>Copy Table</span>
+                      </button>
                     )}
 
+                    {/* Create Table Button */}
                     <button
                       type="button"
                       disabled={!selectedVariantToAdd.trim()}
-                      onClick={() => {
-                        const name = selectedVariantToAdd.trim();
-                        if (!name) return;
-                        if (variantQuantityTiers[name]) {
-                          setActiveVariantTab(name);
-                          setSelectedVariantToAdd('');
-                          return;
-                        }
-                        setVariantQuantityTiers((prev) => ({
-                          ...prev,
-                          [name]: JSON.parse(JSON.stringify(quantityTiers)),
-                        }));
-                        setActiveVariantTab(name);
-                        setSelectedVariantToAdd('');
-                      }}
-                      className="h-8 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shrink-0 shadow-2xs"
+                      onClick={() => handleCreateVariantTable()}
+                      className="h-8.5 px-3.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shrink-0 shadow-2xs"
                     >
                       <Plus className="h-3.5 w-3.5" />
                       <span>Create Table</span>
@@ -1206,23 +1437,34 @@ export function ProductForm({
 
                 {activeVariantTab !== 'default' && (
                   <div className="pt-2 border-t border-slate-200/80 space-y-2">
-                    <div className="flex items-center justify-between text-[11px]">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px]">
                       <span className="text-blue-700 font-bold flex items-center gap-1.5">
                         <Lightning weight="fill" className="h-3.5 w-3.5 text-amber-500" />
                         <span>Dedicated Pricing Matrix for: <strong>{activeVariantTab}</strong></span>
                       </span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setVariantQuantityTiers((prev) => ({
-                            ...prev,
-                            [activeVariantTab]: JSON.parse(JSON.stringify(quantityTiers)),
-                          }));
-                        }}
-                        className="text-xs text-[#012169] hover:underline font-bold cursor-pointer"
-                      >
-                        📋 Copy from Default Tiers
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleStartCopyVariant(activeVariantTab)}
+                          className="inline-flex items-center gap-1 text-xs text-indigo-700 hover:text-indigo-900 font-bold bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-lg border border-indigo-200 transition-colors cursor-pointer shadow-2xs"
+                          title="Duplicate this table with all its prices and exchange options for a new variant"
+                        >
+                          <Copy className="h-3.5 w-3.5 text-indigo-600" />
+                          <span>Duplicate Table for New Variant</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setVariantQuantityTiers((prev) => ({
+                              ...prev,
+                              [activeVariantTab]: JSON.parse(JSON.stringify(quantityTiers)),
+                            }));
+                          }}
+                          className="text-xs text-slate-500 hover:text-[#012169] hover:underline font-bold cursor-pointer"
+                        >
+                          📋 Reset from Default Tiers
+                        </button>
+                      </div>
                     </div>
 
                     {/* Instant Variant Link Importer */}
@@ -1879,22 +2121,280 @@ export function ProductForm({
         </div>
 
         {/* Sticky Form Actions Bar */}
-        <div className="pt-3 border-t border-slate-200 flex items-center justify-end gap-3 sticky bottom-0 bg-white/95 backdrop-blur-xs py-2 z-20">
-          <Button
-            type="button"
-            variant="outline"
-            size="md"
-            onClick={onClose}
-            disabled={isSubmitting}
-          >
-            Cancel
-          </Button>
-          <Button type="submit" variant="uk-blue" size="md" isLoading={isSubmitting}>
-            <FloppyDisk weight="bold" className="h-4 w-4 mr-1.5" />
-            <span>{initialProduct ? 'Update Product' : 'Create Product'}</span>
-          </Button>
+        <div className="pt-3 border-t border-slate-200 flex items-center justify-between gap-3 sticky bottom-0 bg-white/95 backdrop-blur-xs py-2 z-20">
+          <div className="flex items-center gap-2 min-w-0">
+            {saveSuccessMsg && (
+              <span className="inline-flex items-center gap-1.5 text-xs text-emerald-700 font-bold bg-emerald-50 px-2.5 py-1.5 rounded-xl border border-emerald-200 shadow-2xs truncate">
+                <CheckCircle weight="bold" className="h-4 w-4 text-emerald-600 shrink-0" />
+                <span className="truncate">Saved successfully — modal stays open for instant re-editing</span>
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-3 shrink-0">
+            <Button
+              type="button"
+              variant="outline"
+              size="md"
+              onClick={handleRequestClose}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" variant="uk-blue" size="md" isLoading={isSubmitting}>
+              <FloppyDisk weight="bold" className="h-4 w-4 mr-1.5" />
+              <span>{initialProduct ? 'Update Product' : 'Create Product'}</span>
+            </Button>
+          </div>
         </div>
       </form>
     </Modal>
+
+    {/* Steady Variant Option Picker Modal */}
+    <AnimatePresence>
+      {isVariantPickerOpen && (
+        <div className="fixed inset-0 z-[65] flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            onClick={() => setIsVariantPickerOpen(false)}
+            className="fixed inset-0 bg-black/60 backdrop-blur-xs"
+          />
+
+          {/* Modal Container */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 15 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 15 }}
+            transition={{ type: 'spring', duration: 0.3, bounce: 0.1 }}
+            className="relative w-full max-w-xl rounded-2xl bg-white p-5 sm:p-6 shadow-2xl border border-slate-200 z-10 max-h-[88vh] flex flex-col"
+          >
+            {/* Modal Header */}
+            <div className="flex items-start justify-between gap-3 pb-3 border-b border-slate-100 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <span className="p-2 rounded-xl bg-indigo-50 text-indigo-700 border border-indigo-100 shadow-2xs">
+                  <SlidersHorizontal weight="bold" className="h-5 w-5" />
+                </span>
+                <div>
+                  <h4 className="text-base font-bold text-slate-900 tracking-tight">
+                    Variant Option Picker
+                  </h4>
+                  <p className="text-xs text-slate-500 leading-normal">
+                    Select values from each dropdown below, exchange options easily, and click Done.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsVariantPickerOpen(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                title="Close picker"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Source Table Badge */}
+            {copySourceTable && (
+              <div className="mt-3 px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-center justify-between shrink-0">
+                <span className="flex items-center gap-1.5 font-semibold">
+                  <Copy className="h-3.5 w-3.5 text-amber-700" />
+                  <span>
+                    Copying prices from:{' '}
+                    <strong>{copySourceTable === 'default' ? 'Default Base Table' : copySourceTable}</strong>
+                  </span>
+                </span>
+                <span className="text-[10px] text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded font-bold">
+                  All price tiers cloned
+                </span>
+              </div>
+            )}
+
+            {/* Modal Scrollable Body: Custom Fields List */}
+            <div className="py-3 space-y-3.5 overflow-y-auto flex-1 pr-1 mt-1">
+              {customFields.length === 0 ? (
+                <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800 space-y-1">
+                  <div className="font-bold flex items-center gap-1.5">
+                    <span>⚠️ No custom dropdown fields found</span>
+                  </div>
+                  <p className="text-amber-700 leading-relaxed">
+                    Add dropdown fields (such as Size, Paper Stock, Printed Sides) in the &quot;Custom Dropdown Fields&quot; section below, or you can type your variant name directly into the text box.
+                  </p>
+                </div>
+              ) : (
+                customFields.map((field) => {
+                  const selectedVal = pickerSelections[field.id];
+                  return (
+                    <div
+                      key={field.id}
+                      className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2 transition-colors hover:border-slate-300"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-[#012169]" />
+                          <span>{field.name}</span>
+                        </span>
+                        {selectedVal ? (
+                          <span className="text-[11px] font-bold text-[#012169] bg-blue-100/90 px-2 py-0.5 rounded-md border border-blue-200">
+                            Selected: {selectedVal}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-slate-400 italic">No option selected</span>
+                        )}
+                      </div>
+
+                      <div className="flex flex-wrap gap-1.5">
+                        {field.options.map((opt) => {
+                          const cleanOpt = cleanOptionDisplayName(opt).trim();
+                          const isSelected = selectedVal === cleanOpt;
+                          return (
+                            <button
+                              key={opt}
+                              type="button"
+                              onClick={() => handleTogglePickerOption(field.id, cleanOpt)}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs ${
+                                isSelected
+                                  ? 'bg-[#012169] text-white ring-2 ring-blue-500/30'
+                                  : 'bg-white text-slate-700 border border-slate-200 hover:border-slate-300 hover:bg-slate-100'
+                              }`}
+                            >
+                              {isSelected && <Check weight="bold" className="h-3 w-3 text-emerald-400" />}
+                              <span>{cleanOpt}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Live Composed Variant Preview Card */}
+            <div className="pt-2 shrink-0">
+              <div className="p-3 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200/90 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-2xs">
+                <div>
+                  <span className="text-[10px] font-bold text-[#012169] uppercase tracking-wider block">
+                    Composed Variant Key
+                  </span>
+                  <span className="text-sm font-black text-slate-900 font-mono tracking-tight">
+                    {composedVariantKey || (
+                      <span className="text-slate-400 italic text-xs font-normal">
+                        Select options above to preview...
+                      </span>
+                    )}
+                  </span>
+                </div>
+                <div className="text-[11px] text-slate-500 font-medium">
+                  {Object.keys(pickerSelections).length} of {customFields.length} field{customFields.length === 1 ? '' : 's'} selected
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Actions Footer */}
+            <div className="flex items-center justify-between pt-3 mt-3 border-t border-slate-200 shrink-0 gap-2">
+              <button
+                type="button"
+                onClick={() => setPickerSelections({})}
+                className="text-xs text-slate-500 hover:text-slate-800 font-semibold px-1 py-1 cursor-pointer transition-colors"
+              >
+                Clear Selections
+              </button>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsVariantPickerOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  variant="uk-blue"
+                  size="sm"
+                  disabled={!composedVariantKey}
+                  onClick={handlePickerDone}
+                >
+                  <Check weight="bold" className="h-4 w-4 mr-1" />
+                  <span>Done</span>
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={!composedVariantKey}
+                  onClick={handlePickerDoneAndCreate}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-xs cursor-pointer"
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  <span>Done &amp; Create Table</span>
+                </Button>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+
+    {/* "Are you sure you want to close?" Confirmation Dialog */}
+    <AnimatePresence>
+      {showConfirmClose && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            onClick={handleCancelClose}
+            className="fixed inset-0 bg-black/60 backdrop-blur-xs"
+          />
+
+          {/* Confirmation Box */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 12 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 12 }}
+            transition={{ type: 'spring', duration: 0.25, bounce: 0.1 }}
+            className="relative w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl border border-slate-200 z-10 text-center"
+          >
+            <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto mb-3.5 border border-amber-200 shadow-2xs">
+              <WarningCircle weight="fill" className="h-6 w-6 text-amber-600" />
+            </div>
+
+            <h4 className="text-base font-bold text-slate-900 mb-1.5">
+              Are you sure you want to close?
+            </h4>
+            <p className="text-xs text-slate-500 mb-6 leading-relaxed">
+              Any unsaved changes or edits will be discarded. Do you want to continue editing or close the editor?
+            </p>
+
+            <div className="flex items-center gap-2.5">
+              <Button
+                type="button"
+                variant="outline"
+                size="md"
+                onClick={handleCancelClose}
+                className="flex-1 font-semibold"
+              >
+                Keep Editing
+              </Button>
+              <Button
+                type="button"
+                size="md"
+                onClick={handleConfirmClose}
+                className="flex-1 bg-rose-600 hover:bg-rose-700 text-white font-bold border-transparent shadow-2xs"
+              >
+                Yes, Close
+              </Button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+  </>
   );
 }

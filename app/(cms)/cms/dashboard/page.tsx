@@ -110,16 +110,18 @@ export default function CMSDashboardPage() {
   }, [user]);
 
   // Product CRUD Handlers
-  const handleCreateProduct = async (input: ProductInput) => {
+  const handleCreateProduct = async (input: ProductInput): Promise<Product> => {
     const created = await createProduct(input);
     setProducts((prev) => [created, ...prev]);
+    return created;
   };
 
-  const handleUpdateProduct = async (id: string, updates: Partial<Product>) => {
+  const handleUpdateProduct = async (id: string, updates: Partial<Product>): Promise<Product | void> => {
     const updated = await updateProduct(id, updates);
     if (updated) {
       setProducts((prev) => prev.map((p) => (p.id === id ? updated : p)));
     }
+    return updated || undefined;
   };
 
   const handleDeleteProduct = async (id: string) => {
