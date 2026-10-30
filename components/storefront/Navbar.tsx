@@ -271,12 +271,12 @@ export function Navbar({ initialCategories = [], initialProducts = [] }: NavbarP
             >
               <div className="relative flex items-center">
                 <img
-                  src="/images/logo.png"
-                  srcSet="/images/logo.png 1x, /images/logo@2x.png 2x"
+                  src="/images/logo.png?v=2"
+                  srcSet="/images/logo.png?v=2 1x, /images/logo@2x.png?v=2 2x"
                   alt="Print Today UK"
                   width={190}
                   height={48}
-                  className="h-9 sm:h-10.5 w-auto max-w-[185px] object-contain block transition-transform group-hover:scale-[1.02]"
+                  className="h-9 sm:h-10.5 w-auto max-w-[170px] sm:max-w-[185px] object-contain block transition-transform group-hover:scale-[1.02]"
                   style={{ imageRendering: '-webkit-optimize-contrast' }}
                   onError={(e) => {
                     e.currentTarget.style.display = 'none';

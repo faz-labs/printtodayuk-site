@@ -483,8 +483,8 @@ export function Footer() {
           <div className="flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left">
             <Link href="/" className="flex items-center gap-2.5 group shrink-0">
               <img
-                src="/images/logo.png"
-                srcSet="/images/logo.png 1x, /images/logo@2x.png 2x"
+                src="/images/logo.png?v=2"
+                srcSet="/images/logo.png?v=2 1x, /images/logo@2x.png?v=2 2x"
                 alt="Print Today UK"
                 width={170}
                 height={44}
