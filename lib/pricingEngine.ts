@@ -435,16 +435,70 @@ export function getTierBasePrice(
   return anchorPrice;
 }
 
-function normalizeToken(token: string): string {
-  const t = String(token || '').toLowerCase().trim();
-  if (t === 'dsp' || t === 'ds' || t === 'double') return 'double sided';
-  if (t === 'ssp' || t === 'ss' || t === 'single') return 'single sided';
-  return t;
+function normalizeKey(str: string): string {
+  return String(str || '')
+    .toLowerCase()
+    .replace(/mm$|gsm$/, '')
+    .replace(/-\d{1,2}$/, '')
+    .replace(/[^a-z0-9]/g, '');
+}
+
+function normalizePrintToken(str: string): string {
+  const s = String(str || '').toLowerCase().trim();
+  if (s === 'dsp' || s === 'ds' || s === 'double' || s === 'double sided' || s === 'both sides') return 'dsp';
+  if (s === 'ssp' || s === 'ss' || s === 'single' || s === 'single sided' || s === 'one side') return 'ssp';
+  return s;
+}
+
+/**
+ * Checks if a specific variant part/segment matches a selected option value.
+ * e.g.
+ * matchVariantPart("A6", "A6 (105 × 148 mm)") -> true
+ * matchVariantPart("A6", "A5 (148 × 210 mm)") -> false
+ * matchVariantPart("2000 x 1500mm", "2000 x 1200mm") -> false
+ * matchVariantPart("2000 x 1500mm", "2000 x 1500mm") -> true
+ * matchVariantPart("170gsm", "170gsm Silk") -> true
+ * matchVariantPart("170gsm", "130gsm Gloss") -> false
+ * matchVariantPart("DSP", "Double Sided (+10%)") -> true
+ * matchVariantPart("DSP", "Single Sided") -> false
+ */
+function matchVariantPart(part: string, optionValue: string): boolean {
+  const cleanPart = cleanOptionDisplayName(part).trim();
+  const cleanOpt = cleanOptionDisplayName(optionValue).trim();
+  if (!cleanPart || !cleanOpt) return false;
+
+  // 1. Exact normalized match (e.g. "2000x1500" === "2000x1500")
+  const normP = normalizeKey(cleanPart);
+  const normO = normalizeKey(cleanOpt);
+  if (normP && normO && normP === normO) return true;
+
+  // 2. Print sides abbreviation match
+  const printP = normalizePrintToken(cleanPart);
+  const printO = normalizePrintToken(cleanOpt);
+  if ((printP === 'dsp' || printP === 'ssp') && printP === printO) return true;
+
+  // 3. Word boundary or standard prefix/token match
+  // e.g. Part "A6" in "A6 (105 × 148 mm)", or "170gsm" in "170gsm Silk"
+  const escapedP = cleanPart.toLowerCase().replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+  const wordRegex = new RegExp(`(^|[^a-z0-9])${escapedP}([^a-z0-9]|$)`, 'i');
+  if (wordRegex.test(cleanOpt.toLowerCase())) {
+    return true;
+  }
+
+  // 4. If cleanOpt starts with cleanPart (e.g. "A5" starts "A5 (148x210)")
+  if (
+    cleanOpt.toLowerCase().startsWith(cleanPart.toLowerCase() + ' ') ||
+    cleanOpt.toLowerCase().startsWith(cleanPart.toLowerCase() + '(')
+  ) {
+    return true;
+  }
+
+  return false;
 }
 
 /**
  * Resolves the most specific matching quantity tier table from variantQuantityTiers.
- * Supports both single keys (e.g. "A6", "170gsm") and compound multi-attribute keys
+ * Supports both single keys (e.g. "A6", "170gsm", "2000 x 1500mm") and compound multi-attribute keys
  * (e.g. "A6 - 170gsm - DSP", "A5 | 250gsm | Double Sided").
  */
 export function resolveActiveVariantTiers(
@@ -456,20 +510,7 @@ export function resolveActiveVariantTiers(
     return defaultTiers;
   }
 
-  // Pre-process customer selections into normalized search tokens
-  const customerTokens: string[] = [];
-  for (const [field, val] of Object.entries(selectedOptions)) {
-    const cleanVal = cleanOptionDisplayName(val).toLowerCase().trim();
-    customerTokens.push(cleanVal);
-    customerTokens.push(`${field}: ${cleanVal}`.toLowerCase().trim());
-    if (cleanVal.includes('double')) customerTokens.push('dsp', 'double sided');
-    if (cleanVal.includes('single')) customerTokens.push('ssp', 'single sided');
-
-    const parts = cleanVal.split(/[\s,()/-]+/).filter(Boolean);
-    for (const p of parts) {
-      customerTokens.push(p);
-    }
-  }
+  const selectedValues = Object.values(selectedOptions);
 
   let bestMatchedTiers = defaultTiers;
   let highestScore = 0;
@@ -477,58 +518,30 @@ export function resolveActiveVariantTiers(
   for (const [variantKey, vTiers] of Object.entries(variantQuantityTiers)) {
     if (!vTiers || vTiers.length === 0) continue;
 
-    const cleanK = cleanOptionDisplayName(variantKey).toLowerCase().trim();
-    const rawK = variantKey.toLowerCase().trim();
-
-    // Split compound key by delimiters: ' - ', ' | ', '/', ','
+    // Split compound key by explicit delimiters: ' - ', ' | ', ' / ', ','
+    // Note: Do NOT split hyphens without spaces like 2000-x-1500 or t-shirt!
     const keyParts = variantKey
-      .split(/\s*[-|/,]\s*/)
+      .split(/\s+-\s+|\s*\|\s*|\s*\/\s*|\s*,\s*/)
       .map((k) => k.trim())
       .filter(Boolean);
 
-    if (keyParts.length > 1) {
-      // Compound key: ALL parts must match a selection
-      let allPartsMatch = true;
-      let matchScore = 0;
+    // Check if EVERY part of this variant key matches at least one selected option
+    let allPartsMatch = true;
+    let matchScore = 0;
 
-      for (const part of keyParts) {
-        const cleanPart = cleanOptionDisplayName(part).toLowerCase().trim();
-        const normPart = normalizeToken(cleanPart);
-
-        const matched = customerTokens.some((ct) => {
-          const normCt = normalizeToken(ct);
-          return normCt === normPart || normCt.includes(normPart) || normPart.includes(normCt);
-        });
-
-        if (matched) {
-          matchScore += 1;
-        } else {
-          allPartsMatch = false;
-          break;
-        }
+    for (const part of keyParts) {
+      const partMatched = selectedValues.some((optVal) => matchVariantPart(part, optVal));
+      if (partMatched) {
+        matchScore += 1;
+      } else {
+        allPartsMatch = false;
+        break;
       }
+    }
 
-      if (allPartsMatch && matchScore > highestScore) {
-        highestScore = matchScore;
-        bestMatchedTiers = vTiers;
-      }
-    } else {
-      // Single key (e.g. "A6" or "170gsm")
-      const matched = customerTokens.some((ct) => {
-        const normCt = normalizeToken(ct);
-        const normK = normalizeToken(cleanK);
-        return (
-          rawK === ct ||
-          cleanK === ct ||
-          normK === normCt ||
-          (normK.length >= 2 && (normCt.includes(normK) || normK.includes(normCt)))
-        );
-      });
-
-      if (matched && highestScore === 0) {
-        highestScore = 1;
-        bestMatchedTiers = vTiers;
-      }
+    if (allPartsMatch && matchScore > highestScore) {
+      highestScore = matchScore;
+      bestMatchedTiers = vTiers;
     }
   }
 
