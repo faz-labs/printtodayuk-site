@@ -20,6 +20,8 @@ import {
   HeroSlide,
   DynamicSection,
   DynamicSectionInput,
+  ReviewItem,
+  ReviewInput,
 } from './types';
 import {
   INITIAL_CATEGORIES,
@@ -952,6 +954,247 @@ export async function deleteLandingSection(id: string): Promise<boolean> {
 
   const local = getLocalLandingSections().filter((s) => s.id !== id);
   saveLocalLandingSections(local);
+  return true;
+}
+
+// ----------------------------------------------------
+// Reviews & Testimonials (Google, Trustpilot, Direct)
+// ----------------------------------------------------
+
+export const DEFAULT_REVIEWS: ReviewItem[] = [
+  {
+    id: 'rev-1',
+    author: 'Marcus Sterling',
+    company: 'Tech Summit London',
+    location: 'Canary Wharf, London',
+    rating: 5,
+    review:
+      'Saved our conference! Requested an emergency turnaround in the morning and 250 presentation booklets plus badges were ready for collection at 75 Green St by early afternoon. Flawless print quality.',
+    product: 'Folded Booklets & Name Badges',
+    platform: 'google',
+    date: '2 days ago',
+    isVerified: true,
+    isFeatured: true,
+    order: 1,
+    createdAt: Date.now() - 172800000,
+  },
+  {
+    id: 'rev-2',
+    author: 'Priya Patel',
+    company: 'Studio Verde Architects',
+    location: 'Shoreditch, London',
+    rating: 5,
+    review:
+      'The soft-touch velvet finish and metallic gold foil on our business cards exceeded all expectations. Unmatched local service in East London.',
+    product: 'Luxury Foil Business Cards',
+    platform: 'trustpilot',
+    date: '3 days ago',
+    isVerified: true,
+    isFeatured: true,
+    order: 2,
+    createdAt: Date.now() - 259200000,
+  },
+  {
+    id: 'rev-3',
+    author: 'David O’Connor',
+    company: 'The Copper Grill',
+    location: 'Soho, London',
+    rating: 5,
+    review:
+      'We needed waterproof laminated menus and embroidered staff aprons printed fast for our grand opening. Completed in 48 hours with crisp logo detail.',
+    product: 'Waterproof Menus & Aprons',
+    platform: 'google',
+    date: '5 days ago',
+    isVerified: true,
+    isFeatured: true,
+    order: 3,
+    createdAt: Date.now() - 432000000,
+  },
+  {
+    id: 'rev-4',
+    author: 'Chloe Henderson',
+    company: 'Camden Craft Roasters',
+    location: 'Camden, London',
+    rating: 5,
+    review:
+      'Super sharp die-cut packaging stickers for our specialty coffee bags. The water-resistant matte finish looks incredible on shelf. Highly recommend their same-day service.',
+    product: 'Die-Cut Product Labels',
+    platform: 'trustpilot',
+    date: '1 week ago',
+    isVerified: true,
+    isFeatured: true,
+    order: 4,
+    createdAt: Date.now() - 604800000,
+  },
+  {
+    id: 'rev-5',
+    author: 'Alistair Vance',
+    company: 'Vantage Media Agency',
+    location: 'Mayfair, London',
+    rating: 5,
+    review:
+      'Printed 4 heavy-duty roller exhibition banners on same-day turnaround for our ExCeL London expo. Colours were punchy, stands were sturdy, zero hassle.',
+    product: 'Premium Event Roller Banners',
+    platform: 'google',
+    date: '2 weeks ago',
+    isVerified: true,
+    isFeatured: true,
+    order: 5,
+    createdAt: Date.now() - 1209600000,
+  },
+  {
+    id: 'rev-6',
+    author: 'Sophie Laurent',
+    company: 'Maison de Fleur London',
+    location: 'Kensington, London',
+    rating: 5,
+    review:
+      'Exceptional quality on our luxury embossed invitations and gift tags. The paper stock selection is top tier and communication via WhatsApp was instant.',
+    product: 'Custom Embossed Invitations',
+    platform: 'trustpilot',
+    date: '3 weeks ago',
+    isVerified: true,
+    isFeatured: true,
+    order: 6,
+    createdAt: Date.now() - 1814400000,
+  },
+];
+
+const REVIEWS_STORAGE_KEY = 'printtoday_reviews_data';
+
+export function getLocalReviews(): ReviewItem[] {
+  if (typeof window === 'undefined') return DEFAULT_REVIEWS;
+  try {
+    const raw = localStorage.getItem(REVIEWS_STORAGE_KEY);
+    if (!raw) {
+      localStorage.setItem(REVIEWS_STORAGE_KEY, JSON.stringify(DEFAULT_REVIEWS));
+      return DEFAULT_REVIEWS;
+    }
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : DEFAULT_REVIEWS;
+  } catch {
+    return DEFAULT_REVIEWS;
+  }
+}
+
+export function saveLocalReviews(reviews: ReviewItem[]) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(REVIEWS_STORAGE_KEY, JSON.stringify(reviews));
+  } catch (e) {
+    console.error('Failed to save local reviews:', e);
+  }
+}
+
+let cachedReviews: ReviewItem[] | null = null;
+let lastReviewsFetch = 0;
+const REVIEWS_CACHE_TTL = 60 * 1000;
+
+export function invalidateReviewsCache() {
+  cachedReviews = null;
+  lastReviewsFetch = 0;
+}
+
+export async function getReviews(): Promise<ReviewItem[]> {
+  const now = Date.now();
+  if (cachedReviews && now - lastReviewsFetch < REVIEWS_CACHE_TTL) {
+    return cachedReviews;
+  }
+
+  if (isConfigured && db) {
+    try {
+      const snap = await getDocs(collection(db, 'reviews'));
+      if (!snap.empty) {
+        const firestoreReviews: ReviewItem[] = [];
+        snap.forEach((d) => {
+          firestoreReviews.push({ id: d.id, ...(d.data() as any) });
+        });
+        firestoreReviews.sort((a, b) => (a.order ?? 999) - (b.order ?? 999) || (b.createdAt || 0) - (a.createdAt || 0));
+        cachedReviews = firestoreReviews;
+        lastReviewsFetch = now;
+        return firestoreReviews;
+      }
+    } catch (error) {
+      console.warn('Firestore getReviews failed, using local fallback:', error);
+    }
+  }
+
+  cachedReviews = getLocalReviews();
+  lastReviewsFetch = now;
+  return cachedReviews;
+}
+
+export async function createReview(input: ReviewInput): Promise<ReviewItem> {
+  invalidateReviewsCache();
+  const newReview: ReviewItem = {
+    ...input,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+
+  if (isConfigured && db) {
+    try {
+      const cleanData = cleanFirestoreData(newReview);
+      const docRef = await addDoc(collection(db, 'reviews'), cleanData);
+      newReview.id = docRef.id;
+      return newReview;
+    } catch (error) {
+      console.error('Firestore createReview failed:', error);
+      throw error;
+    }
+  }
+
+  newReview.id = `rev-${Date.now()}`;
+  const local = [newReview, ...getLocalReviews()];
+  saveLocalReviews(local);
+  return newReview;
+}
+
+export async function updateReview(
+  id: string,
+  updates: Partial<ReviewItem>
+): Promise<ReviewItem | null> {
+  invalidateReviewsCache();
+  const payload = {
+    ...updates,
+    updatedAt: Date.now(),
+  };
+
+  if (isConfigured && db) {
+    try {
+      const cleanData = cleanFirestoreData(payload);
+      const docRef = doc(db, 'reviews', id);
+      await updateDoc(docRef, cleanData);
+    } catch (error) {
+      console.error('Firestore updateReview failed:', error);
+      throw error;
+    }
+  }
+
+  const local = getLocalReviews();
+  const idx = local.findIndex((r) => r.id === id);
+  if (idx !== -1) {
+    local[idx] = { ...local[idx], ...payload };
+    saveLocalReviews(local);
+    return local[idx];
+  }
+  return { id, ...payload } as ReviewItem;
+}
+
+export async function deleteReview(id: string): Promise<boolean> {
+  invalidateReviewsCache();
+  if (isConfigured && db) {
+    try {
+      const docRef = doc(db, 'reviews', id);
+      await deleteDoc(docRef);
+    } catch (error) {
+      console.error('Firestore deleteReview error:', error);
+      throw error;
+    }
+  }
+
+  const local = getLocalReviews().filter((r) => r.id !== id);
+  saveLocalReviews(local);
   return true;
 }
 

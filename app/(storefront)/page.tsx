@@ -7,17 +7,18 @@ import { CuratedSolutionsSection } from '@/components/storefront/CuratedSolution
 import { CustomerShowcaseSection } from '@/components/storefront/CustomerShowcaseSection';
 import { WhyChooseUsSection } from '@/components/storefront/WhyChooseUsSection';
 import { NewsletterSection } from '@/components/storefront/NewsletterSection';
-import { getLandingSections, getProducts, getHeroSlides, getCategories } from '@/lib/db';
+import { getLandingSections, getProducts, getHeroSlides, getCategories, getReviews } from '@/lib/db';
 
 // Always render the latest CMS-managed sections and hero banners in real-time
 export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
-  const [initialSections, initialProducts, initialHeroSlides, initialCategories] = await Promise.all([
+  const [initialSections, initialProducts, initialHeroSlides, initialCategories, initialReviews] = await Promise.all([
     getLandingSections().catch(() => []),
     getProducts().catch(() => []),
     getHeroSlides().catch(() => []),
     getCategories().catch(() => []),
+    getReviews().catch(() => []),
   ]);
 
   return (
@@ -41,8 +42,8 @@ export default async function HomePage() {
       {/* 5. Curated Industry Solutions */}
       <CuratedSolutionsSection />
 
-      {/* 7. Real Customer Showcase & 4.9/5 Trustpilot Reviews */}
-      <CustomerShowcaseSection />
+      {/* 7. Real Customer Showcase & 4.9/5 Trustpilot / Google Reviews */}
+      <CustomerShowcaseSection initialReviews={initialReviews} />
 
       {/* 8. Why London Businesses Choose Print Today UK */}
       <WhyChooseUsSection />

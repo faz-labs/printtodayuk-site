@@ -11,6 +11,7 @@ import {
   Inquiry,
   DynamicSection,
   DynamicSectionInput,
+  ReviewItem,
 } from '@/lib/types';
 import {
   getProducts,
@@ -29,6 +30,7 @@ import {
   createLandingSection,
   updateLandingSection,
   deleteLandingSection,
+  getReviews,
   purgeDummyDataFromFirestore,
 } from '@/lib/db';
 import { CMSSidebar, CMSTab } from '@/components/cms/CMSSidebar';
@@ -37,6 +39,7 @@ import { CategoryManager } from '@/components/cms/CategoryManager';
 import { SectionManager } from '@/components/cms/SectionManager';
 import { InquiryInbox } from '@/components/cms/InquiryInbox';
 import { HeroBannerManager } from '@/components/cms/HeroBannerManager';
+import { ReviewManager } from '@/components/cms/ReviewManager';
 import { Button } from '@/components/ui/Button';
 import {
   Package,
@@ -71,6 +74,7 @@ export default function CMSDashboardPage() {
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
 
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
+  const [reviews, setReviews] = useState<ReviewItem[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncNotice, setSyncNotice] = useState<string | null>(null);
@@ -86,16 +90,18 @@ export default function CMSDashboardPage() {
   const refreshData = async () => {
     setLoadingData(true);
     try {
-      const [prods, cats, inqs, secs] = await Promise.all([
+      const [prods, cats, inqs, secs, revs] = await Promise.all([
         getProducts(),
         getCategories(),
         getInquiries(),
         getLandingSections(),
+        getReviews(),
       ]);
       setProducts(prods || []);
       setCategories(cats || []);
       setInquiries(inqs || []);
       setLandingSections(secs || []);
+      setReviews(revs || []);
     } catch (err) {
       console.error('Failed to load CMS data:', err);
     } finally {
@@ -273,6 +279,7 @@ export default function CMSDashboardPage() {
         productsCount={products.length}
         sectionsCount={landingSections.length}
         pendingInquiriesCount={pendingInquiriesCount}
+        reviewsCount={reviews.length}
         isOpenMobile={isMobileDrawerOpen}
         onCloseMobile={() => setIsMobileDrawerOpen(false)}
       />
@@ -309,6 +316,7 @@ export default function CMSDashboardPage() {
                 {activeTab === 'sections' && 'Dynamic Landing Page Sections'}
                 {activeTab === 'banners' && 'Hero Carousel Banners'}
                 {activeTab === 'inquiries' && 'Leads & Callback Inquiries'}
+                {activeTab === 'reviews' && 'Customer Reviews & Feedback (Google & Trustpilot)'}
               </h1>
             </div>
           </div>
@@ -555,6 +563,14 @@ export default function CMSDashboardPage() {
                   inquiries={inquiries}
                   onUpdateStatus={handleUpdateInquiryStatus}
                   onDeleteInquiry={handleDeleteInquiry}
+                />
+              )}
+
+              {/* 7. Reviews & Testimonials Tab */}
+              {activeTab === 'reviews' && (
+                <ReviewManager
+                  initialReviews={reviews}
+                  onRefreshData={refreshData}
                 />
               )}
             </>

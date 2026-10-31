@@ -106,3 +106,25 @@ export interface DynamicSection {
 export type ProductInput = Omit<Product, 'id' | 'createdAt' | 'updatedAt'>;
 export type InquiryInput = Omit<Inquiry, 'id' | 'createdAt'>;
 export type DynamicSectionInput = Omit<DynamicSection, 'id' | 'createdAt' | 'updatedAt'>;
+
+export type ReviewPlatform = 'google' | 'trustpilot' | 'direct';
+
+export interface ReviewItem {
+  id?: string;
+  author: string;
+  company?: string;
+  location?: string;
+  rating: number; // 1 to 5
+  review: string;
+  product?: string;
+  platform: ReviewPlatform;
+  authorPhoto?: string;
+  date?: string;
+  isVerified?: boolean;
+  isFeatured?: boolean;
+  order?: number;
+  createdAt?: number;
+  updatedAt?: number;
+}
+
+export type ReviewInput = Omit<ReviewItem, 'id' | 'createdAt' | 'updatedAt'>;

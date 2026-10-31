@@ -15,9 +15,17 @@ import {
   X,
   Layout,
   House,
+  Star,
 } from '@phosphor-icons/react';
 
-export type CMSTab = 'overview' | 'categories' | 'products' | 'sections' | 'banners' | 'inquiries';
+export type CMSTab =
+  | 'overview'
+  | 'categories'
+  | 'products'
+  | 'sections'
+  | 'banners'
+  | 'inquiries'
+  | 'reviews';
 
 interface CMSSidebarProps {
   activeTab: CMSTab;
@@ -26,6 +34,7 @@ interface CMSSidebarProps {
   productsCount?: number;
   sectionsCount?: number;
   pendingInquiriesCount?: number;
+  reviewsCount?: number;
   isOpenMobile?: boolean;
   onCloseMobile?: () => void;
 }
@@ -37,6 +46,7 @@ export function CMSSidebar({
   productsCount = 0,
   sectionsCount = 0,
   pendingInquiriesCount = 0,
+  reviewsCount = 0,
   isOpenMobile = false,
   onCloseMobile,
 }: CMSSidebarProps) {
@@ -79,6 +89,13 @@ export function CMSSidebar({
       icon: PhoneCall,
       badge: pendingInquiriesCount,
       badgeColor: 'bg-[#C8102E] text-white',
+    },
+    {
+      id: 'reviews' as const,
+      label: 'Reviews & Feedback',
+      icon: Star,
+      badge: reviewsCount > 0 ? reviewsCount : null,
+      badgeColor: 'bg-amber-500 text-white',
     },
   ];
 
