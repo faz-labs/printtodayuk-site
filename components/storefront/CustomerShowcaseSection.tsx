@@ -41,7 +41,7 @@ export function CustomerShowcaseSection({ initialReviews }: CustomerShowcaseSect
     const avg =
       total > 0
         ? (reviews.reduce((acc, r) => acc + (r.rating || 5), 0) / total).toFixed(1)
-        : '4.9';
+        : '5.0';
     const googleCount = reviews.filter((r) => r.platform === 'google').length;
     const trustpilotCount = reviews.filter((r) => r.platform === 'trustpilot').length;
     return { total, avg, googleCount, trustpilotCount };

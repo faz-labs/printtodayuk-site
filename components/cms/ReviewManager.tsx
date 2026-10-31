@@ -19,6 +19,7 @@ import {
   Sparkle,
   Globe,
   Check,
+  UploadSimple,
 } from '@phosphor-icons/react';
 import { ReviewItem, ReviewInput, ReviewPlatform } from '@/lib/types';
 import { Button } from '@/components/ui/Button';
@@ -49,6 +50,9 @@ export function ReviewManager({ initialReviews = [], onRefreshData }: ReviewMana
   const [editingReview, setEditingReview] = useState<ReviewItem | null>(null);
   const [isGoogleSyncModalOpen, setIsGoogleSyncModalOpen] = useState(false);
   const [isTrustpilotSyncModalOpen, setIsTrustpilotSyncModalOpen] = useState(false);
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+  const [bulkText, setBulkText] = useState('');
+  const [bulkPlatform, setBulkPlatform] = useState<ReviewPlatform>('google');
 
   // Sync Form States
   const [googlePlaceId, setGooglePlaceId] = useState('');
@@ -334,6 +338,109 @@ export function ReviewManager({ initialReviews = [], onRefreshData }: ReviewMana
     }
   };
 
+  const handleBulkImport = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const raw = bulkText.trim();
+    if (!raw) {
+      showNotification('error', 'Please paste review text, CSV, or JSON data to import.');
+      return;
+    }
+
+    let parsedList: ReviewInput[] = [];
+
+    // 1. Try parsing JSON format
+    if (raw.startsWith('[') || raw.startsWith('{')) {
+      try {
+        const json = JSON.parse(raw);
+        const array = Array.isArray(json) ? json : json.reviews || json.items || [json];
+        parsedList = array
+          .filter((item: any) => item && (item.author || item.name) && (item.review || item.text))
+          .map((item: any) => ({
+            author: item.author || item.name || 'Verified Customer',
+            company: item.company || undefined,
+            location: item.location || 'London, UK',
+            rating: typeof item.rating === 'number' ? item.rating : 5,
+            review: item.review || item.text || '',
+            product: item.product || 'Commercial Print',
+            platform: item.platform || bulkPlatform,
+            date: item.date || item.relativePublishTimeDescription || 'Recently',
+            isVerified: item.isVerified ?? true,
+            isFeatured: item.isFeatured ?? true,
+          }));
+      } catch {}
+    }
+
+    // 2. If not JSON, parse as CSV/TSV or pipe-separated lines
+    if (parsedList.length === 0) {
+      const lines = raw.split(/\r?\n/).filter((l) => l.trim().length > 0);
+      for (const line of lines) {
+        if (/^author\s*[,|\t]/i.test(line)) continue;
+
+        let parts = line.split('\t');
+        if (parts.length < 2) parts = line.split('|');
+        if (parts.length < 2) parts = line.split(',');
+
+        if (parts.length >= 2) {
+          const author = parts[0]?.trim() || 'Verified Customer';
+          let rating = 5;
+          let review = '';
+          let company: string | undefined;
+
+          const num = Number(parts[1]?.trim());
+          if (!isNaN(num) && num >= 1 && num <= 5 && parts.length >= 3) {
+            rating = num;
+            review = parts.slice(2).join(', ').trim();
+          } else {
+            review = parts[1]?.trim() || '';
+            if (parts[2]) company = parts[2].trim();
+          }
+
+          if (review.length > 0) {
+            parsedList.push({
+              author,
+              company,
+              location: 'London, UK',
+              rating,
+              review,
+              product: 'Commercial Print',
+              platform: bulkPlatform,
+              date: 'Recently',
+              isVerified: true,
+              isFeatured: true,
+            });
+          }
+        }
+      }
+    }
+
+    if (parsedList.length === 0) {
+      showNotification('error', 'Could not parse any reviews. Please check formatting (JSON or CSV).');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const res = await fetch('/api/reviews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: parsedList }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to bulk import reviews');
+
+      const added = Array.isArray(data.reviews) ? data.reviews : [];
+      setReviews((prev) => [...added, ...prev]);
+      showNotification('success', `Successfully imported ${added.length} reviews!`);
+      setIsBulkModalOpen(false);
+      setBulkText('');
+      if (onRefreshData) onRefreshData();
+    } catch (err: any) {
+      showNotification('error', err.message || 'Failed to bulk import reviews');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Toast Notification */}
@@ -407,6 +514,17 @@ export function ReviewManager({ initialReviews = [], onRefreshData }: ReviewMana
               <span>Clear Demo Reviews</span>
             </Button>
           )}
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsBulkModalOpen(true)}
+            className="border-slate-300 hover:bg-slate-50 font-bold text-xs"
+            title="Paste multiple reviews or CSV to import all at once"
+          >
+            <UploadSimple className="h-3.5 w-3.5 mr-1.5" />
+            <span>Bulk Import</span>
+          </Button>
 
           <Button
             variant="uk-blue"
@@ -927,6 +1045,112 @@ export function ReviewManager({ initialReviews = [], onRefreshData }: ReviewMana
             </Button>
           </div>
         </div>
+      </Modal>
+
+      {/* Bulk Import Reviews Modal */}
+      <Modal
+        isOpen={isBulkModalOpen}
+        onClose={() => setIsBulkModalOpen(false)}
+        title="Bulk Import Reviews"
+        description="Paste multiple customer reviews to import them into your database at once."
+        maxWidth="lg"
+      >
+        <form onSubmit={handleBulkImport} className="space-y-4">
+          <div className="p-3.5 rounded-xl bg-blue-50 border border-blue-200 text-xs text-blue-900 space-y-1">
+            <div className="font-bold flex items-center gap-1.5">
+              <UploadSimple className="h-4 w-4 text-blue-700" />
+              <span>Import All Your Reviews in 1 Click</span>
+            </div>
+            <p className="text-[11px] text-blue-700 leading-relaxed">
+              Google&apos;s public Places API limits direct API fetching to 5 reviews per request. Paste your full review list below (CSV, TSV, or JSON) to display all 20, 50, or 100+ reviews on your storefront immediately.
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">
+              Assign Platform
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => setBulkPlatform('google')}
+                className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 cursor-pointer transition-all ${
+                  bulkPlatform === 'google'
+                    ? 'border-[#4285F4] bg-blue-50/70 text-blue-900 shadow-xs'
+                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                <span className="text-[#4285F4] font-black">G</span>
+                <span>Google</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setBulkPlatform('trustpilot')}
+                className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 cursor-pointer transition-all ${
+                  bulkPlatform === 'trustpilot'
+                    ? 'border-[#00b67a] bg-emerald-50/70 text-emerald-900 shadow-xs'
+                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                <Star weight="fill" className="h-3.5 w-3.5 text-[#00b67a]" />
+                <span>Trustpilot</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setBulkPlatform('direct')}
+                className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 cursor-pointer transition-all ${
+                  bulkPlatform === 'direct'
+                    ? 'border-purple-500 bg-purple-50/70 text-purple-900 shadow-xs'
+                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                <Sparkle weight="fill" className="h-3.5 w-3.5 text-purple-600" />
+                <span>Direct Client</span>
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-bold text-slate-700">
+                Paste Reviews (CSV, TSV, or JSON)
+              </label>
+              <span className="text-[10px] text-slate-400">
+                Format: Author, Rating (1-5), Review, Company
+              </span>
+            </div>
+            <textarea
+              required
+              rows={8}
+              value={bulkText}
+              onChange={(e) => setBulkText(e.target.value)}
+              placeholder={`// Format 1: CSV / Plain Lines\nJohn Smith, 5, Amazing quality and fast turnaround!, Soho Coffee Co\nSarah Jenkins, 5, Super sharp business cards delivered same day, Mayfair Media\n\n// Format 2: JSON Array\n[\n  { "author": "David O\'Connor", "rating": 5, "review": "Crisp menus and aprons", "company": "Copper Grill" }\n]`}
+              className="w-full p-3 font-mono text-[11px] rounded-xl border border-slate-200 text-slate-900 focus:outline-hidden focus:border-[#012169] resize-none"
+            />
+          </div>
+
+          <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsBulkModalOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="uk-blue"
+              size="sm"
+              isLoading={isSubmitting}
+            >
+              <UploadSimple className="h-3.5 w-3.5 mr-1.5" />
+              <span>Import All Reviews</span>
+            </Button>
+          </div>
+        </form>
       </Modal>
     </div>
   );

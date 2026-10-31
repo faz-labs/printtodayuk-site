@@ -39,37 +39,100 @@ const SIZE_AREAS_M2: Record<string, number> = {
 };
 
 /**
- * Calculates human-friendly working-day delivery dates (skipping weekends).
+ * Helper to format a date with English ordinal suffix (e.g. "Tue, 3rd Nov" or "Sat, 7th Nov").
  */
-export function getWorkingDueDates(): { sameDay: string; nextDay: string; standard: string } {
-  const now = new Date();
+export function formatOrdinalDate(d: Date, includeWeekday: boolean = true): string {
+  const day = d.getDate();
+  const month = d.toLocaleDateString('en-GB', { month: 'short' });
+  const weekday = d.toLocaleDateString('en-GB', { weekday: 'short' });
 
-  function addWorkingDays(startDate: Date, days: number): Date {
-    const result = new Date(startDate);
+  let suffix = 'th';
+  if (day === 1 || day === 21 || day === 31) suffix = 'st';
+  else if (day === 2 || day === 22) suffix = 'nd';
+  else if (day === 3 || day === 23) suffix = 'rd';
+
+  return includeWeekday ? `${weekday}, ${day}${suffix} ${month}` : `${day}${suffix} ${month}`;
+}
+
+/**
+ * Calculates human-friendly working-day delivery dates (skipping weekends).
+ * - 1 Working Day means 1 working production day; due date / delivery is the day after.
+ * - 3-5 Working Days means up to 5 working production days; due date is the day after the 5th working day.
+ * - Weekends (Saturday and Sunday) are strictly non-production days and Sunday is non-delivery.
+ */
+export function getWorkingDueDates(baseDate: Date = new Date()): { sameDay: string; nextDay: string; standard: string } {
+  const now = new Date(baseDate);
+  const dayOfWeek = now.getDay(); // 0 is Sun, 6 is Sat
+  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+  const isPastCutoff = now.getHours() >= 13; // 1:00 PM London cutoff
+
+  function addWorkingDays(from: Date, count: number): Date {
+    const cur = new Date(from);
     let added = 0;
-    while (added < days) {
-      result.setDate(result.getDate() + 1);
-      const dayOfWeek = result.getDay();
-      // Skip Saturday (6) and Sunday (0)
-      if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+    while (added < count) {
+      cur.setDate(cur.getDate() + 1);
+      const dow = cur.getDay();
+      if (dow !== 0 && dow !== 6) {
         added++;
       }
     }
-    return result;
+    return cur;
   }
 
-  const formatOptions: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
+  function getFirstWorkingDay(from: Date): Date {
+    const cur = new Date(from);
+    if (cur.getDay() === 6) {
+      // Saturday -> moves to Monday
+      cur.setDate(cur.getDate() + 2);
+      return cur;
+    }
+    if (cur.getDay() === 0) {
+      // Sunday -> moves to Monday
+      cur.setDate(cur.getDate() + 1);
+      return cur;
+    }
+    if (isPastCutoff) {
+      return addWorkingDays(cur, 1);
+    }
+    return cur;
+  }
 
-  // If after 12:00 PM London time, same day moves to tomorrow morning
-  const isPastCutoff = now.getHours() >= 13;
-  const sameDayTarget = isPastCutoff ? addWorkingDays(now, 1) : now;
-  const nextDayTarget = addWorkingDays(now, 1);
-  const standardTarget = addWorkingDays(now, 4);
+  const prodDay1 = getFirstWorkingDay(now);
+
+  // 1. Same Day Express:
+  // If placed on a weekday before 1:00 PM cutoff, same day is today.
+  // If placed on weekend or after cutoff, it is produced on the first working day.
+  let sameDayDate: Date;
+  if (!isWeekend && !isPastCutoff) {
+    sameDayDate = new Date(now);
+  } else {
+    sameDayDate = new Date(prodDay1);
+  }
+
+  // 2. 1 Working Day:
+  // The first working day (prodDay1) is the production day.
+  // Delivery due date is the next day (if Sunday, moves to Monday).
+  const nextDayDate = new Date(prodDay1);
+  nextDayDate.setDate(nextDayDate.getDate() + 1);
+  if (nextDayDate.getDay() === 0) {
+    nextDayDate.setDate(nextDayDate.getDate() + 1);
+  }
+
+  // 3. 3-5 Working Days:
+  // Production takes 5 working days starting at prodDay1.
+  // Working day 1 = prodDay1; Working day 5 = addWorkingDays(prodDay1, 4).
+  // Delivery due date is the day following the 5th working day (if Sunday, moves to Monday).
+  const fifthWorkingDay = addWorkingDays(prodDay1, 4);
+  const standardDate = new Date(fifthWorkingDay);
+  standardDate.setDate(standardDate.getDate() + 1);
+  if (standardDate.getDay() === 0) {
+    standardDate.setDate(standardDate.getDate() + 1);
+  }
 
   return {
-    sameDay: sameDayTarget.toLocaleDateString('en-GB', formatOptions),
-    nextDay: nextDayTarget.toLocaleDateString('en-GB', formatOptions),
-    standard: standardTarget.toLocaleDateString('en-GB', formatOptions),
+    sameDay: formatOrdinalDate(sameDayDate),
+    nextDay: formatOrdinalDate(nextDayDate),
+    standard: formatOrdinalDate(standardDate),
   };
 }
 
