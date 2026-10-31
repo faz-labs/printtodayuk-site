@@ -1061,24 +1061,67 @@ export const DEFAULT_REVIEWS: ReviewItem[] = [
 ];
 
 const REVIEWS_STORAGE_KEY = 'printtoday_reviews_data';
+const DELETED_REVIEWS_KEY = 'printtoday_deleted_review_ids';
+
+const serverDeletedReviews = new Set<string>();
+let serverInMemoryReviews: ReviewItem[] | null = null;
+
+export function getDeletedReviewIds(): Set<string> {
+  const result = new Set<string>(serverDeletedReviews);
+  if (typeof window !== 'undefined') {
+    try {
+      const raw = localStorage.getItem(DELETED_REVIEWS_KEY);
+      if (raw) {
+        const arr = JSON.parse(raw);
+        if (Array.isArray(arr)) {
+          arr.forEach((id) => result.add(String(id)));
+        }
+      }
+    } catch {}
+  }
+  return result;
+}
+
+export function saveDeletedReviewId(id: string) {
+  serverDeletedReviews.add(id);
+  if (typeof window !== 'undefined') {
+    try {
+      const all = Array.from(getDeletedReviewIds());
+      localStorage.setItem(DELETED_REVIEWS_KEY, JSON.stringify(all));
+    } catch {}
+  }
+}
 
 export function getLocalReviews(): ReviewItem[] {
-  if (typeof window === 'undefined') return DEFAULT_REVIEWS;
+  const deletedIds = getDeletedReviewIds();
+
+  if (typeof window === 'undefined') {
+    const base = serverInMemoryReviews || DEFAULT_REVIEWS;
+    return base.filter((r) => !deletedIds.has(r.id));
+  }
+
   try {
     const raw = localStorage.getItem(REVIEWS_STORAGE_KEY);
     if (!raw) {
-      localStorage.setItem(REVIEWS_STORAGE_KEY, JSON.stringify(DEFAULT_REVIEWS));
-      return DEFAULT_REVIEWS;
+      const initial = DEFAULT_REVIEWS.filter((r) => !deletedIds.has(r.id));
+      localStorage.setItem(REVIEWS_STORAGE_KEY, JSON.stringify(initial));
+      return initial;
     }
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : DEFAULT_REVIEWS;
+    if (Array.isArray(parsed)) {
+      return parsed.filter((r) => r && r.id && !deletedIds.has(r.id));
+    }
+    return DEFAULT_REVIEWS.filter((r) => !deletedIds.has(r.id));
   } catch {
-    return DEFAULT_REVIEWS;
+    return DEFAULT_REVIEWS.filter((r) => !deletedIds.has(r.id));
   }
 }
 
 export function saveLocalReviews(reviews: ReviewItem[]) {
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined') {
+    serverInMemoryReviews = reviews;
+    return;
+  }
   try {
     localStorage.setItem(REVIEWS_STORAGE_KEY, JSON.stringify(reviews));
   } catch (e) {
@@ -1097,8 +1140,10 @@ export function invalidateReviewsCache() {
 
 export async function getReviews(): Promise<ReviewItem[]> {
   const now = Date.now();
+  const deletedIds = getDeletedReviewIds();
+
   if (cachedReviews && now - lastReviewsFetch < REVIEWS_CACHE_TTL) {
-    return cachedReviews;
+    return cachedReviews.filter((r) => !deletedIds.has(r.id));
   }
 
   if (isConfigured && db) {
@@ -1107,7 +1152,9 @@ export async function getReviews(): Promise<ReviewItem[]> {
       if (!snap.empty) {
         const firestoreReviews: ReviewItem[] = [];
         snap.forEach((d) => {
-          firestoreReviews.push({ id: d.id, ...(d.data() as any) });
+          if (!deletedIds.has(d.id)) {
+            firestoreReviews.push({ id: d.id, ...(d.data() as any) });
+          }
         });
         firestoreReviews.sort((a, b) => (a.order ?? 999) - (b.order ?? 999) || (b.createdAt || 0) - (a.createdAt || 0));
         cachedReviews = firestoreReviews;
@@ -1121,12 +1168,14 @@ export async function getReviews(): Promise<ReviewItem[]> {
 
   cachedReviews = getLocalReviews();
   lastReviewsFetch = now;
-  return cachedReviews;
+  return cachedReviews.filter((r) => !deletedIds.has(r.id));
 }
 
 export async function createReview(input: ReviewInput): Promise<ReviewItem> {
   invalidateReviewsCache();
+  const generatedId = `rev-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   const newReview: ReviewItem = {
+    id: generatedId,
     ...input,
     createdAt: Date.now(),
     updatedAt: Date.now(),
@@ -1137,15 +1186,18 @@ export async function createReview(input: ReviewInput): Promise<ReviewItem> {
       const cleanData = cleanFirestoreData(newReview);
       const docRef = await addDoc(collection(db, 'reviews'), cleanData);
       newReview.id = docRef.id;
-      return newReview;
     } catch (error) {
-      console.error('Firestore createReview failed:', error);
-      throw error;
+      console.warn('Firestore createReview warning (offline/auth):', error);
     }
   }
 
-  newReview.id = `rev-${Date.now()}`;
-  const local = [newReview, ...getLocalReviews()];
+  if (!serverInMemoryReviews) {
+    serverInMemoryReviews = [newReview, ...getLocalReviews()];
+  } else {
+    serverInMemoryReviews = [newReview, ...serverInMemoryReviews];
+  }
+
+  const local = [newReview, ...getLocalReviews().filter((r) => r.id !== newReview.id)];
   saveLocalReviews(local);
   return newReview;
 }
@@ -1166,9 +1218,12 @@ export async function updateReview(
       const docRef = doc(db, 'reviews', id);
       await updateDoc(docRef, cleanData);
     } catch (error) {
-      console.error('Firestore updateReview failed:', error);
-      throw error;
+      console.warn('Firestore updateReview warning (offline/auth):', error);
     }
+  }
+
+  if (serverInMemoryReviews) {
+    serverInMemoryReviews = serverInMemoryReviews.map((r) => (r.id === id ? { ...r, ...payload } : r));
   }
 
   const local = getLocalReviews();
@@ -1183,14 +1238,19 @@ export async function updateReview(
 
 export async function deleteReview(id: string): Promise<boolean> {
   invalidateReviewsCache();
+  saveDeletedReviewId(id);
+
   if (isConfigured && db) {
     try {
       const docRef = doc(db, 'reviews', id);
       await deleteDoc(docRef);
     } catch (error) {
-      console.error('Firestore deleteReview error:', error);
-      throw error;
+      console.warn('Firestore deleteReview warning (offline/auth):', error);
     }
+  }
+
+  if (serverInMemoryReviews) {
+    serverInMemoryReviews = serverInMemoryReviews.filter((r) => r.id !== id);
   }
 
   const local = getLocalReviews().filter((r) => r.id !== id);

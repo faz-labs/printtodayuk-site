@@ -10,6 +10,17 @@ export async function POST(req: Request) {
 
     let importedReviews: ReviewInput[] = [];
 
+    if (placeId && !apiKey) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            'A Google Places API Key is required to fetch live reviews from Google Places API. Please provide your Google API Key, or clear the Place ID to import curated verified London business reviews.',
+        },
+        { status: 400 }
+      );
+    }
+
     if (placeId && apiKey) {
       // 1. Live Google Places API Details fetch
       const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${encodeURIComponent(

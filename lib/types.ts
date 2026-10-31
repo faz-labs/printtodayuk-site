@@ -110,7 +110,7 @@ export type DynamicSectionInput = Omit<DynamicSection, 'id' | 'createdAt' | 'upd
 export type ReviewPlatform = 'google' | 'trustpilot' | 'direct';
 
 export interface ReviewItem {
-  id?: string;
+  id: string;
   author: string;
   company?: string;
   location?: string;

@@ -12,7 +12,7 @@ interface CustomerShowcaseSectionProps {
 
 export function CustomerShowcaseSection({ initialReviews }: CustomerShowcaseSectionProps) {
   const reviews = useMemo(() => {
-    const list = initialReviews && initialReviews.length > 0 ? initialReviews : DEFAULT_REVIEWS;
+    const list = Array.isArray(initialReviews) ? initialReviews : DEFAULT_REVIEWS;
     // Show only featured reviews on storefront (or all if isFeatured undefined)
     return list.filter((r) => r.isFeatured !== false);
   }, [initialReviews]);
@@ -23,6 +23,18 @@ export function CustomerShowcaseSection({ initialReviews }: CustomerShowcaseSect
     if (activePlatformFilter === 'all') return reviews;
     return reviews.filter((r) => r.platform === activePlatformFilter);
   }, [reviews, activePlatformFilter]);
+
+  // Seamless marquee duplicate array so there is never an empty gap
+  const marqueeReviews = useMemo(() => {
+    if (filteredReviews.length === 0) return [];
+    if (filteredReviews.length === 1) {
+      return [...filteredReviews, ...filteredReviews, ...filteredReviews, ...filteredReviews];
+    }
+    if (filteredReviews.length < 5) {
+      return [...filteredReviews, ...filteredReviews, ...filteredReviews];
+    }
+    return [...filteredReviews, ...filteredReviews];
+  }, [filteredReviews]);
 
   const metrics = useMemo(() => {
     const total = reviews.length;
@@ -161,88 +173,93 @@ export function CustomerShowcaseSection({ initialReviews }: CustomerShowcaseSect
           ))}
         </div>
 
-        {/* Dynamic Verified Customer Testimonials Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <AnimatePresence mode="popLayout">
-            {filteredReviews.map((rev, idx) => (
-              <motion.div
-                key={rev.id || rev.author + idx}
-                layout
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ duration: 0.25, delay: Math.min(idx * 0.04, 0.2) }}
-                className="p-6 rounded-2xl bg-slate-50 border border-slate-200/90 flex flex-col justify-between shadow-xs hover:shadow-md transition-shadow relative overflow-hidden"
-              >
-                <div>
-                  {/* Top Bar with Platform Badge & Rating */}
-                  <div className="flex items-center justify-between gap-2 mb-3">
-                    {/* Platform Badge */}
-                    {rev.platform === 'google' ? (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-900 text-[10px] font-bold border border-blue-200">
-                        <span className="text-[#4285F4] font-black">G</span>
-                        <span>Google Review</span>
-                      </span>
-                    ) : rev.platform === 'trustpilot' ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-950 text-[10px] font-bold border border-emerald-200">
-                        <Star weight="fill" className="h-3 w-3 text-[#00b67a]" />
-                        <span>Trustpilot Verified</span>
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-900 text-[10px] font-bold border border-purple-200">
-                        <Sparkle weight="fill" className="h-3 w-3 text-purple-600" />
-                        <span>Direct Feedback</span>
-                      </span>
-                    )}
+        {/* Continuous Single-Row Testimonials Marquee */}
+        {filteredReviews.length === 0 ? (
+          <div className="text-center py-12 px-4 rounded-2xl bg-slate-50 border border-slate-200 text-slate-500 text-sm">
+            No customer reviews found for this platform.
+          </div>
+        ) : (
+          <div className="relative w-full overflow-hidden py-2 -mx-4 sm:mx-0">
+            {/* Left & Right gradient fades for smooth edge roll-off */}
+            <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-12 sm:w-28 bg-gradient-to-r from-white via-white/80 to-transparent z-10" />
+            <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-12 sm:w-28 bg-gradient-to-l from-white via-white/80 to-transparent z-10" />
 
-                    {rev.date && (
-                      <span className="text-[10px] font-medium text-slate-400">
-                        {rev.date}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Star Rating */}
-                  <div className="flex items-center gap-0.5 text-amber-400 mb-2.5">
-                    {Array.from({ length: rev.rating || 5 }).map((_, i) => (
-                      <Star key={i} weight="fill" className="h-4 w-4" />
-                    ))}
-                  </div>
-
-                  {/* Review Quote */}
-                  <p className="text-xs sm:text-sm text-slate-700 italic leading-relaxed">
-                    &ldquo;{rev.review}&rdquo;
-                  </p>
-                </div>
-
-                {/* Bottom Author & Product Tag */}
-                <div className="mt-5 pt-4 border-t border-slate-200/70 flex items-center justify-between text-xs">
+            {/* Continuous Infinite Sliding Ribbon */}
+            <div className="flex gap-4 sm:gap-6 w-max animate-review-marquee hover:[animation-play-state:paused] py-3">
+              {marqueeReviews.map((rev, idx) => (
+                <div
+                  key={`${rev.id || rev.author}-${idx}`}
+                  className="w-[290px] sm:w-[350px] md:w-[380px] shrink-0 p-5 sm:p-6 rounded-2xl bg-slate-50/80 border border-slate-200/90 shadow-xs hover:shadow-md hover:border-[#012169]/30 hover:bg-white transition-all flex flex-col justify-between select-none"
+                >
                   <div>
-                    <div className="font-bold text-slate-900 flex items-center gap-1">
-                      <span>{rev.author}</span>
-                      {rev.isVerified && (
-                        <span title="Verified Customer" className="inline-flex items-center">
-                          <CheckCircle weight="fill" className="h-3.5 w-3.5 text-emerald-600" />
+                    {/* Top Bar with Platform Badge & Rating */}
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      {rev.platform === 'google' ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-900 text-[10px] font-bold border border-blue-200">
+                          <span className="text-[#4285F4] font-black">G</span>
+                          <span>Google Review</span>
+                        </span>
+                      ) : rev.platform === 'trustpilot' ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-950 text-[10px] font-bold border border-emerald-200">
+                          <Star weight="fill" className="h-3 w-3 text-[#00b67a]" />
+                          <span>Trustpilot Verified</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-900 text-[10px] font-bold border border-purple-200">
+                          <Sparkle weight="fill" className="h-3 w-3 text-purple-600" />
+                          <span>Direct Feedback</span>
+                        </span>
+                      )}
+
+                      {rev.date && (
+                        <span className="text-[10px] font-medium text-slate-400">
+                          {rev.date}
                         </span>
                       )}
                     </div>
-                    {(rev.company || rev.location) && (
-                      <div className="text-[11px] text-slate-500 font-medium">
-                        {rev.company} {rev.company && rev.location && '•'} {rev.location}
-                      </div>
-                    )}
+
+                    {/* Star Rating */}
+                    <div className="flex items-center gap-0.5 text-amber-400 mb-2.5">
+                      {Array.from({ length: rev.rating || 5 }).map((_, i) => (
+                        <Star key={i} weight="fill" className="h-4 w-4" />
+                      ))}
+                    </div>
+
+                    {/* Review Quote */}
+                    <p className="text-xs sm:text-sm text-slate-700 italic leading-relaxed line-clamp-4">
+                      &ldquo;{rev.review}&rdquo;
+                    </p>
                   </div>
 
-                  {rev.product && (
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-white border border-slate-200 text-[#012169] truncate max-w-[130px] shrink-0">
-                      {rev.product}
-                    </span>
-                  )}
+                  {/* Bottom Author & Product Tag */}
+                  <div className="mt-5 pt-4 border-t border-slate-200/70 flex items-center justify-between text-xs">
+                    <div>
+                      <div className="font-bold text-slate-900 flex items-center gap-1">
+                        <span>{rev.author}</span>
+                        {rev.isVerified && (
+                          <span title="Verified Customer" className="inline-flex items-center">
+                            <CheckCircle weight="fill" className="h-3.5 w-3.5 text-emerald-600" />
+                          </span>
+                        )}
+                      </div>
+                      {(rev.company || rev.location) && (
+                        <div className="text-[11px] text-slate-500 font-medium">
+                          {rev.company} {rev.company && rev.location && '•'} {rev.location}
+                        </div>
+                      )}
+                    </div>
+
+                    {rev.product && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-white border border-slate-200 text-[#012169] truncate max-w-[130px] shrink-0">
+                        {rev.product}
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </section>
   );

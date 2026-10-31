@@ -95,3 +95,22 @@ html.lenis, html.lenis body {
   font-weight: 500 !important;
   line-height: 1.5;
 }
+
+/* Continuous Review Sliding Marquee */
+@keyframes review-marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-review-marquee {
+  animation: review-marquee 40s linear infinite;
+  will-change: transform;
+}
+
+.animate-review-marquee:hover {
+  animation-play-state: paused;
+}

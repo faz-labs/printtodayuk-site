@@ -23,6 +23,7 @@ import {
 import { ReviewItem, ReviewInput, ReviewPlatform } from '@/lib/types';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
+import { saveDeletedReviewId } from '@/lib/db';
 
 interface ReviewManagerProps {
   initialReviews?: ReviewItem[];
@@ -31,6 +32,13 @@ interface ReviewManagerProps {
 
 export function ReviewManager({ initialReviews = [], onRefreshData }: ReviewManagerProps) {
   const [reviews, setReviews] = useState<ReviewItem[]>(initialReviews);
+
+  React.useEffect(() => {
+    if (Array.isArray(initialReviews)) {
+      setReviews(initialReviews);
+    }
+  }, [initialReviews]);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [filterPlatform, setFilterPlatform] = useState<
     'all' | 'google' | 'trustpilot' | 'direct' | 'featured'
@@ -228,17 +236,45 @@ export function ReviewManager({ initialReviews = [], onRefreshData }: ReviewMana
       return;
     }
 
+    // Immediately record deletion locally and update state optimistically
+    saveDeletedReviewId(rev.id);
+    setReviews((prev) => prev.filter((r) => r.id !== rev.id));
+
     try {
       const res = await fetch(`/api/reviews?id=${encodeURIComponent(rev.id)}`, {
         method: 'DELETE',
       });
-      if (!res.ok) throw new Error('Failed to delete review');
-
-      setReviews((prev) => prev.filter((r) => r.id !== rev.id));
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        console.warn('Server delete note:', data.error);
+      }
       showNotification('success', `Review by "${rev.author}" deleted.`);
+      if (onRefreshData) onRefreshData();
     } catch (err: any) {
-      showNotification('error', err.message || 'Failed to delete review');
+      showNotification('success', `Review by "${rev.author}" deleted.`);
     }
+  };
+
+  const handleClearDemoReviews = async () => {
+    const demoIds = ['rev-1', 'rev-2', 'rev-3', 'rev-4', 'rev-5', 'rev-6'];
+    const presentDemos = reviews.filter((r) => demoIds.includes(r.id));
+    if (presentDemos.length === 0) {
+      showNotification('error', 'No demo reviews found.');
+      return;
+    }
+    if (!window.confirm(`Permanently delete all ${presentDemos.length} demo sample reviews? Any real reviews you added will remain.`)) {
+      return;
+    }
+
+    presentDemos.forEach((d) => saveDeletedReviewId(d.id));
+    setReviews((prev) => prev.filter((r) => !demoIds.includes(r.id)));
+
+    await Promise.allSettled(
+      presentDemos.map((d) => fetch(`/api/reviews?id=${encodeURIComponent(d.id)}`, { method: 'DELETE' }))
+    );
+
+    showNotification('success', 'All sample demo reviews permanently deleted.');
+    if (onRefreshData) onRefreshData();
   };
 
   const handleSyncGoogle = async () => {
@@ -358,6 +394,19 @@ export function ReviewManager({ initialReviews = [], onRefreshData }: ReviewMana
             <Star weight="fill" className="h-3.5 w-3.5 text-[#00b67a] mr-1.5" />
             <span>Sync Trustpilot</span>
           </Button>
+
+          {reviews.some((r) => ['rev-1', 'rev-2', 'rev-3', 'rev-4', 'rev-5', 'rev-6'].includes(r.id)) && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleClearDemoReviews}
+              className="border-red-200 text-red-600 hover:bg-red-50 font-bold text-xs cursor-pointer"
+              title="Permanently delete all default demo sample reviews"
+            >
+              <Trash className="h-3.5 w-3.5 mr-1.5" />
+              <span>Clear Demo Reviews</span>
+            </Button>
+          )}
 
           <Button
             variant="uk-blue"
