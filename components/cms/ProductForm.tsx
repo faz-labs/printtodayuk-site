@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Product, ProductInput, CategoryConfig, CustomField, QuantityTier } from '@/lib/types';
 import { slugify } from '@/lib/utils';
@@ -707,6 +707,93 @@ export function ProductForm({
     }
   };
 
+  // Calculate Cartesian Product of all Custom Dropdown Options
+  const allCombinations = useMemo(() => {
+    const valid = customFields
+      .map((f) => ({
+        id: f.id,
+        name: f.name,
+        options: f.options
+          .map((o) => cleanOptionDisplayName(o).trim())
+          .filter((o) => o.length > 0),
+      }))
+      .filter((f) => f.options.length > 0);
+
+    if (valid.length === 0) return [];
+
+    let combos: string[][] = [[]];
+    for (const field of valid) {
+      const nextCombos: string[][] = [];
+      for (const existing of combos) {
+        for (const opt of field.options) {
+          nextCombos.push([...existing, opt]);
+        }
+      }
+      combos = nextCombos;
+    }
+
+    return combos.map((c) => c.join(' - '));
+  }, [customFields]);
+
+  // First value combination representing the default
+  const defaultCombinationName = allCombinations[0] || '';
+
+  // One-click generate all combination tables
+  const handleGenerateAllCombinationTables = () => {
+    if (allCombinations.length === 0) {
+      alert(
+        'Please add your dropdown options (e.g. Size, Paper Stock, Printed Sides) under "Custom Dropdown Fields" below before generating combination tables.'
+      );
+      return;
+    }
+
+    if (allCombinations.length > 100) {
+      if (
+        !window.confirm(
+          `Your dropdown options produce ${allCombinations.length} total combination tables. Do you want to generate all ${allCombinations.length} tables now?`
+        )
+      ) {
+        return;
+      }
+    }
+
+    let createdCount = 0;
+    const updated = { ...variantQuantityTiers };
+
+    for (const combo of allCombinations) {
+      if (!updated[combo]) {
+        updated[combo] = JSON.parse(JSON.stringify(quantityTiers));
+        createdCount++;
+      }
+    }
+
+    setVariantQuantityTiers(updated);
+    if (createdCount > 0) {
+      setImportSuccessMsg(
+        `⚡ Generated ${createdCount} combination tables! (${allCombinations.length} total combination tables ready). Select any table above or below to paste its link and update price.`
+      );
+    } else {
+      setImportSuccessMsg(
+        `All ${allCombinations.length} combination tables are already present and ready.`
+      );
+    }
+    setIsVariantPickerOpen(false);
+  };
+
+  // Clear all variant tables back to default base table
+  const handleClearAllVariantTables = () => {
+    if (
+      window.confirm(
+        'Delete all variant combination tables? Only the Default Base Tiers table will be kept.'
+      )
+    ) {
+      setVariantQuantityTiers({});
+      setActiveVariantTab('default');
+      setImportTarget('default');
+      setImportSuccessMsg('All variant combination tables cleared.');
+    }
+  };
+
   // Approach C & Universal One-Click Auto-Fill Handler
   const handleImportRoute1 = async (targetOverride?: string) => {
     const urlToFetch = route1Url.trim();
@@ -1030,13 +1117,18 @@ export function ProductForm({
                     : 'bg-white border-slate-200 text-slate-700'
                 }`}
               >
-                <span className="text-[10px] font-bold uppercase tracking-wider">Target:</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider">Target Table:</span>
                 <select
                   value={importTarget}
-                  onChange={(e) => setImportTarget(e.target.value)}
-                  className="h-7 text-xs font-bold text-[#012169] bg-transparent focus:outline-hidden cursor-pointer"
+                  onChange={(e) => {
+                    setImportTarget(e.target.value);
+                    setActiveVariantTab(e.target.value);
+                  }}
+                  className="h-7 text-xs font-bold text-[#012169] bg-transparent focus:outline-hidden cursor-pointer max-w-[280px]"
                 >
-                  <option value="default">★ Default Base Matrix</option>
+                  <option value="default">
+                    ★ Default Base Matrix {defaultCombinationName ? `(1st Options: ${defaultCombinationName})` : ''}
+                  </option>
                   {Object.keys(variantQuantityTiers).map((k) => (
                     <option key={k} value={k}>
                       Variant: {k}
@@ -1314,21 +1406,27 @@ export function ProductForm({
                 <div className="flex flex-wrap items-center gap-1.5">
                   <button
                     type="button"
-                    onClick={() => setActiveVariantTab('default')}
+                    onClick={() => {
+                      setActiveVariantTab('default');
+                      setImportTarget('default');
+                    }}
                     className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                       activeVariantTab === 'default'
                         ? 'bg-[#012169] text-white shadow-xs'
                         : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
                     }`}
                   >
-                    ★ Default / Base Tiers
+                    ★ Default / Base Tiers {defaultCombinationName ? `(1st Options: ${defaultCombinationName})` : ''}
                   </button>
 
                   {Object.keys(variantQuantityTiers).map((vKey) => (
                     <div key={vKey} className="inline-flex items-center shadow-2xs rounded-lg overflow-hidden border border-slate-200">
                       <button
                         type="button"
-                        onClick={() => setActiveVariantTab(vKey)}
+                        onClick={() => {
+                          setActiveVariantTab(vKey);
+                          setImportTarget(vKey);
+                        }}
                         className={`px-2.5 py-1 text-xs font-bold transition-all cursor-pointer ${
                           activeVariantTab === vKey
                             ? 'bg-[#012169] text-white'
@@ -1355,7 +1453,10 @@ export function ProductForm({
                           const updated = { ...variantQuantityTiers };
                           delete updated[vKey];
                           setVariantQuantityTiers(updated);
-                          if (activeVariantTab === vKey) setActiveVariantTab('default');
+                          if (activeVariantTab === vKey) {
+                            setActiveVariantTab('default');
+                            setImportTarget('default');
+                          }
                         }}
                         className={`px-1.5 py-1 rounded-r-lg text-xs transition-colors cursor-pointer border-l ${
                           activeVariantTab === vKey
@@ -1432,6 +1533,32 @@ export function ProductForm({
                       <Plus className="h-3.5 w-3.5" />
                       <span>Create Table</span>
                     </button>
+
+                    {/* 1-Click Generate All Combination Tables Button */}
+                    {allCombinations.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleGenerateAllCombinationTables}
+                        className="h-8.5 px-3.5 rounded-lg border border-purple-300 bg-purple-50 hover:bg-purple-100 text-purple-900 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shrink-0 shadow-2xs"
+                        title={`Generate a dedicated pricing table for every dropdown combination (${allCombinations.length} tables) in 1 click`}
+                      >
+                        <Lightning weight="fill" className="h-3.5 w-3.5 text-purple-600" />
+                        <span>Generate All Tables ({allCombinations.length})</span>
+                      </button>
+                    )}
+
+                    {/* Clear All Variant Tables (if any exist) */}
+                    {Object.keys(variantQuantityTiers).length > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleClearAllVariantTables}
+                        className="h-8.5 px-2.5 rounded-lg border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold flex items-center gap-1 transition-all cursor-pointer shrink-0 shadow-2xs"
+                        title="Delete all variant tables and keep only the Default table"
+                      >
+                        <Trash className="h-3.5 w-3.5 text-rose-600" />
+                        <span>Clear Tables</span>
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -2332,6 +2459,19 @@ export function ProductForm({
                   <Plus className="h-4 w-4 mr-1" />
                   <span>Done &amp; Create Table</span>
                 </Button>
+
+                {allCombinations.length > 0 && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleGenerateAllCombinationTables}
+                    className="bg-purple-600 hover:bg-purple-700 text-white font-bold shadow-xs cursor-pointer"
+                    title={`Generate tables for all ${allCombinations.length} combinations in 1 click`}
+                  >
+                    <Lightning weight="fill" className="h-4 w-4 mr-1 text-amber-300" />
+                    <span>Generate All ({allCombinations.length} Tables)</span>
+                  </Button>
+                )}
               </div>
             </div>
           </motion.div>
