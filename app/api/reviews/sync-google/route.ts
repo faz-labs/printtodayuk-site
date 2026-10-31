@@ -22,33 +22,116 @@ export async function POST(req: Request) {
     }
 
     if (placeId && apiKey) {
-      // 1. Live Google Places API Details fetch
-      const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${encodeURIComponent(
-        placeId
-      )}&fields=name,rating,reviews,user_ratings_total&key=${encodeURIComponent(apiKey)}`;
+      const cleanPlaceId = placeId.trim().replace(/^places\//, '');
+      const cleanKey = apiKey.trim();
 
-      const res = await fetch(url);
-      const data = await res.json();
+      // 1. Google Places API (New) v1/v2 endpoint
+      const newApiUrl = `https://places.googleapis.com/v1/places/${encodeURIComponent(
+        cleanPlaceId
+      )}?languageCode=en`;
 
-      if (data.status === 'OK' && data.result?.reviews) {
-        importedReviews = data.result.reviews.map((r: any) => ({
-          author: r.author_name || 'Verified Google Reviewer',
-          company: 'London Client',
-          location: 'London, UK',
-          rating: Math.min(5, Math.max(1, Math.round(r.rating || 5))),
-          review: r.text || 'Excellent printing quality and fast turnaround.',
-          product: 'Commercial Print Service',
-          platform: 'google' as const,
-          authorPhoto: r.profile_photo_url,
-          date: r.relative_time_description || 'Recently',
-          isVerified: true,
-          isFeatured: true,
-        }));
-      } else {
-        return NextResponse.json(
-          { success: false, error: data.error_message || `Google API returned status: ${data.status}` },
-          { status: 400 }
-        );
+      let fetchedFromNew = false;
+      let newApiError: string | null = null;
+
+      try {
+        const res = await fetch(newApiUrl, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Goog-Api-Key': cleanKey,
+            'X-Goog-FieldMask': 'id,displayName,rating,userRatingCount,reviews',
+          },
+        });
+
+        const data = await res.json();
+
+        if (res.ok && Array.isArray(data.reviews)) {
+          fetchedFromNew = true;
+          const businessName = data.displayName?.text || 'London Client';
+
+          importedReviews = data.reviews.map((r: any) => {
+            const authorName = r.authorAttribution?.displayName || 'Verified Google Reviewer';
+            const reviewText =
+              r.text?.text || r.originalText?.text || 'Excellent printing quality and fast turnaround.';
+            const ratingVal = typeof r.rating === 'number' ? Math.round(r.rating) : 5;
+            const relativeDate = r.relativePublishTimeDescription || 'Recently';
+            const photoUrl = r.authorAttribution?.photoUri || undefined;
+
+            return {
+              author: authorName,
+              company: businessName,
+              location: 'London, UK',
+              rating: Math.min(5, Math.max(1, ratingVal)),
+              review: reviewText,
+              product: 'Commercial Print Service',
+              platform: 'google' as const,
+              authorPhoto: photoUrl,
+              date: relativeDate,
+              isVerified: true,
+              isFeatured: true,
+            };
+          });
+        } else if (res.ok && (!data.reviews || data.reviews.length === 0)) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: `Google Places API (New) found place "${data.displayName?.text || cleanPlaceId}", but it currently has no public reviews.`,
+            },
+            { status: 400 }
+          );
+        } else {
+          newApiError =
+            data.error?.message ||
+            data.error?.status ||
+            `Google Places API (New) returned HTTP ${res.status}`;
+        }
+      } catch (err: any) {
+        newApiError = err.message || 'Network error contacting Google Places API (New)';
+      }
+
+      // If Places API (New) had an error, try legacy endpoint as fallback
+      if (!fetchedFromNew) {
+        try {
+          const legacyUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${encodeURIComponent(
+            cleanPlaceId
+          )}&fields=name,rating,reviews,user_ratings_total&key=${encodeURIComponent(cleanKey)}`;
+
+          const legacyRes = await fetch(legacyUrl);
+          const legacyData = await legacyRes.json();
+
+          if (legacyData.status === 'OK' && Array.isArray(legacyData.result?.reviews)) {
+            const businessName = legacyData.result?.name || 'London Client';
+            importedReviews = legacyData.result.reviews.map((r: any) => ({
+              author: r.author_name || 'Verified Google Reviewer',
+              company: businessName,
+              location: 'London, UK',
+              rating: Math.min(5, Math.max(1, Math.round(r.rating || 5))),
+              review: r.text || 'Excellent printing quality and fast turnaround.',
+              product: 'Commercial Print Service',
+              platform: 'google' as const,
+              authorPhoto: r.profile_photo_url,
+              date: r.relative_time_description || 'Recently',
+              isVerified: true,
+              isFeatured: true,
+            }));
+          } else {
+            return NextResponse.json(
+              {
+                success: false,
+                error:
+                  newApiError ||
+                  legacyData.error_message ||
+                  `Google Places API returned status: ${legacyData.status}`,
+              },
+              { status: 400 }
+            );
+          }
+        } catch {
+          return NextResponse.json(
+            { success: false, error: newApiError || 'Failed to connect to Google Places API' },
+            { status: 400 }
+          );
+        }
       }
     } else {
       // 2. Curated Authentic London Google Business Sample Pack for instant 1-click sync

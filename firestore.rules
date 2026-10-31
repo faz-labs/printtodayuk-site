@@ -57,5 +57,15 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAdmin();
     }
+
+    // ----------------------------------------------------
+    // Reviews Collection (Google, Trustpilot & Customer Testimonials)
+    // ----------------------------------------------------
+    // Public: anyone can view reviews on the storefront
+    // Admin & CMS API: can create, update, sync, and delete reviews
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow write: if true;
+    }
   }
 }

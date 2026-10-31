@@ -818,10 +818,10 @@ export function ReviewManager({ initialReviews = [], onRefreshData }: ReviewMana
           <div className="p-3.5 rounded-xl bg-blue-50 border border-blue-200 text-xs text-blue-900 space-y-1">
             <div className="font-bold flex items-center gap-1.5">
               <span className="text-[#4285F4] font-black">G</span>
-              <span>Google Places API Integration</span>
+              <span>Google Places API (New) Integration</span>
             </div>
             <p className="text-[11px] text-blue-700 leading-relaxed">
-              Enter your Google Place ID to sync live reviews. If left empty, it will import verified sample reviews curated for London printing businesses.
+              Uses Google&apos;s latest Places API (New v1/v2). Enter your Google Place ID and Google Cloud API Key. If left empty, it will import verified sample reviews curated for London printing businesses.
             </p>
           </div>
 
