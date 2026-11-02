@@ -24,7 +24,7 @@ import {
 import { ReviewItem, ReviewInput, ReviewPlatform } from '@/lib/types';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
-import { saveDeletedReviewId } from '@/lib/db';
+import { saveDeletedReviewId, invalidateReviewsCache } from '@/lib/db';
 
 interface ReviewManagerProps {
   initialReviews?: ReviewItem[];
@@ -195,7 +195,9 @@ export function ReviewManager({ initialReviews = [], onRefreshData }: ReviewMana
         setReviews((prev) => [data.review, ...prev]);
         showNotification('success', `Review by "${payload.author}" added successfully.`);
       }
+      invalidateReviewsCache();
       setIsFormModalOpen(false);
+      if (onRefreshData) await onRefreshData();
     } catch (err: any) {
       showNotification('error', err.message || 'Failed to save review');
     } finally {
@@ -219,6 +221,8 @@ export function ReviewManager({ initialReviews = [], onRefreshData }: ReviewMana
         body: JSON.stringify({ id: rev.id, isFeatured: nextState }),
       });
       if (!res.ok) throw new Error('Failed to update status');
+      invalidateReviewsCache();
+      if (onRefreshData) await onRefreshData();
       showNotification(
         'success',
         nextState
@@ -240,8 +244,9 @@ export function ReviewManager({ initialReviews = [], onRefreshData }: ReviewMana
       return;
     }
 
-    // Immediately record deletion locally and update state optimistically
+    // Immediately record deletion locally, purge in-memory cache, and update state optimistically
     saveDeletedReviewId(rev.id);
+    invalidateReviewsCache();
     setReviews((prev) => prev.filter((r) => r.id !== rev.id));
 
     try {
@@ -252,10 +257,13 @@ export function ReviewManager({ initialReviews = [], onRefreshData }: ReviewMana
       if (!res.ok) {
         console.warn('Server delete note:', data.error);
       }
+      invalidateReviewsCache();
       showNotification('success', `Review by "${rev.author}" deleted.`);
-      if (onRefreshData) onRefreshData();
+      if (onRefreshData) await onRefreshData();
     } catch (err: any) {
+      invalidateReviewsCache();
       showNotification('success', `Review by "${rev.author}" deleted.`);
+      if (onRefreshData) await onRefreshData();
     }
   };
 
@@ -271,14 +279,16 @@ export function ReviewManager({ initialReviews = [], onRefreshData }: ReviewMana
     }
 
     presentDemos.forEach((d) => saveDeletedReviewId(d.id));
+    invalidateReviewsCache();
     setReviews((prev) => prev.filter((r) => !demoIds.includes(r.id)));
 
     await Promise.allSettled(
       presentDemos.map((d) => fetch(`/api/reviews?id=${encodeURIComponent(d.id)}`, { method: 'DELETE' }))
     );
 
+    invalidateReviewsCache();
     showNotification('success', 'All sample demo reviews permanently deleted.');
-    if (onRefreshData) onRefreshData();
+    if (onRefreshData) await onRefreshData();
   };
 
   const handleSyncGoogle = async () => {
@@ -297,6 +307,9 @@ export function ReviewManager({ initialReviews = [], onRefreshData }: ReviewMana
 
       showNotification('success', data.message || 'Google reviews synced successfully!');
       setIsGoogleSyncModalOpen(false);
+
+      invalidateReviewsCache();
+      if (onRefreshData) await onRefreshData();
 
       // Refresh reviews list
       const freshRes = await fetch('/api/reviews');
@@ -324,6 +337,9 @@ export function ReviewManager({ initialReviews = [], onRefreshData }: ReviewMana
 
       showNotification('success', data.message || 'Trustpilot reviews synced successfully!');
       setIsTrustpilotSyncModalOpen(false);
+
+      invalidateReviewsCache();
+      if (onRefreshData) await onRefreshData();
 
       // Refresh reviews list
       const freshRes = await fetch('/api/reviews');
@@ -433,7 +449,8 @@ export function ReviewManager({ initialReviews = [], onRefreshData }: ReviewMana
       showNotification('success', `Successfully imported ${added.length} reviews!`);
       setIsBulkModalOpen(false);
       setBulkText('');
-      if (onRefreshData) onRefreshData();
+      invalidateReviewsCache();
+      if (onRefreshData) await onRefreshData();
     } catch (err: any) {
       showNotification('error', err.message || 'Failed to bulk import reviews');
     } finally {

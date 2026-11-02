@@ -31,6 +31,7 @@ import {
   updateLandingSection,
   deleteLandingSection,
   getReviews,
+  invalidateReviewsCache,
   purgeDummyDataFromFirestore,
 } from '@/lib/db';
 import { CMSSidebar, CMSTab } from '@/components/cms/CMSSidebar';
@@ -89,6 +90,7 @@ export default function CMSDashboardPage() {
   // Load all initial data
   const refreshData = async () => {
     setLoadingData(true);
+    invalidateReviewsCache();
     try {
       const [prods, cats, inqs, secs, revs] = await Promise.all([
         getProducts(),

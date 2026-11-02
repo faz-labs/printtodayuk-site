@@ -1152,8 +1152,18 @@ export async function getReviews(): Promise<ReviewItem[]> {
       if (!snap.empty) {
         const firestoreReviews: ReviewItem[] = [];
         snap.forEach((d) => {
-          if (!deletedIds.has(d.id)) {
-            firestoreReviews.push({ id: d.id, ...(d.data() as any) });
+          const data = d.data() as any;
+          const docId = d.id;
+          const innerId = data?.id;
+
+          // Check if either the Firestore document ID or the legacy inner ID was deleted
+          const isDeleted = deletedIds.has(docId) || (innerId && deletedIds.has(innerId));
+          if (!isDeleted) {
+            // Firestore doc ID is authoritative and must override any internal data.id
+            firestoreReviews.push({
+              ...data,
+              id: docId,
+            });
           }
         });
         firestoreReviews.sort((a, b) => (a.order ?? 999) - (b.order ?? 999) || (b.createdAt || 0) - (a.createdAt || 0));
@@ -1173,33 +1183,55 @@ export async function getReviews(): Promise<ReviewItem[]> {
 
 export async function createReview(input: ReviewInput): Promise<ReviewItem> {
   invalidateReviewsCache();
+
+  if (isConfigured && db) {
+    try {
+      const payload: any = {
+        ...input,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+      // Never store a redundant custom 'id' as a field inside Firestore document
+      delete payload.id;
+      const cleanData = cleanFirestoreData(payload);
+      const docRef = await addDoc(collection(db, 'reviews'), cleanData);
+
+      const newReview: ReviewItem = {
+        id: docRef.id,
+        ...payload,
+      };
+
+      if (!serverInMemoryReviews) {
+        serverInMemoryReviews = [newReview, ...getLocalReviews()];
+      } else {
+        serverInMemoryReviews = [newReview, ...serverInMemoryReviews];
+      }
+
+      const local = [newReview, ...getLocalReviews().filter((r) => r.id !== newReview.id)];
+      saveLocalReviews(local);
+      return newReview;
+    } catch (error) {
+      console.warn('Firestore createReview warning (offline/auth):', error);
+    }
+  }
+
   const generatedId = `rev-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-  const newReview: ReviewItem = {
+  const fallbackReview: ReviewItem = {
     id: generatedId,
     ...input,
     createdAt: Date.now(),
     updatedAt: Date.now(),
   };
 
-  if (isConfigured && db) {
-    try {
-      const cleanData = cleanFirestoreData(newReview);
-      const docRef = await addDoc(collection(db, 'reviews'), cleanData);
-      newReview.id = docRef.id;
-    } catch (error) {
-      console.warn('Firestore createReview warning (offline/auth):', error);
-    }
-  }
-
   if (!serverInMemoryReviews) {
-    serverInMemoryReviews = [newReview, ...getLocalReviews()];
+    serverInMemoryReviews = [fallbackReview, ...getLocalReviews()];
   } else {
-    serverInMemoryReviews = [newReview, ...serverInMemoryReviews];
+    serverInMemoryReviews = [fallbackReview, ...serverInMemoryReviews];
   }
 
-  const local = [newReview, ...getLocalReviews().filter((r) => r.id !== newReview.id)];
+  const local = [fallbackReview, ...getLocalReviews().filter((r) => r.id !== fallbackReview.id)];
   saveLocalReviews(local);
-  return newReview;
+  return fallbackReview;
 }
 
 export async function updateReview(
@@ -1207,16 +1239,28 @@ export async function updateReview(
   updates: Partial<ReviewItem>
 ): Promise<ReviewItem | null> {
   invalidateReviewsCache();
-  const payload = {
+  const payload: any = {
     ...updates,
     updatedAt: Date.now(),
   };
+  delete payload.id;
 
   if (isConfigured && db) {
     try {
       const cleanData = cleanFirestoreData(payload);
+      // 1. Try updating by direct Firestore doc ID
       const docRef = doc(db, 'reviews', id);
-      await updateDoc(docRef, cleanData);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        await updateDoc(docRef, cleanData);
+      } else {
+        // 2. Query fallback for legacy documents with inner 'id'
+        const q = query(collection(db, 'reviews'), where('id', '==', id));
+        const snap = await getDocs(q);
+        for (const d of snap.docs) {
+          await updateDoc(doc(db, 'reviews', d.id), cleanData);
+        }
+      }
     } catch (error) {
       console.warn('Firestore updateReview warning (offline/auth):', error);
     }
@@ -1242,18 +1286,37 @@ export async function deleteReview(id: string): Promise<boolean> {
 
   if (isConfigured && db) {
     try {
+      // 1. Delete document directly by Firestore Doc ID
       const docRef = doc(db, 'reviews', id);
-      await deleteDoc(docRef);
+      const docSnap = await getDoc(docRef).catch(() => null);
+      if (docSnap && docSnap.exists()) {
+        const data = docSnap.data();
+        if (data?.id) {
+          saveDeletedReviewId(data.id);
+        }
+        await deleteDoc(docRef);
+      } else {
+        // Fallback delete attempt at path
+        await deleteDoc(docRef).catch(() => {});
+      }
+
+      // 2. Also search and delete any document where legacy inner data.id matches
+      const q = query(collection(db, 'reviews'), where('id', '==', id));
+      const snap = await getDocs(q);
+      for (const d of snap.docs) {
+        saveDeletedReviewId(d.id);
+        await deleteDoc(doc(db, 'reviews', d.id));
+      }
     } catch (error) {
       console.warn('Firestore deleteReview warning (offline/auth):', error);
     }
   }
 
   if (serverInMemoryReviews) {
-    serverInMemoryReviews = serverInMemoryReviews.filter((r) => r.id !== id);
+    serverInMemoryReviews = serverInMemoryReviews.filter((r) => r.id !== id && (r as any).innerId !== id);
   }
 
-  const local = getLocalReviews().filter((r) => r.id !== id);
+  const local = getLocalReviews().filter((r) => r.id !== id && (r as any).innerId !== id);
   saveLocalReviews(local);
   return true;
 }
