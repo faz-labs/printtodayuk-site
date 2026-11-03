@@ -221,9 +221,11 @@ export function ProductDetailClient({
 
   // Base price anchor from CMS: set for minimum quantity on 3-5 working days (Standard delivery)
   const basePriceAnchor =
-    product?.quantityTiers && product.quantityTiers.length > 0 && typeof product.quantityTiers[0].price === 'number' && product.quantityTiers[0].price > 0
+    product?.price && product.price > 0
+      ? product.price
+      : product?.quantityTiers && product.quantityTiers.length > 0 && typeof product.quantityTiers[0].price === 'number' && product.quantityTiers[0].price > 0
       ? product.quantityTiers[0].price
-      : product?.price || 14.69;
+      : 14.69;
 
   // Has CMS Custom Fields defined?
   const hasCMSFields = Boolean(product?.customFields && product.customFields.length > 0);

@@ -338,8 +338,33 @@ export async function updateProduct(
       if (isDiscountCleared) {
         cleanData.discountedPrice = deleteField();
       }
+
+      // Resilient ID lookup: Check direct ID, then fallback to slug
       const docRef = doc(db, 'products', id);
-      await updateDoc(docRef, cleanData);
+      const docSnap = await getDoc(docRef);
+
+      if (docSnap.exists()) {
+        await updateDoc(docRef, cleanData);
+      } else {
+        // Fallback 1: Query by slug
+        const qSlug = query(collection(db, 'products'), where('slug', '==', id));
+        const snapSlug = await getDocs(qSlug);
+        if (!snapSlug.empty) {
+          await updateDoc(doc(db, 'products', snapSlug.docs[0].id), cleanData);
+        } else {
+          // Fallback 2: Search across all products
+          const allSnap = await getDocs(collection(db, 'products'));
+          const found = allSnap.docs.find((d) => {
+            const data = d.data() as any;
+            return d.id === id || data.slug === id || data.id === id;
+          });
+          if (found) {
+            await updateDoc(doc(db, 'products', found.id), cleanData);
+          } else {
+            console.warn(`Product document not found for update in Firestore: ${id}`);
+          }
+        }
+      }
     } catch (error) {
       console.error('Firestore updateProduct failed:', error);
       throw error;

@@ -1,13 +1,14 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { Product, ProductInput, CategoryConfig } from '@/lib/types';
+import { Product, ProductInput, CategoryConfig, QuantityTier } from '@/lib/types';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { ProductForm } from './ProductForm';
 import { ImageWithFallback } from '@/components/storefront/ImageWithFallback';
-import { formatCurrency, calculateDiscount } from '@/lib/utils';
+import { formatCurrency, calculateDiscount, slugify } from '@/lib/utils';
+import { invalidateProductsCache } from '@/lib/db';
 import {
   Plus,
   MagnifyingGlass,
@@ -89,7 +90,7 @@ export function ProductManager({
   }, [categories, bulkCategory]);
 
   React.useEffect(() => {
-    if (products?.length && !bulkProductId) {
+    if (products?.length && (!bulkProductId || !products.some((p) => (p.id || p.slug) === bulkProductId))) {
       setBulkProductId(products[0].id || products[0].slug || '');
     }
   }, [products, bulkProductId]);
@@ -100,15 +101,35 @@ export function ProductManager({
     }
     if (bulkScope === 'product') {
       const match = products.find((p) => (p.id || p.slug) === bulkProductId);
-      return match ? [match] : (products.length > 0 ? [products[0]] : []);
+      return match ? [match] : [];
     }
+
+    const targetCat = (categories || []).find(
+      (c) =>
+        c.name.toLowerCase() === bulkCategory.toLowerCase() ||
+        c.slug?.toLowerCase() === bulkCategory.toLowerCase() ||
+        c.id?.toLowerCase() === bulkCategory.toLowerCase()
+    );
+
     return products.filter((p) => {
-      const cat = p.category?.toLowerCase() || '';
-      const sub = p.subcategory?.toLowerCase() || '';
-      const target = bulkCategory.toLowerCase();
-      return cat === target || sub === target;
+      const cat = (p.category || '').toLowerCase().trim();
+      const sub = (p.subcategory || '').toLowerCase().trim();
+      const target = bulkCategory.toLowerCase().trim();
+
+      if (cat === target || sub === target) return true;
+      if (slugify(cat) === slugify(target)) return true;
+
+      if (targetCat) {
+        const catName = (targetCat.name || '').toLowerCase().trim();
+        const catSlug = (targetCat.slug || '').toLowerCase().trim();
+        const catId = (targetCat.id || '').toLowerCase().trim();
+        if (cat === catName || cat === catSlug || cat === catId) return true;
+        if (slugify(cat) === slugify(catName) || slugify(cat) === slugify(catSlug)) return true;
+      }
+
+      return false;
     });
-  }, [products, bulkScope, bulkCategory, bulkProductId]);
+  }, [products, bulkScope, bulkCategory, bulkProductId, categories]);
 
   const parsedPercent = Math.max(0, parseFloat(bulkPercent) || 0);
   const effectivePct = bulkDirection === 'decrease' ? Math.min(95, parsedPercent) : parsedPercent;
@@ -119,7 +140,7 @@ export function ProductManager({
 
   const bulkPreviewItems = useMemo(() => {
     return targetBulkProducts.map((p) => {
-      const oldPrice = p.price || 0;
+      const oldPrice = p.price || p.quantityTiers?.[0]?.price || 0;
       const newPrice = Math.max(0.5, Number((oldPrice * adjustmentFactor).toFixed(2)));
       const priceDiff = Number((newPrice - oldPrice).toFixed(2));
 
@@ -130,6 +151,38 @@ export function ProductManager({
         newDiscounted = Math.max(0.5, Number((oldDiscounted * adjustmentFactor).toFixed(2)));
       }
 
+      // 1. Scale standard quantity tiers
+      const updatedQuantityTiers = (p.quantityTiers || []).map((t, idx) => {
+        let tierPrice = t.price;
+        if (typeof tierPrice === 'number' && !isNaN(tierPrice) && tierPrice > 0) {
+          tierPrice = Math.max(0.5, Number((tierPrice * adjustmentFactor).toFixed(2)));
+        } else if (idx === 0) {
+          tierPrice = newPrice;
+        }
+        return {
+          ...t,
+          ...(tierPrice !== undefined ? { price: tierPrice } : {}),
+        };
+      });
+
+      // 2. Scale all variant combination quantity tiers
+      const updatedVariantQuantityTiers: Record<string, QuantityTier[]> = {};
+      if (p.variantQuantityTiers) {
+        for (const [vKey, tiers] of Object.entries(p.variantQuantityTiers)) {
+          if (Array.isArray(tiers)) {
+            updatedVariantQuantityTiers[vKey] = tiers.map((t) => {
+              if (typeof t.price === 'number' && !isNaN(t.price) && t.price > 0) {
+                return {
+                  ...t,
+                  price: Math.max(0.5, Number((t.price * adjustmentFactor).toFixed(2))),
+                };
+              }
+              return t;
+            });
+          }
+        }
+      }
+
       return {
         product: p,
         oldPrice,
@@ -137,6 +190,8 @@ export function ProductManager({
         priceDiff,
         oldDiscounted,
         newDiscounted,
+        updatedQuantityTiers,
+        updatedVariantQuantityTiers,
       };
     });
   }, [targetBulkProducts, adjustmentFactor]);
@@ -166,24 +221,39 @@ export function ProductManager({
     let failedCount = 0;
 
     try {
-      for (const item of bulkPreviewItems) {
-        const targetId = item.product.id || item.product.slug;
-        if (!targetId) continue;
+      // Parallel batching: Process 6 products concurrently for fast, reliable updates
+      const batchSize = 6;
+      for (let i = 0; i < bulkPreviewItems.length; i += batchSize) {
+        const batch = bulkPreviewItems.slice(i, i + batchSize);
+        await Promise.all(
+          batch.map(async (item) => {
+            const targetId = item.product.id || item.product.slug;
+            if (!targetId) return;
 
-        const updates: Partial<Product> = {
-          price: item.newPrice,
-          ...(item.newDiscounted !== undefined ? { discountedPrice: item.newDiscounted } : {}),
-        };
+            const updates: Partial<Product> = {
+              price: item.newPrice,
+              ...(item.newDiscounted !== undefined ? { discountedPrice: item.newDiscounted } : {}),
+              ...(item.updatedQuantityTiers && item.updatedQuantityTiers.length > 0
+                ? { quantityTiers: item.updatedQuantityTiers }
+                : {}),
+              ...(item.updatedVariantQuantityTiers &&
+              Object.keys(item.updatedVariantQuantityTiers).length > 0
+                ? { variantQuantityTiers: item.updatedVariantQuantityTiers }
+                : {}),
+            };
 
-        try {
-          await onUpdateProduct(targetId, updates);
-          successCount++;
-        } catch (err) {
-          console.error(`Failed to update ${item.product.title}:`, err);
-          failedCount++;
-        }
+            try {
+              await onUpdateProduct(targetId, updates);
+              successCount++;
+            } catch (err) {
+              console.error(`Failed to update ${item.product.title}:`, err);
+              failedCount++;
+            }
+          })
+        );
       }
 
+      invalidateProductsCache();
       if (onRefreshData) {
         try {
           await onRefreshData();
@@ -195,7 +265,7 @@ export function ProductManager({
       if (failedCount === 0) {
         showNotification(
           'success',
-          `Successfully ${actionText}d prices by ${parsedPercent}% across ${successCount} products.`
+          `Successfully ${actionText}d prices by ${parsedPercent}% across ${successCount} products (including all quantity tables and variants).`
         );
         setIsBulkPriceModalOpen(false);
       } else {
@@ -614,11 +684,21 @@ export function ProductManager({
                   className="w-full h-10 px-3.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-800 focus:outline-hidden focus:border-[#012169] cursor-pointer"
                 >
                   {(categories || []).filter((c) => c && c.name).map((c) => {
-                    const count = products.filter(
-                      (p) =>
-                        p.category?.toLowerCase() === c.name.toLowerCase() ||
-                        p.subcategory?.toLowerCase() === c.name.toLowerCase()
-                    ).length;
+                    const count = products.filter((p) => {
+                      const cat = (p.category || '').toLowerCase().trim();
+                      const sub = (p.subcategory || '').toLowerCase().trim();
+                      const cName = (c.name || '').toLowerCase().trim();
+                      const cSlug = (c.slug || '').toLowerCase().trim();
+                      const cId = (c.id || '').toLowerCase().trim();
+                      return (
+                        cat === cName ||
+                        cat === cSlug ||
+                        cat === cId ||
+                        sub === cName ||
+                        slugify(cat) === slugify(cName) ||
+                        slugify(cat) === slugify(cSlug)
+                      );
+                    }).length;
                     return (
                       <option key={c.name} value={c.name}>
                         {c.name} ({count} product{count === 1 ? '' : 's'})

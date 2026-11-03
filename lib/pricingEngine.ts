@@ -419,12 +419,21 @@ export function getTierBasePrice(
 
   // Base tier is index 0
   const baseTier = tiers[0];
-  const anchorPrice =
+  const rawTier0Price =
     typeof baseTier.price === 'number' && !isNaN(baseTier.price) && baseTier.price > 0
       ? baseTier.price
       : typeof baseTier.price === 'string' && parseFloat(baseTier.price) > 0
       ? parseFloat(baseTier.price)
       : fallbackBasePrice;
+
+  // Defensive auto-scale: if fallbackBasePrice differs (e.g. merchant increased base price),
+  // ensure the tier pricing respects fallbackBasePrice so prices always reflect on storefront!
+  const scaleRatio =
+    fallbackBasePrice > 0 && rawTier0Price > 0 && Math.abs(fallbackBasePrice - rawTier0Price) > 0.05
+      ? fallbackBasePrice / rawTier0Price
+      : 1.0;
+
+  const anchorPrice = rawTier0Price * scaleRatio;
 
   // Helper to compute exact standard price for a configured tier
   const getExactTierPrice = (t: QuantityTier, index: number): number => {
@@ -445,7 +454,7 @@ export function getTierBasePrice(
         ? parseFloat(t.price)
         : NaN;
     if (!isNaN(fixedPrice) && fixedPrice > 0) {
-      return fixedPrice;
+      return fixedPrice * scaleRatio;
     }
     // Proportional fallback
     const q = Number(t.quantity);
@@ -668,10 +677,10 @@ export function generateDynamicPriceMatrix(
 
   // Reference base anchor: product price set in CMS at minQuantity on standard delivery
   const baseAnchorPrice =
-    activeProductTiers && activeProductTiers.length > 0 && typeof activeProductTiers[0].price === 'number' && activeProductTiers[0].price > 0
-      ? activeProductTiers[0].price
-      : basePrice && basePrice > 0
+    basePrice && basePrice > 0
       ? basePrice
+      : activeProductTiers && activeProductTiers.length > 0 && typeof activeProductTiers[0].price === 'number' && activeProductTiers[0].price > 0
+      ? activeProductTiers[0].price
       : 14.69;
 
   // Aggregate total option percentage delta, total flat fee, and total per-unit fee (Approach A)
