@@ -30,18 +30,47 @@ export function CallMeModal() {
 
     setIsSubmitting(true);
     try {
-      await submitInquiry({
-        name: name.trim() || 'Anonymous Customer',
-        phone: phone.trim(),
-        productContext: productContext || 'General Inquiry',
-        selectedOptions: selectedOptions || {},
-        details: details.trim(),
-        status: 'pending',
+      const res = await fetch('/api/inquiries', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: name.trim() || 'Anonymous Customer',
+          phone: phone.trim(),
+          productContext: productContext || 'General Inquiry',
+          selectedOptions: selectedOptions || {},
+          details: details.trim(),
+        }),
       });
+
+      if (!res.ok) {
+        // Fallback to client-side direct submit if API returned non-200
+        await submitInquiry({
+          name: name.trim() || 'Anonymous Customer',
+          phone: phone.trim(),
+          productContext: productContext || 'General Inquiry',
+          selectedOptions: selectedOptions || {},
+          details: details.trim(),
+          status: 'pending',
+        });
+      }
+
       setIsSubmitted(true);
     } catch (err) {
-      console.error('Call Me submission error:', err);
-      setErrorMessage('Failed to submit. You can call us directly on +44 7969 559746.');
+      // In case fetch threw network error, attempt direct submitInquiry
+      try {
+        await submitInquiry({
+          name: name.trim() || 'Anonymous Customer',
+          phone: phone.trim(),
+          productContext: productContext || 'General Inquiry',
+          selectedOptions: selectedOptions || {},
+          details: details.trim(),
+          status: 'pending',
+        });
+        setIsSubmitted(true);
+      } catch (directErr) {
+        console.error('Call Me submission error:', directErr);
+        setErrorMessage('Failed to submit. You can call us directly on +44 7969 559746.');
+      }
     } finally {
       setIsSubmitting(false);
     }

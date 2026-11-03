@@ -147,3 +147,167 @@ export async function sendContactEmail(params: SendContactEmailParams): Promise<
     return { sent: false, error: error.message || 'Failed to dispatch email' };
   }
 }
+
+export interface SendInquiryEmailParams {
+  name: string;
+  phone: string;
+  email?: string;
+  productContext?: string;
+  selectedOptions?: Record<string, string>;
+  details?: string;
+}
+
+/**
+ * Sends an instant notification email to sales@printtodayuk.com when a customer requests a Call Back
+ * or bespoke quote on any product, containing their phone number and selected specifications.
+ */
+export async function sendInquiryEmail(params: SendInquiryEmailParams): Promise<{
+  sent: boolean;
+  messageId?: string;
+  error?: string;
+}> {
+  const transporter = getTransporter();
+
+  if (!transporter) {
+    console.warn(
+      'Nodemailer: SMTP credentials not set in .env.local. Skipping inquiry email dispatch.'
+    );
+    return {
+      sent: false,
+      error: 'SMTP credentials not configured in .env.local',
+    };
+  }
+
+  const senderUser = process.env.GMAIL_USER || process.env.SMTP_USER;
+  const receiverEmail = process.env.CONTACT_RECEIVER_EMAIL || 'sales@printtodayuk.com';
+
+  const customerName = params.name.trim() || 'Website Customer';
+  const phone = params.phone.trim();
+  const productContext = params.productContext || 'Print Callback Request';
+  const cleanPhone = phone.replace(/[^0-9]/g, '');
+  const waPhone = cleanPhone.startsWith('0') ? '44' + cleanPhone.slice(1) : cleanPhone;
+
+  const specRows =
+    params.selectedOptions && Object.keys(params.selectedOptions).length > 0
+      ? Object.entries(params.selectedOptions)
+          .map(
+            ([k, v]) => `
+            <tr>
+              <td style="padding: 8px 12px; font-weight: 700; color: #475569; font-size: 13px; border-bottom: 1px solid #e2e8f0; width: 40%; background: #f8fafc;">${k}</td>
+              <td style="padding: 8px 12px; font-weight: 600; color: #0f172a; font-size: 13px; border-bottom: 1px solid #e2e8f0;">${v}</td>
+            </tr>`
+          )
+          .join('')
+      : '<tr><td colspan="2" style="padding: 10px; color: #64748b; font-size: 12px; text-align: center;">Standard product defaults</td></tr>';
+
+  const plainSpecs = params.selectedOptions
+    ? Object.entries(params.selectedOptions)
+        .map(([k, v]) => `  • ${k}: ${v}`)
+        .join('\n')
+    : '  • Standard product specifications';
+
+  const htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 20px; color: #1e293b; }
+    .container { max-width: 620px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
+    .header { background: #012169; color: #ffffff; padding: 24px; text-align: center; border-bottom: 4px solid #C8102E; }
+    .header h1 { margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -0.5px; }
+    .header p { margin: 6px 0 0 0; font-size: 13px; color: #cbd5e1; }
+    .body-content { padding: 28px 24px; }
+    .badge-urgent { display: inline-block; background: #fee2e2; color: #991b1b; font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 6px; border: 1px solid #fecaca; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .section-title { font-size: 13px; font-weight: 800; text-transform: uppercase; color: #012169; letter-spacing: 0.5px; margin: 20px 0 8px 0; border-bottom: 2px solid #e2e8f0; padding-bottom: 4px; }
+    .spec-table { width: 100%; border-collapse: collapse; margin-top: 8px; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
+    .detail-row { margin-bottom: 12px; }
+    .detail-label { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #64748b; margin-bottom: 2px; }
+    .detail-val { font-size: 15px; font-weight: 600; color: #0f172a; }
+    .message-box { background: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #012169; padding: 14px; border-radius: 8px; font-size: 13px; line-height: 1.6; color: #334155; margin-top: 6px; white-space: pre-wrap; }
+    .btn-call { display: inline-block; background: #C8102E; color: #ffffff !important; text-decoration: none; padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: 700; }
+    .btn-wa { display: inline-block; background: #25D366; color: #ffffff !important; text-decoration: none; padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: 700; margin-left: 8px; }
+    .footer { background: #f1f5f9; padding: 16px; text-align: center; font-size: 11px; color: #64748b; border-top: 1px solid #e2e8f0; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>PRINT TODAY UK</h1>
+      <p>Instant Customer Call Back Request</p>
+    </div>
+
+    <div class="body-content">
+      <div class="badge-urgent">⚡ Call Back Request — Target Response: ~15 Mins</div>
+
+      <div class="detail-row">
+        <div class="detail-label">Customer Name</div>
+        <div class="detail-val">${customerName}</div>
+      </div>
+
+      <div class="detail-row">
+        <div class="detail-label">Phone Number</div>
+        <div class="detail-val">
+          <a href="tel:${phone}" style="color: #012169; font-weight: 800; font-size: 18px; text-decoration: none;">${phone}</a>
+        </div>
+      </div>
+
+      ${
+        params.email
+          ? `
+      <div class="detail-row">
+        <div class="detail-label">Email Address</div>
+        <div class="detail-val"><a href="mailto:${params.email}" style="color: #012169;">${params.email}</a></div>
+      </div>`
+          : ''
+      }
+
+      <div class="section-title">Product & Order Request</div>
+      <div class="detail-val" style="color: #012169; font-size: 16px; font-weight: 800;">${productContext}</div>
+
+      <div class="section-title">Selected Product Specifications</div>
+      <table class="spec-table">
+        <tbody>
+          ${specRows}
+        </tbody>
+      </table>
+
+      ${
+        params.details
+          ? `
+      <div class="section-title">Customer Notes / Additional Request</div>
+      <div class="message-box">${params.details}</div>`
+          : ''
+      }
+
+      <div style="margin-top: 24px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
+        <a href="tel:${phone}" class="btn-call">📞 Call ${customerName}</a>
+        <a href="https://wa.me/${waPhone}" class="btn-wa">💬 Open WhatsApp Chat</a>
+      </div>
+    </div>
+
+    <div class="footer">
+      Print Today UK · 75 Green Street, London, E7 8JF · Studio: 0330 010 3521 · WhatsApp: +44 7969 559746
+    </div>
+  </div>
+</body>
+</html>
+  `;
+
+  try {
+    const info = await transporter.sendMail({
+      from: `"Print Today Leads" <${senderUser}>`,
+      to: receiverEmail,
+      subject: `[Call Back Request] ${productContext} - ${customerName} (${phone})`,
+      text: `NEW CALL BACK REQUEST\n\nCustomer: ${customerName}\nPhone: ${phone}\nProduct: ${productContext}\n\nSelected Specifications:\n${plainSpecs}\n\n${
+        params.details ? `Notes: ${params.details}\n\n` : ''
+      }Print Today UK - 75 Green Street, London, E7 8JF`,
+      html: htmlContent,
+    });
+
+    return { sent: true, messageId: info.messageId };
+  } catch (error: any) {
+    console.error('Nodemailer sendInquiryEmail failed:', error);
+    return { sent: false, error: error.message || 'Failed to dispatch email' };
+  }
+}

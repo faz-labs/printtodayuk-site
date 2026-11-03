@@ -21,6 +21,7 @@ import {
   Package,
   FileText,
   ChatCircleDots,
+  WhatsappLogo,
   Question,
 } from '@phosphor-icons/react';
 import { Product, CustomField } from '@/lib/types';
@@ -288,68 +289,15 @@ export function ProductDetailClient({
     product?.variantQuantityTiers,
   ]);
 
-  // Custom Quantity dynamic price calculation
-  const isCustomQuantityExceedsMax = Boolean(
-    customQuantityInput &&
-    !isNaN(parseInt(customQuantityInput.trim(), 10)) &&
-    parseInt(customQuantityInput.trim(), 10) > effectiveMaxQty
-  );
-
-  const isCustomQuantityActive = Boolean(
-    customQuantityInput &&
-    customQuantityInput.trim().length > 0 &&
-    !isNaN(parseInt(customQuantityInput.trim(), 10)) &&
-    parseInt(customQuantityInput.trim(), 10) > 0 &&
-    !isCustomQuantityExceedsMax
-  );
-
-  const customQuantityNumber = isCustomQuantityActive
-    ? parseInt(customQuantityInput.trim(), 10)
-    : 0;
-
   // Ensure selectedQuantity always matches a valid row in the matrix
   useEffect(() => {
-    if (priceMatrix.length > 0 && !isCustomQuantityActive) {
+    if (priceMatrix.length > 0) {
       const exists = priceMatrix.some((r) => r.quantity === selectedQuantity);
       if (!exists) {
         setSelectedQuantity(priceMatrix[0].quantity);
       }
     }
-  }, [priceMatrix, selectedQuantity, isCustomQuantityActive]);
-
-  const customQuantityPrices = useMemo(() => {
-    if (!isCustomQuantityActive || customQuantityNumber < 1) return null;
-    return calculateCustomQuantityPrice(
-      customQuantityNumber,
-      basePriceAnchor,
-      activeOptions,
-      physicalNumberOfSets,
-      product?.minQuantity,
-      product?.maxSameDayQuantity,
-      hasCMSFields,
-      effectiveMaxQty,
-      product?.maxNextDayQuantity,
-      product?.sameDayIncreasePercent,
-      product?.nextDayIncreasePercent,
-      product?.quantityTiers,
-      product?.variantQuantityTiers
-    );
-  }, [
-    isCustomQuantityActive,
-    customQuantityNumber,
-    basePriceAnchor,
-    activeOptions,
-    physicalNumberOfSets,
-    product?.minQuantity,
-    product?.maxSameDayQuantity,
-    product?.maxNextDayQuantity,
-    hasCMSFields,
-    effectiveMaxQty,
-    product?.sameDayIncreasePercent,
-    product?.nextDayIncreasePercent,
-    product?.quantityTiers,
-    product?.variantQuantityTiers,
-  ]);
+  }, [priceMatrix, selectedQuantity]);
 
   // Active Size and Stock names used for Dynamic Weight Calculation
   const activeSizeName = useMemo(() => {
@@ -380,21 +328,11 @@ export function ProductDetailClient({
 
   // DYNAMIC WEIGHT CALCULATION (Weight per item in grams & Total weight in kg)
   const printWeight = useMemo(() => {
-    const qty = customQuantityNumber > 0 ? customQuantityNumber : selectedQuantity;
-    return calculatePrintWeight(activeSizeName, activeStockName, qty, physicalNumberOfSets);
-  }, [activeSizeName, activeStockName, selectedQuantity, customQuantityNumber, physicalNumberOfSets]);
+    return calculatePrintWeight(activeSizeName, activeStockName, selectedQuantity, physicalNumberOfSets);
+  }, [activeSizeName, activeStockName, selectedQuantity, physicalNumberOfSets]);
 
   // ACTIVE SELECTED CELL PRICE
   const currentSelectedPrice = useMemo(() => {
-    if (customQuantityNumber > 0 && customQuantityPrices) {
-      let effectiveSpeed = selectedSpeed;
-      if (effectiveSpeed === 'sameDay' && !customQuantityPrices.isSameDayAvailable) {
-        effectiveSpeed = customQuantityPrices.isNextDayAvailable ? 'nextDay' : 'standard';
-      } else if (effectiveSpeed === 'nextDay' && !customQuantityPrices.isNextDayAvailable) {
-        effectiveSpeed = 'standard';
-      }
-      return customQuantityPrices[effectiveSpeed];
-    }
     const row = priceMatrix.find((r) => r.quantity === selectedQuantity) || priceMatrix[0];
     if (!row) return 19.89;
     let effectiveSpeed = selectedSpeed;
@@ -404,7 +342,7 @@ export function ProductDetailClient({
       effectiveSpeed = 'standard';
     }
     return row[effectiveSpeed].price;
-  }, [priceMatrix, selectedQuantity, selectedSpeed, customQuantityNumber, customQuantityPrices]);
+  }, [priceMatrix, selectedQuantity, selectedSpeed]);
 
   const handleShare = () => {
     if (typeof window !== 'undefined') {
@@ -479,25 +417,12 @@ export function ProductDetailClient({
       effectiveSpeed = 'standard';
     }
     setSelectedSpeed(effectiveSpeed);
-    setCustomQuantityInput('');
-  };
-
-  const handleSelectCustomSpeed = (speed: 'sameDay' | 'nextDay' | 'standard') => {
-    if (customQuantityNumber > 0 && customQuantityPrices) {
-      let effectiveSpeed = speed;
-      if (effectiveSpeed === 'sameDay' && !customQuantityPrices.isSameDayAvailable) {
-        effectiveSpeed = customQuantityPrices.isNextDayAvailable ? 'nextDay' : 'standard';
-      } else if (effectiveSpeed === 'nextDay' && !customQuantityPrices.isNextDayAvailable) {
-        effectiveSpeed = 'standard';
-      }
-      setSelectedSpeed(effectiveSpeed);
-    }
   };
 
   const handleConfirmOrder = () => {
-    const finalQty = customQuantityNumber > 0 ? customQuantityNumber : selectedQuantity;
+    const finalQty = selectedQuantity;
     const finalSpeedTitle = speedLabels[selectedSpeed].title;
-    const context = `${product.title} - ${finalQty} units (${finalSpeedTitle}, £${currentSelectedPrice.toFixed(
+    const context = `${product.title} - ${finalQty.toLocaleString()} units (${finalSpeedTitle}, £${currentSelectedPrice.toFixed(
       2
     )}${physicalNumberOfSets > 1 ? `, ${physicalNumberOfSets} sets` : ''})`;
 
@@ -507,6 +432,41 @@ export function ProductDetailClient({
     }
 
     openCallMe(context, cleanedActiveOptions);
+  };
+
+  const buildWhatsAppUrl = (isCustom: boolean = false): string => {
+    const parsedCustom = parseInt(customQuantityInput.trim(), 10);
+    const customQty = !isNaN(parsedCustom) && parsedCustom > 0 ? parsedCustom : 0;
+    const qty = isCustom && customQty > 0 ? customQty : selectedQuantity;
+    const speed = speedLabels[selectedSpeed];
+
+    let msg = `Hi Print Today UK, I would like to ${
+      isCustom ? 'request a bespoke trade quote' : 'order / enquire'
+    } for:\n\n`;
+    msg += `📄 *Product:* ${product.title}\n`;
+    msg += `🔢 *Quantity:* ${qty.toLocaleString()} units${
+      physicalNumberOfSets > 1 ? ` (${physicalNumberOfSets} sets)` : ''
+    }\n`;
+
+    if (!isCustom) {
+      msg += `⚡ *Delivery Speed:* ${speed.title} (Due ${speed.dueDate})\n`;
+      msg += `💰 *Estimated Price:* £${currentSelectedPrice.toFixed(2)}\n`;
+    }
+
+    msg += `\n📋 *Specifications:*\n`;
+    for (const [key, value] of Object.entries(activeOptions)) {
+      msg += `• ${key}: ${cleanOptionDisplayName(value)}\n`;
+    }
+
+    if (isCustom && customQty > 0) {
+      msg += `\n💬 *Note:* Requesting bespoke volume trade pricing for ${customQty.toLocaleString()} units.\n`;
+    }
+
+    if (typeof window !== 'undefined') {
+      msg += `\n🔗 *Link:* ${window.location.href}`;
+    }
+
+    return `https://wa.me/447969559746?text=${encodeURIComponent(msg)}`;
   };
 
   // Sliced matrix rows for clean UI height with "See More Quantities" expansion
@@ -1129,10 +1089,7 @@ export function ProductDetailClient({
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#102a43] text-white text-[11px] font-black shadow-xs">
                     <Check weight="bold" className="h-3 w-3 text-emerald-400" />
                     <span>
-                      {isCustomQuantityActive
-                        ? `${customQuantityNumber.toLocaleString()} Units`
-                        : `${selectedQuantity.toLocaleString()} Units`}{' '}
-                      Selected
+                      {selectedQuantity.toLocaleString()} Units Selected
                     </span>
                   </span>
                 </div>
@@ -1188,117 +1145,7 @@ export function ProductDetailClient({
                   </div>
                 </div>
 
-                {/* 2. CUSTOM QUANTITY INPUT ROW (Matching Image 1) */}
-                <div
-                  className={`grid grid-cols-4 border-b border-slate-300 text-xs transition-all ${
-                    isCustomQuantityActive
-                      ? 'bg-blue-50/90 border-l-4 border-l-[#102a43]'
-                      : 'bg-slate-50/30'
-                  }`}
-                >
-                  <div className="p-1.5 sm:p-2 border-r border-slate-300">
-                    <input
-                      type="number"
-                      min={product?.minQuantity || 1}
-                      max={effectiveMaxQty}
-                      placeholder={`Custom Qty (max ${effectiveMaxQty.toLocaleString()})...`}
-                      value={customQuantityInput}
-                      onChange={(e) => setCustomQuantityInput(e.target.value)}
-                      className={`w-full h-8 px-2 bg-white border rounded-sm text-[11px] sm:text-xs text-slate-900 placeholder:text-slate-500 focus:outline-hidden ${
-                        isCustomQuantityExceedsMax
-                          ? 'border-rose-400 focus:border-rose-500 ring-1 ring-rose-200'
-                          : 'border-slate-300 focus:border-[#102a43]'
-                      }`}
-                    />
-                    {isCustomQuantityExceedsMax && (
-                      <div className="text-[10px] text-rose-600 font-bold mt-0.5">
-                        Max limit: {effectiveMaxQty.toLocaleString()} units
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Same Day Custom Cell */}
-                  {isCustomQuantityExceedsMax ? (
-                    <div className="p-1.5 sm:p-2 border-r border-slate-300 flex items-center justify-center text-[10px] text-rose-500 font-bold bg-rose-50/50">
-                      Exceeds Max
-                    </div>
-                  ) : customQuantityPrices?.isSameDayAvailable !== false ? (
-                    <button
-                      type="button"
-                      disabled={!customQuantityPrices}
-                      onClick={() => handleSelectCustomSpeed('sameDay')}
-                      className={`p-1.5 sm:p-2 border-r border-slate-300 flex items-center justify-center transition-colors cursor-pointer ${
-                        isCustomQuantityActive && selectedSpeed === 'sameDay'
-                          ? 'bg-[#102a43] text-white font-bold shadow-inner'
-                          : isCustomQuantityActive
-                          ? 'bg-blue-50/60 hover:bg-blue-100/70 text-slate-800'
-                          : 'hover:bg-slate-100 text-slate-700'
-                      }`}
-                    >
-                      {customQuantityPrices ? `£${customQuantityPrices.sameDay.toFixed(2)}` : '—'}
-                    </button>
-                  ) : (
-                    <div
-                      title="Exceeds same-day capacity limit"
-                      className="p-1.5 sm:p-2 border-r border-slate-300 flex items-center justify-center bg-slate-100/70 text-slate-400 text-xs cursor-not-allowed select-none"
-                    >
-                      —
-                    </div>
-                  )}
-
-                  {/* 1 Working Day Custom Cell */}
-                  {isCustomQuantityExceedsMax ? (
-                    <div className="p-1.5 sm:p-2 border-r border-slate-300 flex items-center justify-center text-[10px] text-rose-500 font-bold bg-rose-50/50">
-                      Exceeds Max
-                    </div>
-                  ) : customQuantityPrices?.isNextDayAvailable !== false ? (
-                    <button
-                      type="button"
-                      disabled={!customQuantityPrices}
-                      onClick={() => handleSelectCustomSpeed('nextDay')}
-                      className={`p-1.5 sm:p-2 border-r border-slate-300 flex items-center justify-center transition-colors cursor-pointer ${
-                        isCustomQuantityActive && selectedSpeed === 'nextDay'
-                          ? 'bg-[#102a43] text-white font-bold shadow-inner'
-                          : isCustomQuantityActive
-                          ? 'bg-blue-50/60 hover:bg-blue-100/70 text-slate-800'
-                          : 'hover:bg-slate-100 text-slate-700'
-                      }`}
-                    >
-                      {customQuantityPrices ? `£${customQuantityPrices.nextDay.toFixed(2)}` : '—'}
-                    </button>
-                  ) : (
-                    <div
-                      title="Exceeds 1-day capacity limit"
-                      className="p-1.5 sm:p-2 border-r border-slate-300 flex items-center justify-center bg-slate-100/70 text-slate-400 text-xs cursor-not-allowed select-none"
-                    >
-                      —
-                    </div>
-                  )}
-
-                  {/* 3-4 Working Days Custom Cell */}
-                  {isCustomQuantityExceedsMax ? (
-                    <div className="p-1.5 sm:p-2 flex items-center justify-center text-[10px] text-rose-500 font-bold bg-rose-50/50">
-                      Exceeds Max
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      disabled={!customQuantityPrices}
-                      onClick={() => handleSelectCustomSpeed('standard')}
-                      className={`p-1.5 sm:p-2 flex items-center justify-center transition-colors cursor-pointer ${
-                        isCustomQuantityActive && selectedSpeed === 'standard'
-                          ? 'bg-[#102a43] text-white font-bold shadow-inner'
-                          : isCustomQuantityActive
-                          ? 'bg-blue-50/60 hover:bg-blue-100/70 text-slate-800'
-                          : 'hover:bg-slate-100 text-slate-700'
-                      }`}
-                    >
-                      {customQuantityPrices ? `£${customQuantityPrices.standard.toFixed(2)}` : '—'}
-                    </button>
-                  )}
-                </div>
-
-                {/* 3. SCROLLABLE QUANTITY MATRIX ROWS (Matching Image 1) */}
+                {/* 2. SCROLLABLE QUANTITY MATRIX ROWS */}
                 <div
                   ref={tableScrollRef}
                   data-lenis-prevent
@@ -1310,8 +1157,7 @@ export function ProductDetailClient({
                   style={{ overscrollBehavior: 'contain' }}
                 >
                   {visibleMatrixRows.map((row) => {
-                    const isQtyActive =
-                      !isCustomQuantityActive && selectedQuantity === row.quantity;
+                    const isQtyActive = selectedQuantity === row.quantity;
 
                     const isSameDayActive = isQtyActive && selectedSpeed === 'sameDay';
                     const isNextDayActive = isQtyActive && selectedSpeed === 'nextDay';
@@ -1516,6 +1362,55 @@ export function ProductDetailClient({
                   </div>
                 )}
               </div>
+
+              {/* DEDICATED CUSTOM QUANTITY SECTION */}
+              <div className="mt-3.5 p-3.5 sm:p-4 rounded-xl bg-gradient-to-r from-slate-50 via-blue-50/40 to-slate-50 border border-slate-200/90 shadow-2xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900">
+                      <Sparkle weight="fill" className="h-4 w-4 text-[#C8102E]" />
+                      <span>Need a Custom Quantity or Large Volume?</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Enter any bespoke quantity below to get an instant direct trade quote on WhatsApp with your selected specifications.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="1"
+                        value={customQuantityInput}
+                        onChange={(e) => setCustomQuantityInput(e.target.value)}
+                        placeholder="Custom Qty (e.g. 15,000)..."
+                        className="w-44 sm:w-48 h-10 px-3 bg-white border border-slate-300 rounded-lg text-xs font-bold text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:border-[#012169] focus:ring-2 focus:ring-[#012169]/10 shadow-2xs"
+                      />
+                      {customQuantityInput && (
+                        <button
+                          type="button"
+                          onClick={() => setCustomQuantityInput('')}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold"
+                          title="Clear"
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
+
+                    {customQuantityInput.trim() && (
+                      <a
+                        href={buildWhatsAppUrl(true)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 h-10 px-4 rounded-lg bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold text-xs shadow-xs transition-all cursor-pointer whitespace-nowrap animate-pulse hover:animate-none"
+                      >
+                        <WhatsappLogo weight="fill" className="h-4 w-4" />
+                        <span>Request Quote on WhatsApp</span>
+                      </a>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* ORDER SELECTION SUMMARY & ACTION BUTTONS */}
@@ -1524,8 +1419,7 @@ export function ProductDetailClient({
               <div className="p-3.5 rounded-md bg-slate-100 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
                 <div>
                   <div className="font-bold text-slate-900 text-sm">
-                    {customQuantityNumber > 0 ? customQuantityNumber : selectedQuantity} ×{' '}
-                    {product.title}
+                    {selectedQuantity.toLocaleString()} × {product.title}
                   </div>
                   <div className="text-slate-600 text-[11px] mt-0.5 line-clamp-1">
                     {Object.entries(activeOptions)
@@ -1543,8 +1437,7 @@ export function ProductDetailClient({
                     £
                     {(
                       currentSelectedPrice /
-                      ((customQuantityNumber > 0 ? customQuantityNumber : selectedQuantity) *
-                        physicalNumberOfSets)
+                      (selectedQuantity * physicalNumberOfSets)
                     ).toFixed(2)}{' '}
                     each
                   </div>
@@ -1564,12 +1457,12 @@ export function ProductDetailClient({
               {/* Secondary Action Grid */}
               <div className="grid grid-cols-2 gap-2.5">
                 <a
-                  href="https://wa.me/447969559746"
+                  href={buildWhatsAppUrl(false)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center justify-center gap-2 h-10 rounded-md bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold text-xs shadow-xs transition-colors"
                 >
-                  <ChatCircleDots weight="bold" className="h-4 w-4" />
+                  <WhatsappLogo weight="fill" className="h-4 w-4" />
                   <span>Chat on WhatsApp</span>
                 </a>
 
@@ -1581,9 +1474,7 @@ export function ProductDetailClient({
                       cleanedActiveOptions[k] = cleanOptionDisplayName(v);
                     }
                     openCallMe(
-                      `Free Artwork Proof for ${product.title} (${
-                        customQuantityNumber > 0 ? customQuantityNumber : selectedQuantity
-                      } units)`,
+                      `Free Artwork Proof for ${product.title} (${selectedQuantity.toLocaleString()} units)`,
                       cleanedActiveOptions
                     );
                   }}
