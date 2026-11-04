@@ -191,8 +191,36 @@ export function ProductDetailClient({
   // Accordion state for Left Column Pill Buttons
   const [activeAccordion, setActiveAccordion] = useState<string | null>(null);
 
+  // FAQ accordion state for bottom SEO section
+  const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
+
   // Dynamic Due Dates (skips weekends)
   const dueDates = useMemo(() => getWorkingDueDates(), []);
+
+  // SEO FAQs with product context matching FAQPage JSON-LD Schema
+  const productFaqs = useMemo(
+    () => [
+      {
+        question: `Can I get ${product?.title || 'this item'} printed the same day in London?`,
+        answer: `Yes! Print Today UK provides express same-day printing for ${
+          product?.title || 'this product'
+        }. Order online before our daily cutoff to pick up directly from our London studio at 75 Green Street, London, E7 8JF or choose express courier delivery directly to your door across London.`,
+      },
+      {
+        question: `What artwork file formats and bleed are needed for ${product?.title || 'printing'}?`,
+        answer: `We recommend supplying a press-ready PDF at 300 DPI in CMYK color mode with 3mm bleed on all edges. We also accept high-resolution AI, PSD, EPS, TIFF, and PNG files. Every order receives a complimentary 24-point prepress inspection before printing.`,
+      },
+      {
+        question: `Where can I collect my ${product?.title || 'order'} in London?`,
+        answer: `You can collect in person from our central London print studio at 75 Green Street, London, E7 8JF (open Monday through Saturday). We also offer rapid courier delivery directly to homes, corporate offices, hotels, event spaces, and venues across Central and Greater London.`,
+      },
+      {
+        question: `Can I order bespoke or custom bulk quantities of ${product?.title || 'this item'}?`,
+        answer: `Yes! While our matrix table provides instant tiered quotes up to 250,000 units, you can also enter any custom quantity directly on this product page or message our London production desk on WhatsApp (+44 7969 559746) for custom trade quotes.`,
+      },
+    ],
+    [product?.title]
+  );
 
   // Aggregated options map for the pricing engine
   const activeOptions = useMemo(() => {
@@ -475,32 +503,51 @@ export function ProductDetailClient({
   return (
     <div className="bg-[#fbfcfd] min-h-screen py-8 sm:py-12 font-sans text-slate-900">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Top Navigation Breadcrumbs & Share */}
-        <div className="flex items-center justify-between gap-4 mb-6">
-          <Link
-            href={product.category === 'Clothing' ? '/clothing' : '/'}
-            className="inline-flex items-center gap-2 text-xs font-bold text-slate-600 hover:text-[#012169] transition-colors"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            <span>Back to {product.category} Catalog</span>
-          </Link>
+        {/* Top Navigation Semantic Breadcrumbs & Actions */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 pb-2 border-b border-slate-200/60">
+          <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-slate-500 overflow-x-auto whitespace-nowrap py-0.5">
+            <Link href="/" className="hover:text-[#012169] transition-colors font-medium">
+              Home
+            </Link>
+            <span className="text-slate-300">/</span>
+            <Link
+              href={product.category === 'Clothing' ? '/clothing' : `/category/${encodeURIComponent(product.category || 'Printing')}`}
+              className="hover:text-[#012169] transition-colors font-medium"
+            >
+              {product.category || 'Printing'}
+            </Link>
+            <span className="text-slate-300">/</span>
+            <span className="text-slate-900 font-bold truncate max-w-[220px] sm:max-w-none" aria-current="page">
+              {product.title}
+            </span>
+          </nav>
 
-          <button
-            onClick={handleShare}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-white transition-colors cursor-pointer"
-          >
-            {copied ? (
-              <>
-                <CheckCircle weight="fill" className="h-3.5 w-3.5 text-emerald-600" />
-                <span className="text-emerald-700">Link Copied!</span>
-              </>
-            ) : (
-              <>
-                <ShareNetwork weight="bold" className="h-3.5 w-3.5" />
-                <span>Share Product</span>
-              </>
-            )}
-          </button>
+          <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+            <Link
+              href={product.category === 'Clothing' ? '/clothing' : '/'}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-[#012169] transition-colors"
+            >
+              <ArrowLeft className="h-3 w-3" />
+              <span>Catalog</span>
+            </Link>
+            <span className="text-slate-300">|</span>
+            <button
+              onClick={handleShare}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-white transition-colors cursor-pointer"
+            >
+              {copied ? (
+                <>
+                  <CheckCircle weight="fill" className="h-3.5 w-3.5 text-emerald-600" />
+                  <span className="text-emerald-700">Link Copied!</span>
+                </>
+              ) : (
+                <>
+                  <ShareNetwork weight="bold" className="h-3.5 w-3.5" />
+                  <span>Share</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
 
         {/* 1:1 CLONE TWO-COLUMN GRID (Matching Image 1) */}
@@ -1487,6 +1534,133 @@ export function ProductDetailClient({
             </div>
           </div>
         </div>
+
+        {/* ================= SEO TRUST & VALUE PROPOSITIONS ================= */}
+        <section className="mt-16 pt-10 border-t border-slate-200">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="p-4 rounded-xl bg-white border border-slate-200/90 shadow-2xs">
+              <div className="h-9 w-9 rounded-lg bg-rose-50 text-[#C8102E] flex items-center justify-center mb-3">
+                <Lightning weight="fill" className="h-5 w-5" />
+              </div>
+              <h3 className="text-sm font-bold text-slate-900">London Same-Day Print</h3>
+              <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                Need it today? Order before our cutoff for instant same-day print & dispatch across London.
+              </p>
+            </div>
+
+            <div className="p-4 rounded-xl bg-white border border-slate-200/90 shadow-2xs">
+              <div className="h-9 w-9 rounded-lg bg-blue-50 text-[#012169] flex items-center justify-center mb-3">
+                <MapPin weight="fill" className="h-5 w-5" />
+              </div>
+              <h3 className="text-sm font-bold text-slate-900">In-Store Collection Hub</h3>
+              <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                Collect in person at 75 Green Street, London, E7 8JF with free customer parking.
+              </p>
+            </div>
+
+            <div className="p-4 rounded-xl bg-white border border-slate-200/90 shadow-2xs">
+              <div className="h-9 w-9 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center mb-3">
+                <ShieldCheck weight="fill" className="h-5 w-5" />
+              </div>
+              <h3 className="text-sm font-bold text-slate-900">Free 24-Point Artwork Check</h3>
+              <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                Our prepress team inspects 300 DPI resolution, bleed, and CMYK color before printing.
+              </p>
+            </div>
+
+            <div className="p-4 rounded-xl bg-white border border-slate-200/90 shadow-2xs">
+              <div className="h-9 w-9 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center mb-3">
+                <Sparkle weight="fill" className="h-5 w-5" />
+              </div>
+              <h3 className="text-sm font-bold text-slate-900">Eco-Friendly FSC Inks & Stocks</h3>
+              <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                Printed using vegetable-based inks on sustainably sourced, premium FSC certified stocks.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* ================= SEO RICH FAQ ACCORDION SECTION ================= */}
+        <section className="mt-10 bg-white rounded-2xl border border-slate-200/90 p-6 sm:p-8 shadow-2xs">
+          <div className="max-w-3xl">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#012169]/10 text-[#012169] text-xs font-bold mb-2">
+              <Question weight="bold" className="h-3.5 w-3.5 text-[#C8102E]" />
+              <span>Everything You Need to Know</span>
+            </div>
+            <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+              Frequently Asked Questions About {product.title}
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-600 mt-1">
+              Have questions about ordering, turnaround times, or London delivery? Find quick answers below.
+            </p>
+          </div>
+
+          <div className="mt-6 divide-y divide-slate-200 border-t border-b border-slate-200">
+            {productFaqs.map((faq, index) => {
+              const isOpen = openFaqIndex === index;
+              return (
+                <div key={index} className="py-4">
+                  <button
+                    type="button"
+                    onClick={() => setOpenFaqIndex(isOpen ? null : index)}
+                    className="w-full flex items-center justify-between gap-4 text-left font-bold text-sm sm:text-base text-slate-900 hover:text-[#012169] transition-colors cursor-pointer"
+                    aria-expanded={isOpen}
+                  >
+                    <span>{faq.question}</span>
+                    <CaretDown
+                      weight="bold"
+                      className={`h-4 w-4 shrink-0 text-slate-500 transition-transform duration-200 ${
+                        isOpen ? 'rotate-180 text-[#012169]' : ''
+                      }`}
+                    />
+                  </button>
+
+                  <AnimatePresence>
+                    {isOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="overflow-hidden"
+                      >
+                        <p className="mt-2 text-xs sm:text-sm text-slate-600 leading-relaxed pr-6">
+                          {faq.answer}
+                        </p>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="mt-6 p-4 rounded-xl bg-slate-50 border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+            <div className="text-slate-600">
+              <span className="font-bold text-slate-900">Have a custom specification or urgent deadline?</span>{' '}
+              Our London studio specialists are ready to help.
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <a
+                href={buildWhatsAppUrl(false)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold transition-colors"
+              >
+                <WhatsappLogo weight="fill" className="h-3.5 w-3.5" />
+                <span>WhatsApp Specialist</span>
+              </a>
+              <button
+                type="button"
+                onClick={() => openCallMe(`SEO Inquiry for ${product.title}`)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#012169] hover:bg-[#0A358C] text-white font-bold transition-colors cursor-pointer"
+              >
+                <Phone weight="fill" className="h-3.5 w-3.5" />
+                <span>Request Call Back</span>
+              </button>
+            </div>
+          </div>
+        </section>
 
         {/* RELATED PRODUCTS SECTION */}
         {relatedProducts.length > 0 && (
