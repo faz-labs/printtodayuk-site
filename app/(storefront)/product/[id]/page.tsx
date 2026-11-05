@@ -263,7 +263,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
         name: `Where can I collect my ${product.title} in London?`,
         acceptedAnswer: {
           '@type': 'Answer',
-          text: `You can collect in person from our London production hub at 75 Green Street, London, E7 8JF. We are open Monday through Saturday. We also deliver straight to your office, home, hotel, or event venue across London.`,
+          text: `You can collect in person from our London production hub at 75 Green Street, London, E7 8JF (open 7 days: Mon–Fri 7am–8pm, Sat 8am–5pm, Sun 8am–4pm). We also deliver straight to your office, home, hotel, or event venue across London.`,
         },
       },
       {
@@ -300,6 +300,26 @@ export default async function ProductDetailPage({ params }: PageProps) {
       latitude: '51.5367',
       longitude: '0.0336',
     },
+    openingHoursSpecification: [
+      {
+        '@type': 'OpeningHoursSpecification',
+        dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+        opens: '07:00',
+        closes: '20:00',
+      },
+      {
+        '@type': 'OpeningHoursSpecification',
+        dayOfWeek: ['Saturday'],
+        opens: '08:00',
+        closes: '17:00',
+      },
+      {
+        '@type': 'OpeningHoursSpecification',
+        dayOfWeek: ['Sunday'],
+        opens: '08:00',
+        closes: '16:00',
+      },
+    ],
   };
 
   return (

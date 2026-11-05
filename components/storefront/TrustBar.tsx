@@ -37,7 +37,7 @@ const TRUST_FEATURES: TrustFeature[] = [
     id: 'hours',
     icon: Clock,
     title: 'Open 7am - 8pm',
-    subtitle: 'Sat 10-6 · Sun 10-4',
+    subtitle: 'Sat 8-5 · Sun 8-4',
   },
   {
     id: 'whitelabel',

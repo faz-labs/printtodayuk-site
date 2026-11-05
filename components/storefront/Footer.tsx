@@ -284,11 +284,11 @@ export function Footer() {
                   </div>
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-medium text-slate-700">Sat:</span>
-                    <span className="font-semibold text-slate-900">10:00 AM – 6:00 PM</span>
+                    <span className="font-semibold text-slate-900">8:00 AM – 5:00 PM</span>
                   </div>
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-medium text-slate-700">Sun:</span>
-                    <span className="font-semibold text-slate-900">10:00 AM – 4:00 PM</span>
+                    <span className="font-semibold text-slate-900">8:00 AM – 4:00 PM</span>
                   </div>
                 </div>
               </li>
@@ -532,7 +532,7 @@ export function Footer() {
               <div className="inline-flex items-center gap-1.5 text-[11px] text-slate-600">
                 <Clock weight="fill" className="h-3.5 w-3.5 text-[#012169] shrink-0" />
                 <span>
-                  <strong>Mon–Fri:</strong> 7am–8pm · <strong>Sat:</strong> 10am–6pm · <strong>Sun:</strong> 10am–4pm
+                  <strong>Mon–Fri:</strong> 7am–8pm · <strong>Sat:</strong> 8am–5pm · <strong>Sun:</strong> 8am–4pm
                 </span>
               </div>
             </div>

@@ -212,7 +212,7 @@ export function ProductDetailClient({
       },
       {
         question: `Where can I collect my ${product?.title || 'order'} in London?`,
-        answer: `You can collect in person from our central London print studio at 75 Green Street, London, E7 8JF (open Monday through Saturday). We also offer rapid courier delivery directly to homes, corporate offices, hotels, event spaces, and venues across Central and Greater London.`,
+        answer: `You can collect in person from our central London print studio at 75 Green Street, London, E7 8JF (open 7 days: Mon–Fri 7am–8pm, Sat 8am–5pm, Sun 8am–4pm). We also offer rapid courier delivery directly to homes, corporate offices, hotels, event spaces, and venues across Central and Greater London.`,
       },
       {
         question: `Can I order bespoke or custom bulk quantities of ${product?.title || 'this item'}?`,
@@ -756,7 +756,7 @@ export function ProductDetailClient({
                     >
                       <p>
                         <strong>London Production Hub:</strong> 75 Green St, E7 8JF. Walk-ins and
-                        same-day collections welcome Mon-Fri 7am - 8pm, Sat 10am - 6pm, Sun 10am - 4pm.
+                        same-day collections welcome Mon-Fri 7am - 8pm, Sat 8am - 5pm, Sun 8am - 4pm.
                       </p>
                       <p className="text-[11px] text-slate-500">
                         Express London courier delivery dispatched daily directly to your office or

@@ -178,7 +178,7 @@ export function UnderConstructionNoticeModal() {
                   </div>
                   <div className="text-xs text-blue-200 text-right font-medium hidden sm:block leading-tight">
                     <div>Mon–Fri 7am–8pm</div>
-                    <div className="text-[11px] text-blue-300">Sat 10am–6pm · Sun 10am–4pm</div>
+                    <div className="text-[11px] text-blue-300">Sat 8am–5pm · Sun 8am–4pm</div>
                   </div>
                 </a>
               </div>
@@ -220,9 +220,9 @@ export function UnderConstructionNoticeModal() {
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs sm:text-[13px] font-semibold text-slate-700">
                   <span><strong className="text-black">Mon–Fri:</strong> 7:00 AM – 8:00 PM</span>
                   <span className="hidden sm:inline text-slate-300">•</span>
-                  <span><strong className="text-black">Sat:</strong> 10:00 AM – 6:00 PM</span>
+                  <span><strong className="text-black">Sat:</strong> 8:00 AM – 5:00 PM</span>
                   <span className="hidden sm:inline text-slate-300">•</span>
-                  <span><strong className="text-black">Sun:</strong> 10:00 AM – 4:00 PM</span>
+                  <span><strong className="text-black">Sun:</strong> 8:00 AM – 4:00 PM</span>
                 </div>
               </div>
             </div>
