@@ -73,7 +73,8 @@ export interface Inquiry {
 
 export interface HeroSlide {
   id: string;
-  imageUrl: string;
+  imageUrl: string;         // Desktop / primary banner (e.g. 1920x600)
+  mobileImageUrl?: string;   // Mobile-optimized banner (e.g. 800x800 or 750x900)
   title?: string;
   linkUrl?: string;
   order?: number;

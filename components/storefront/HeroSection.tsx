@@ -101,24 +101,40 @@ export function HeroSection({ categoryType, initialSlides }: HeroSectionProps) {
   const slideLink = hasLink ? currentSlide.linkUrl!.trim() : '';
   const isExternal = slideLink.startsWith('http://') || slideLink.startsWith('https://');
 
+  const hasMobileImg = Boolean(
+    currentSlide?.mobileImageUrl && currentSlide.mobileImageUrl.trim().length > 0
+  );
+
   const renderSlideImage = () => {
     return (
-      <img
-        src={currentSlide.imageUrl}
-        alt={currentSlide.title || `Hero banner ${currentIndex + 1}`}
-        className="w-full h-full object-cover object-center block select-none pointer-events-none"
-        loading="eager"
-        onError={(e) => {
-          e.currentTarget.src =
-            'https://placehold.co/1800x540/012169/ffffff?text=Print+Today+London';
-        }}
-      />
+      <picture className="w-full h-full block">
+        {hasMobileImg && (
+          <source
+            media="(max-width: 640px)"
+            srcSet={currentSlide.mobileImageUrl}
+          />
+        )}
+        <img
+          src={currentSlide.imageUrl}
+          alt={currentSlide.title || `Hero banner ${currentIndex + 1}`}
+          className="w-full h-full object-cover object-center block select-none pointer-events-none"
+          loading="eager"
+          onError={(e) => {
+            e.currentTarget.src =
+              'https://placehold.co/1800x540/012169/ffffff?text=Print+Today+London';
+          }}
+        />
+      </picture>
     );
   };
 
   return (
     <div
-      className="relative z-10 w-full aspect-[16/7.5] xs:aspect-[16/7.5] sm:aspect-[21/8] md:h-[380px] lg:h-[480px] xl:h-[480px] min-h-[165px] max-h-[480px] overflow-hidden bg-slate-900 select-none group"
+      className={`relative z-10 w-full ${
+        hasMobileImg
+          ? 'aspect-square sm:aspect-[21/8] md:h-[380px] lg:h-[480px] xl:h-[480px] min-h-[300px] sm:min-h-[220px]'
+          : 'aspect-[16/9] sm:aspect-[21/8] md:h-[380px] lg:h-[480px] xl:h-[480px] min-h-[200px] sm:min-h-[220px]'
+      } max-h-[520px] overflow-hidden bg-slate-900 select-none group`}
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >
