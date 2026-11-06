@@ -153,9 +153,15 @@ export function ProductManager({
 
       // 1. Scale standard quantity tiers
       const updatedQuantityTiers = (p.quantityTiers || []).map((t, idx) => {
-        let tierPrice = t.price;
-        if (typeof tierPrice === 'number' && !isNaN(tierPrice) && tierPrice > 0) {
-          tierPrice = Math.max(0.5, Number((tierPrice * adjustmentFactor).toFixed(2)));
+        const rawPrice =
+          typeof t.price === 'number'
+            ? t.price
+            : typeof t.price === 'string'
+            ? parseFloat(t.price)
+            : NaN;
+        let tierPrice: number | undefined = undefined;
+        if (!isNaN(rawPrice) && rawPrice > 0) {
+          tierPrice = Math.max(0.5, Number((rawPrice * adjustmentFactor).toFixed(2)));
         } else if (idx === 0) {
           tierPrice = newPrice;
         }
@@ -170,11 +176,23 @@ export function ProductManager({
       if (p.variantQuantityTiers) {
         for (const [vKey, tiers] of Object.entries(p.variantQuantityTiers)) {
           if (Array.isArray(tiers)) {
-            updatedVariantQuantityTiers[vKey] = tiers.map((t) => {
-              if (typeof t.price === 'number' && !isNaN(t.price) && t.price > 0) {
+            updatedVariantQuantityTiers[vKey] = tiers.map((t, tIdx) => {
+              const rawPrice =
+                typeof t.price === 'number'
+                  ? t.price
+                  : typeof t.price === 'string'
+                  ? parseFloat(t.price)
+                  : NaN;
+              if (!isNaN(rawPrice) && rawPrice > 0) {
                 return {
                   ...t,
-                  price: Math.max(0.5, Number((t.price * adjustmentFactor).toFixed(2))),
+                  price: Math.max(0.5, Number((rawPrice * adjustmentFactor).toFixed(2))),
+                };
+              }
+              if (tIdx === 0) {
+                return {
+                  ...t,
+                  price: newPrice,
                 };
               }
               return t;

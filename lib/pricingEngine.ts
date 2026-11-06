@@ -189,7 +189,7 @@ export function parseOptionModifier(optionText: string): { multiplier: number; f
 
   if (!optionText) return { multiplier, flatAddon, unitAddon };
 
-  // 1. Percentage match (Parenthesized e.g. "(+30%)", "(-20%)", "(+ 30%)")
+  // 1. Percentage match (Parenthesized e.g. "(+30%)", "(-20%)", "(+ 30%)", "(30%)")
   const parenPercentMatch = optionText.match(/\(\s*([+-]?)\s*(\d+(?:\.\d+)?)\s*%\s*\)/);
   if (parenPercentMatch) {
     const sign = parenPercentMatch[1] === '-' ? -1 : 1;
@@ -198,8 +198,8 @@ export function parseOptionModifier(optionText: string): { multiplier: number; f
       multiplier = Math.max(0.01, 1 + (sign * num) / 100);
     }
   } else {
-    // Unparenthesized e.g. "+30%", "-30%", "+ 30%", "- 30%", "A4 +30%", "A4 -30%"
-    const unparenPercentMatch = optionText.match(/([+-])\s*(\d+(?:\.\d+)?)\s*%/);
+    // Unparenthesized e.g. "+30%", "-30%", "+ 30%", "- 30%", "A4 +30%", "A4 -30%", "A4 - 20%"
+    const unparenPercentMatch = optionText.match(/([+-]?)\s*(\d+(?:\.\d+)?)\s*%/);
     if (unparenPercentMatch) {
       const sign = unparenPercentMatch[1] === '-' ? -1 : 1;
       const num = parseFloat(unparenPercentMatch[2]);
@@ -426,14 +426,8 @@ export function getTierBasePrice(
       ? parseFloat(baseTier.price)
       : fallbackBasePrice;
 
-  // Defensive auto-scale: if fallbackBasePrice differs (e.g. merchant increased base price),
-  // ensure the tier pricing respects fallbackBasePrice so prices always reflect on storefront!
-  const scaleRatio =
-    fallbackBasePrice > 0 && rawTier0Price > 0 && Math.abs(fallbackBasePrice - rawTier0Price) > 0.05
-      ? fallbackBasePrice / rawTier0Price
-      : 1.0;
-
-  const anchorPrice = rawTier0Price * scaleRatio;
+  // Tier 0 price is the authoritative anchor for this tier table
+  const anchorPrice = rawTier0Price;
 
   // Helper to compute exact standard price for a configured tier
   const getExactTierPrice = (t: QuantityTier, index: number): number => {
@@ -445,7 +439,7 @@ export function getTierBasePrice(
         ? parseFloat(t.percentIncrease)
         : NaN;
     if (!isNaN(pct)) {
-      return anchorPrice * (1 + pct / 100);
+      return Number((anchorPrice * (1 + pct / 100)).toFixed(2));
     }
     const fixedPrice =
       typeof t.price === 'number'
@@ -454,7 +448,7 @@ export function getTierBasePrice(
         ? parseFloat(t.price)
         : NaN;
     if (!isNaN(fixedPrice) && fixedPrice > 0) {
-      return fixedPrice * scaleRatio;
+      return fixedPrice;
     }
     // Proportional fallback
     const q = Number(t.quantity);
@@ -582,7 +576,21 @@ export function resolveActiveVariantTiers(
     return defaultTiers;
   }
 
-  const selectedValues = Object.values(selectedOptions);
+  const rawValues = Object.values(selectedOptions);
+  const cleanValues = rawValues.map((v) => cleanOptionDisplayName(v).trim());
+
+  // 1. Direct match: Exact full compound key match
+  const fullCompoundKey = cleanValues.join(' - ');
+  if (variantQuantityTiers[fullCompoundKey] && variantQuantityTiers[fullCompoundKey].length > 0) {
+    return variantQuantityTiers[fullCompoundKey];
+  }
+
+  // 2. Direct single-option match
+  for (const sVal of cleanValues) {
+    if (variantQuantityTiers[sVal] && variantQuantityTiers[sVal].length > 0) {
+      return variantQuantityTiers[sVal];
+    }
+  }
 
   let bestMatchedTiers = defaultTiers;
   let highestScore = 0;
@@ -590,10 +598,10 @@ export function resolveActiveVariantTiers(
   for (const [variantKey, vTiers] of Object.entries(variantQuantityTiers)) {
     if (!vTiers || vTiers.length === 0) continue;
 
-    // Split compound key by explicit delimiters: ' - ', ' | ', ' / ', ','
-    // Note: Do NOT split hyphens without spaces like 2000-x-1500 or t-shirt!
+    // Split compound key by explicit delimiters: ' - ' or ' | '
+    // Note: Do NOT split commas or single slashes as they are common inside option names (e.g. "Gloss / Matt", "300gsm, White")
     const keyParts = variantKey
-      .split(/\s+-\s+|\s*\|\s*|\s*\/\s*|\s*,\s*/)
+      .split(/\s+-\s+|\s*\|\s*/)
       .map((k) => k.trim())
       .filter(Boolean);
 
@@ -602,7 +610,7 @@ export function resolveActiveVariantTiers(
     let matchScore = 0;
 
     for (const part of keyParts) {
-      const partMatched = selectedValues.some((optVal) => matchVariantPart(part, optVal));
+      const partMatched = rawValues.some((optVal) => matchVariantPart(part, optVal));
       if (partMatched) {
         matchScore += 1;
       } else {
@@ -675,13 +683,19 @@ export function generateDynamicPriceMatrix(
       : 7.4;
   const SPEED_NEXT_DAY = 1.0 + nextDayPct / 100;
 
-  // Reference base anchor: product price set in CMS at minQuantity on standard delivery
-  const baseAnchorPrice =
-    basePrice && basePrice > 0
-      ? basePrice
-      : activeProductTiers && activeProductTiers.length > 0 && typeof activeProductTiers[0].price === 'number' && activeProductTiers[0].price > 0
+  // Reference base anchor: active variant base tier price takes precedence, then product basePrice
+  const activeTier0Price =
+    activeProductTiers && activeProductTiers.length > 0 && typeof activeProductTiers[0].price === 'number' && activeProductTiers[0].price > 0
       ? activeProductTiers[0].price
-      : 14.69;
+      : typeof activeProductTiers?.[0]?.price === 'string' && parseFloat(activeProductTiers[0].price) > 0
+      ? parseFloat(activeProductTiers[0].price)
+      : undefined;
+
+  const baseAnchorPrice =
+    activeTier0Price ??
+    (basePrice && basePrice > 0
+      ? basePrice
+      : 14.69);
 
   // Aggregate total option percentage delta, total flat fee, and total per-unit fee (Approach A)
   let totalPercentDelta = 0.0;

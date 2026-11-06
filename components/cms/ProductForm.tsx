@@ -572,21 +572,46 @@ export function ProductForm({
     val: string
   ) => {
     const num = val === '' ? undefined : parseFloat(val);
-    updateCurrentTiers((prev) =>
-      prev.map((t, i) => {
-        if (i !== index) return t;
-        if (field === 'quantity') {
-          return { ...t, quantity: num !== undefined ? Math.max(1, Math.round(num)) : 1 };
+    updateCurrentTiers((prev) => {
+      const next = [...prev];
+      const current = { ...next[index] };
+      const basePrice = (index === 0 ? num : next[0]?.price) || 0;
+
+      if (field === 'quantity') {
+        current.quantity = num !== undefined ? Math.max(1, Math.round(num)) : 1;
+      } else if (field === 'price') {
+        current.price = num;
+        if (index === 0) {
+          next[0] = current;
+          // Re-sync all subsequent tiers based on new base price
+          for (let i = 1; i < next.length; i++) {
+            if (next[i].percentIncrease !== undefined && num !== undefined && num > 0) {
+              next[i] = {
+                ...next[i],
+                price: Number((num * (1 + next[i].percentIncrease! / 100)).toFixed(2)),
+              };
+            }
+          }
+          return next;
+        } else {
+          // Tier index > 0: Calculate corresponding percentIncrease from base price
+          if (num !== undefined && basePrice > 0) {
+            current.percentIncrease = Number((((num - basePrice) / basePrice) * 100).toFixed(1));
+          } else {
+            current.percentIncrease = undefined;
+          }
         }
-        if (field === 'price') {
-          return { ...t, price: num };
+      } else if (field === 'percentIncrease') {
+        current.percentIncrease = num;
+        // Tier index > 0: Calculate corresponding price from percentIncrease
+        if (num !== undefined && basePrice > 0) {
+          current.price = Number((basePrice * (1 + num / 100)).toFixed(2));
         }
-        if (field === 'percentIncrease') {
-          return { ...t, percentIncrease: num };
-        }
-        return t;
-      })
-    );
+      }
+
+      next[index] = current;
+      return next;
+    });
   };
 
   const handleRemoveTier = (index: number) => {
@@ -597,8 +622,13 @@ export function ProductForm({
   const baseTierPrice = currentTiers[0]?.price || 0;
   const computedStandardPrice = (tier: QuantityTier, index: number): number => {
     if (index === 0) return tier.price || 0;
-    const pct = tier.percentIncrease || 0;
-    return baseTierPrice * (1 + pct / 100);
+    if (typeof tier.price === 'number' && !isNaN(tier.price) && tier.price > 0) {
+      return tier.price;
+    }
+    if (typeof tier.percentIncrease === 'number' && !isNaN(tier.percentIncrease)) {
+      return Number((baseTierPrice * (1 + tier.percentIncrease / 100)).toFixed(2));
+    }
+    return baseTierPrice;
   };
 
   const computedUnitPrice = (tier: QuantityTier, index: number): number => {
@@ -992,7 +1022,7 @@ export function ProductForm({
         variantQuantityTiers:
           variantQuantityTiers && Object.keys(variantQuantityTiers).length > 0
             ? variantQuantityTiers
-            : undefined,
+            : (null as any),
         features: features.length > 0 ? features : [],
         customFields: validCustomFields.length > 0 ? validCustomFields : [],
       };
@@ -1645,10 +1675,10 @@ export function ProductForm({
                     <thead className="sticky top-0 z-10 bg-slate-50 shadow-2xs">
                       <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase text-[10px] tracking-wider">
                         <th className="py-2.5 px-3 w-14">Tier</th>
-                        <th className="py-2.5 px-3 min-w-[100px]">Quantity</th>
-                        <th className="py-2.5 px-3 min-w-[150px]">Base £ / % Increase</th>
-                        <th className="py-2.5 px-3 min-w-[110px]">Calculated Price</th>
-                        <th className="py-2.5 px-3 min-w-[90px]">Unit Price</th>
+                        <th className="py-2.5 px-3 min-w-[95px]">Quantity</th>
+                        <th className="py-2.5 px-3 min-w-[130px]">Price (£)</th>
+                        <th className="py-2.5 px-3 min-w-[120px]">% Increase over Base</th>
+                        <th className="py-2.5 px-3 min-w-[95px]">Unit Price</th>
                         <th className="py-2.5 px-2 w-10 text-center"></th>
                       </tr>
                     </thead>
@@ -1685,54 +1715,54 @@ export function ProductForm({
                               />
                             </td>
 
-                            {/* Price (Tier 1) or % Increase (Tier 2+) */}
+                            {/* Price (£) Input */}
+                            <td className="py-2 px-3">
+                              <div className="relative">
+                                <span className="absolute left-2.5 top-1.5 text-xs font-bold text-slate-400 pointer-events-none">
+                                  £
+                                </span>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  min="0.01"
+                                  required={isBaseTier}
+                                  value={tier.price ?? (standardTotal > 0 ? Number(standardTotal.toFixed(2)) : '')}
+                                  onChange={(e) => handleUpdateTier(idx, 'price', e.target.value)}
+                                  placeholder={isBaseTier ? '25.00' : '0.00'}
+                                  className={`w-full h-8 pl-6 pr-2 rounded-lg border text-xs font-bold bg-white focus:outline-hidden focus:ring-1 ${
+                                    isBaseTier
+                                      ? 'border-blue-400 text-[#012169] focus:border-[#012169] focus:ring-[#012169]'
+                                      : 'border-slate-200 text-slate-900 focus:border-[#012169] focus:ring-[#012169]'
+                                  }`}
+                                />
+                              </div>
+                            </td>
+
+                            {/* % Increase over Base Input */}
                             <td className="py-2 px-3">
                               {isBaseTier ? (
-                                <div className="relative">
-                                  <span className="absolute left-2.5 top-1.5 text-xs font-bold text-slate-400 pointer-events-none">
-                                    £
-                                  </span>
-                                  <input
-                                    type="number"
-                                    step="0.01"
-                                    min="0.01"
-                                    required
-                                    value={tier.price ?? ''}
-                                    onChange={(e) => handleUpdateTier(idx, 'price', e.target.value)}
-                                    placeholder="25.00"
-                                    className="w-full h-8 pl-6 pr-2 rounded-lg border border-blue-300 text-xs font-bold text-[#012169] bg-white focus:outline-hidden focus:border-[#012169] focus:ring-1 focus:ring-[#012169]"
-                                  />
-                                </div>
+                                <span className="inline-flex items-center px-2 py-1 rounded-md text-[10px] font-bold bg-blue-100/80 text-[#012169]">
+                                  ★ Base (0%)
+                                </span>
                               ) : (
                                 <div className="relative">
                                   <input
                                     type="number"
                                     step="0.1"
-                                    min="0"
                                     value={tier.percentIncrease ?? ''}
                                     onChange={(e) => handleUpdateTier(idx, 'percentIncrease', e.target.value)}
-                                    placeholder="40"
-                                    className="w-full h-8 pl-2.5 pr-7 rounded-lg border border-slate-200 text-xs font-bold text-slate-900 bg-white focus:outline-hidden focus:border-[#012169]"
+                                    placeholder={
+                                      baseTierPrice > 0 && standardTotal > 0
+                                        ? String(Number((((standardTotal - baseTierPrice) / baseTierPrice) * 100).toFixed(1)))
+                                        : '40'
+                                    }
+                                    className="w-full h-8 pl-2.5 pr-7 rounded-lg border border-slate-200 text-xs font-bold text-slate-900 bg-white focus:outline-hidden focus:border-[#012169] focus:ring-1 focus:ring-[#012169]"
                                   />
                                   <span className="absolute right-2.5 top-1.5 text-xs font-bold text-slate-400 pointer-events-none">
                                     %
                                   </span>
                                 </div>
                               )}
-                            </td>
-
-                            {/* Computed Standard Total (£) */}
-                            <td className="py-2 px-3 font-bold text-xs text-slate-900">
-                              <span>£{standardTotal.toFixed(2)}</span>
-                              {isBaseTier ? (
-                                <span className="block text-[9px] text-slate-400 font-normal">
-                                  Starting base
-                                </span>
-                              ) : tier.percentIncrease !== undefined ? (
-                                <span className="block text-[9px] text-emerald-600 font-semibold">
-                                  +{tier.percentIncrease}% over base
-                                </span>
-                              ) : null}
                             </td>
 
                             {/* Computed Unit Price (£/ea) */}
@@ -1748,7 +1778,7 @@ export function ProductForm({
                                   type="button"
                                   onClick={() => handleRemoveTier(idx)}
                                   className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors cursor-pointer"
-                                  title="Remove this tier"
+                                  title="Delete tier"
                                 >
                                   <Trash className="h-4 w-4" />
                                 </button>

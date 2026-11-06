@@ -331,12 +331,20 @@ export async function updateProduct(
   };
 
   const isDiscountCleared = updates.discountedPrice === null;
+  const isVariantTiersCleared =
+    updates.variantQuantityTiers === null ||
+    (updates.variantQuantityTiers !== undefined &&
+      typeof updates.variantQuantityTiers === 'object' &&
+      Object.keys(updates.variantQuantityTiers).length === 0);
 
   if (isConfigured && db) {
     try {
       const cleanData: any = cleanFirestoreData(payload);
       if (isDiscountCleared) {
         cleanData.discountedPrice = deleteField();
+      }
+      if (isVariantTiersCleared) {
+        cleanData.variantQuantityTiers = deleteField();
       }
 
       // Resilient ID lookup: Check direct ID, then fallback to slug
@@ -377,6 +385,9 @@ export async function updateProduct(
     local[index] = { ...local[index], ...payload };
     if (isDiscountCleared) {
       delete local[index].discountedPrice;
+    }
+    if (isVariantTiersCleared) {
+      delete local[index].variantQuantityTiers;
     }
     saveLocalProducts(local);
     return local[index];
