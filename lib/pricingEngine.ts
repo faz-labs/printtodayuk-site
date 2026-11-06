@@ -55,10 +55,11 @@ export function formatOrdinalDate(d: Date, includeWeekday: boolean = true): stri
 }
 
 /**
- * Calculates human-friendly working-day delivery dates (skipping weekends).
- * - 1 Working Day means 1 working production day; due date / delivery is the day after.
- * - 3-5 Working Days means up to 5 working production days; due date is the day after the 5th working day.
- * - Weekends (Saturday and Sunday) are strictly non-production days and Sunday is non-delivery.
+ * Calculates human-friendly working-day delivery dates (strictly skipping Saturday and Sunday).
+ * - 1 Working Day (+1 working day due date): 2 full working days (e.g. Friday/Sunday order -> Tuesday).
+ * - 3-5 Working Days (+1 working day due date): 6 full working days (e.g. Friday/Sunday order -> Monday).
+ * - Same Day Express: today if weekday before 1pm cutoff; next working day (Monday) if weekend/after cutoff.
+ * - Weekends (Saturday and Sunday) are strictly non-delivery and non-production days.
  */
 export function getWorkingDueDates(baseDate: Date = new Date()): { sameDay: string; nextDay: string; standard: string } {
   const now = new Date(baseDate);
@@ -79,55 +80,25 @@ export function getWorkingDueDates(baseDate: Date = new Date()): { sameDay: stri
     return cur;
   }
 
-  function getFirstWorkingDay(from: Date): Date {
-    const cur = new Date(from);
-    if (cur.getDay() === 6) {
-      // Saturday -> moves to Monday
-      cur.setDate(cur.getDate() + 2);
-      return cur;
-    }
-    if (cur.getDay() === 0) {
-      // Sunday -> moves to Monday
-      cur.setDate(cur.getDate() + 1);
-      return cur;
-    }
-    if (isPastCutoff) {
-      return addWorkingDays(cur, 1);
-    }
-    return cur;
-  }
-
-  const prodDay1 = getFirstWorkingDay(now);
-
   // 1. Same Day Express:
   // If placed on a weekday before 1:00 PM cutoff, same day is today.
-  // If placed on weekend or after cutoff, it is produced on the first working day.
+  // If placed on weekend or after cutoff, it is dispatched on the first working day (skipping Sat & Sun).
   let sameDayDate: Date;
   if (!isWeekend && !isPastCutoff) {
     sameDayDate = new Date(now);
   } else {
-    sameDayDate = new Date(prodDay1);
+    sameDayDate = addWorkingDays(now, 1);
   }
 
-  // 2. 1 Working Day:
-  // The first working day (prodDay1) is the production day.
-  // Delivery due date is the next day (if Sunday, moves to Monday).
-  const nextDayDate = new Date(prodDay1);
-  nextDayDate.setDate(nextDayDate.getDate() + 1);
-  if (nextDayDate.getDay() === 0) {
-    nextDayDate.setDate(nextDayDate.getDate() + 1);
-  }
+  // 2. 1 Working Day (+1 due date, strictly excluding Sat & Sun):
+  // Friday/Saturday/Sunday order -> Tuesday (+2 working days).
+  // Monday order -> Wednesday, etc.
+  const nextDayDate = addWorkingDays(now, 2);
 
-  // 3. 3-5 Working Days:
-  // Production takes 5 working days starting at prodDay1.
-  // Working day 1 = prodDay1; Working day 5 = addWorkingDays(prodDay1, 4).
-  // Delivery due date is the day following the 5th working day (if Sunday, moves to Monday).
-  const fifthWorkingDay = addWorkingDays(prodDay1, 4);
-  const standardDate = new Date(fifthWorkingDay);
-  standardDate.setDate(standardDate.getDate() + 1);
-  if (standardDate.getDay() === 0) {
-    standardDate.setDate(standardDate.getDate() + 1);
-  }
+  // 3. 3-5 Working Days (+1 due date, strictly excluding Sat & Sun):
+  // 5 working days + 1 = 6 working days.
+  // Friday/Saturday/Sunday order -> Monday (skipping both weekends).
+  const standardDate = addWorkingDays(now, 6);
 
   return {
     sameDay: formatOrdinalDate(sameDayDate),
@@ -551,10 +522,12 @@ function matchVariantPart(part: string, optionValue: string): boolean {
     return true;
   }
 
-  // 4. If cleanOpt starts with cleanPart (e.g. "A5" starts "A5 (148x210)")
+  // 4. If cleanOpt starts with cleanPart (e.g. "A5" starts "A5 (148x210)") or vice versa
   if (
     cleanOpt.toLowerCase().startsWith(cleanPart.toLowerCase() + ' ') ||
-    cleanOpt.toLowerCase().startsWith(cleanPart.toLowerCase() + '(')
+    cleanOpt.toLowerCase().startsWith(cleanPart.toLowerCase() + '(') ||
+    cleanPart.toLowerCase().startsWith(cleanOpt.toLowerCase() + ' ') ||
+    cleanPart.toLowerCase().startsWith(cleanOpt.toLowerCase() + '(')
   ) {
     return true;
   }
@@ -605,22 +578,50 @@ export function resolveActiveVariantTiers(
       .map((k) => k.trim())
       .filter(Boolean);
 
-    // Check if EVERY part of this variant key matches at least one selected option
-    let allPartsMatch = true;
-    let matchScore = 0;
-
+    // Direction A: All key parts match user selections (e.g. key has fewer parts than dropdowns)
+    let allKeyPartsMatch = true;
     for (const part of keyParts) {
-      const partMatched = rawValues.some((optVal) => matchVariantPart(part, optVal));
-      if (partMatched) {
-        matchScore += 1;
-      } else {
-        allPartsMatch = false;
+      if (!rawValues.some((optVal) => matchVariantPart(part, optVal))) {
+        allKeyPartsMatch = false;
         break;
       }
     }
 
-    if (allPartsMatch && matchScore > highestScore) {
-      highestScore = matchScore;
+    // Direction B: All user selections match the key parts (e.g. key has extra supplier tags/suffixes)
+    let allUserSelectionsMatch = true;
+    for (const optVal of rawValues) {
+      if (!keyParts.some((part) => matchVariantPart(part, optVal))) {
+        allUserSelectionsMatch = false;
+        break;
+      }
+    }
+
+    let score = 0;
+    if (allKeyPartsMatch && allUserSelectionsMatch) {
+      // Perfect mutual match
+      score = 1000 + keyParts.length;
+    } else if (allKeyPartsMatch) {
+      // Key is a clean subset of user choices (e.g. key is "A5 - 170gsm")
+      score = 500 + keyParts.length;
+    } else if (allUserSelectionsMatch) {
+      // User choices are a subset of key (e.g. key has extra trailing supplier info)
+      score = 200 + rawValues.length;
+    } else {
+      // Check if this variant key directly matches the primary option (e.g. Size or first dropdown)
+      // and does NOT conflict with any user selection
+      const primaryOption = rawValues[0];
+      const primaryPartMatched = keyParts.some((p) => matchVariantPart(p, primaryOption));
+      if (primaryPartMatched) {
+        let count = 0;
+        for (const p of keyParts) {
+          if (rawValues.some((optVal) => matchVariantPart(p, optVal))) count++;
+        }
+        score = 10 + count;
+      }
+    }
+
+    if (score > highestScore) {
+      highestScore = score;
       bestMatchedTiers = vTiers;
     }
   }

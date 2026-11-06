@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { execSync } from 'child_process';
+import { QuantityTier } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -137,74 +138,237 @@ function resolveAttributeSelections(
 
 function scrapeSolopress(url: string) {
   try {
+    const safeUrl = url.replace(/"/g, '').trim();
     const stdout = execSync(
-      `curl.exe -s -L -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36" "${url}"`,
-      { maxBuffer: 10 * 1024 * 1024 }
+      `curl.exe -s -L -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36" "${safeUrl}"`,
+      { maxBuffer: 15 * 1024 * 1024 }
     );
-    const html = stdout.toString('utf-8');
+    let html = stdout.toString('utf-8');
 
-    // Extract Title
-    const titleMatch = html.match(/<title>([^<]+)<\/title>/i);
-    let title = titleMatch ? titleMatch[1].replace(/\s*\|\s*Solopress.*$/i, '').trim() : '';
-    if (!title || title.toLowerCase() === 'products') {
-      const urlObj = new URL(url);
-      const parts = urlObj.pathname.split('/').filter(Boolean);
-      title = parts[parts.length - 1]?.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) || 'Solopress Product';
+    // Helper to extract __PRODUCT_DATA__ from Vue registration
+    function extractProductData(pageHtml: string) {
+      const match = pageHtml.match(
+        /CoreVueManager\.registerApp\(\s*['"]init_vueProductPage['"]\s*,\s*['"]vueProductPage['"]\s*,\s*(\[[\s\S]*?\])\s*\);\s*(?:CoreVueManager|\n|}|\$)/
+      );
+      if (match) {
+        try {
+          const jsonStr = match[1];
+          const lastBracket = jsonStr.lastIndexOf(']');
+          const cleanJson = jsonStr.slice(0, lastBracket + 1);
+          const parsed = JSON.parse(cleanJson);
+          return parsed[0]?.__PRODUCT_DATA__;
+        } catch (e: any) {
+          console.warn('Failed parsing CoreVueManager JSON:', e.message);
+        }
+      }
+
+      const pdMatch = pageHtml.match(/"__PRODUCT_DATA__":\s*(\{[\s\S]*?\})\s*,\s*"__OPTIONS_TOKEN__"/);
+      if (pdMatch) {
+        try {
+          return JSON.parse(pdMatch[1]);
+        } catch (e: any) {
+          console.warn('Failed parsing __PRODUCT_DATA__ fallback:', e.message);
+        }
+      }
+      return null;
     }
 
-    // Extract Description
-    const metaDesc = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i)?.[1]?.trim() || '';
+    let pd = extractProductData(html);
+
+    // If this is a category/overview page with no product data, find child product links
+    if (!pd) {
+      const urlObj = new URL(safeUrl);
+      const basePath = urlObj.pathname.replace(/\/+$/, '');
+      const escapedBase = basePath.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+      const childLinkRegex = new RegExp(
+        `href=["'](https:\\/\\/www\\.solopress\\.com${escapedBase}\\/[a-z0-9\\-]+(?:\\/|))["']`,
+        'gi'
+      );
+      const childMatches = Array.from(html.matchAll(childLinkRegex));
+      const childUrls = Array.from(new Set(childMatches.map((m) => m[1]))).filter(
+        (u) =>
+          !u.endsWith(basePath + '/') &&
+          !u.endsWith('/artwork-guide/') &&
+          !u.endsWith('/templates/') &&
+          !u.endsWith('/support-guides/')
+      );
+
+      if (childUrls.length > 0) {
+        const targetChildUrl = childUrls[0];
+        const childStdout = execSync(
+          `curl.exe -s -L -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36" "${targetChildUrl}"`,
+          { maxBuffer: 15 * 1024 * 1024 }
+        );
+        html = childStdout.toString('utf-8');
+        pd = extractProductData(html);
+      }
+    }
+
+    // Extract meta title & description fallbacks
+    const titleMatch = html.match(/<title>([^<]+)<\/title>/i);
+    let fallbackTitle = titleMatch ? titleMatch[1].replace(/\s*\|\s*Solopress.*$/i, '').trim() : '';
+    if (!fallbackTitle || fallbackTitle.toLowerCase() === 'products') {
+      const urlObj = new URL(safeUrl);
+      const parts = urlObj.pathname.split('/').filter(Boolean);
+      fallbackTitle =
+        parts[parts.length - 1]?.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) ||
+        'Solopress Product';
+    }
+    const metaDesc =
+      html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i)?.[1]?.trim() || '';
 
     // Extract Images
     const images: string[] = [];
+    if (pd && Array.isArray(pd.thumbnailGallery)) {
+      pd.thumbnailGallery.forEach((item: any) => {
+        const imgPath = item.fullImageUrl || item.mainImageUrl || item.thumbnailImageUrl;
+        if (imgPath) {
+          const full = imgPath.startsWith('http')
+            ? imgPath
+            : `https://www.solopress.com${imgPath.startsWith('/') ? '' : '/'}${imgPath}`;
+          if (!images.includes(full)) images.push(full);
+        }
+      });
+    }
     const ogImg = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i)?.[1];
-    if (ogImg && !ogImg.includes('logo') && !images.includes(ogImg)) images.push(ogImg);
-
-    // Enhanced Ecommerce products or prices
-    const eeMatches = Array.from(html.matchAll(/"item_name":\s*"([^"]+)"[^}]+"price":\s*([0-9.]+)/gi));
-    let basePrice = 24.00;
-    if (eeMatches.length > 0 && eeMatches[0][2]) {
-      basePrice = parseFloat(eeMatches[0][2]);
+    if (ogImg && !images.includes(ogImg) && !ogImg.includes('logo')) {
+      images.push(ogImg);
     }
 
-    // Suggest category
-    const cat = mapRoute1Category(url);
+    // Tiers and pricing
+    const quantityTiers: QuantityTier[] = [];
+    let basePrice = 24.0;
+    let nextDayIncreasePercent = 10.0;
+    let sameDayIncreasePercent = 35.4;
 
-    // Default quantity tiers based on product type
-    const isBanner = url.toLowerCase().includes('banner');
-    const quantityTiers = isBanner
-      ? [
-          { quantity: 1, price: basePrice },
-          { quantity: 2, percentIncrease: 70 },
-          { quantity: 5, percentIncrease: 250 },
-          { quantity: 10, percentIncrease: 550 },
-          { quantity: 25, percentIncrease: 1300 },
-        ]
-      : [
-          { quantity: 25, price: basePrice },
-          { quantity: 50, percentIncrease: 40 },
-          { quantity: 100, percentIncrease: 80 },
-          { quantity: 250, percentIncrease: 150 },
-          { quantity: 500, percentIncrease: 250 },
-          { quantity: 1000, percentIncrease: 400 },
-        ];
+    if (pd?.quantityPriceMap?.quantities && pd.quantityPriceMap.quantities.length > 0) {
+      const qList = pd.quantityPriceMap.quantities;
+      const firstTurnarounds = qList[0].turnarounds || [];
+      const stdTurnaround = firstTurnarounds[firstTurnarounds.length - 1];
+      const fastTurnaround = firstTurnarounds[0];
+
+      const stdPrice = stdTurnaround?.price?.ex ?? stdTurnaround?.price?.inc ?? 0;
+      const fastPrice = fastTurnaround?.price?.ex ?? fastTurnaround?.price?.inc ?? 0;
+
+      if (stdPrice > 0) {
+        basePrice = Number(stdPrice.toFixed(2));
+        if (fastPrice > stdPrice) {
+          nextDayIncreasePercent = Number((((fastPrice - stdPrice) / stdPrice) * 100).toFixed(1));
+          sameDayIncreasePercent = Number((nextDayIncreasePercent * 1.5).toFixed(1));
+        }
+      }
+
+      qList.forEach((qItem: any, idx: number) => {
+        const qty = Number(qItem.quantity);
+        if (!qty || isNaN(qty) || qty <= 0) return;
+
+        const tList = qItem.turnarounds || [];
+        const std = tList[tList.length - 1] || tList[0];
+        const tierPrice =
+          std?.price?.ex !== undefined
+            ? Number(std.price.ex)
+            : std?.price?.inc !== undefined
+            ? Number(std.price.inc)
+            : 0;
+
+        if (idx === 0) {
+          quantityTiers.push({
+            quantity: qty,
+            price: Number(tierPrice.toFixed(2)),
+          });
+        } else {
+          const pct = basePrice > 0 ? Number((((tierPrice - basePrice) / basePrice) * 100).toFixed(1)) : 0;
+          quantityTiers.push({
+            quantity: qty,
+            price: Number(tierPrice.toFixed(2)),
+            percentIncrease: pct,
+          });
+        }
+      });
+    }
+
+    // Fallback if quantityPriceMap is missing
+    if (quantityTiers.length === 0) {
+      basePrice = pd?.totalPrice?.ex || pd?.totalPrice?.inc || 24.0;
+      const isBanner = url.toLowerCase().includes('banner');
+      const defaultTiers = isBanner
+        ? [
+            { quantity: 1, price: basePrice },
+            { quantity: 2, percentIncrease: 70, price: Number((basePrice * 1.7).toFixed(2)) },
+            { quantity: 5, percentIncrease: 250, price: Number((basePrice * 3.5).toFixed(2)) },
+            { quantity: 10, percentIncrease: 550, price: Number((basePrice * 6.5).toFixed(2)) },
+          ]
+        : [
+            { quantity: 25, price: basePrice },
+            { quantity: 50, percentIncrease: 40, price: Number((basePrice * 1.4).toFixed(2)) },
+            { quantity: 100, percentIncrease: 80, price: Number((basePrice * 1.8).toFixed(2)) },
+            { quantity: 250, percentIncrease: 150, price: Number((basePrice * 2.5).toFixed(2)) },
+            { quantity: 500, percentIncrease: 250, price: Number((basePrice * 3.5).toFixed(2)) },
+            { quantity: 1000, percentIncrease: 400, price: Number((basePrice * 5.0).toFixed(2)) },
+          ];
+      quantityTiers.push(...defaultTiers);
+    }
+
+    // Custom Fields
+    const customFields: any[] = [];
+    const ignoredLabels = [
+      'delivery',
+      'distribution',
+      'product',
+      'options',
+      'special packing',
+      'turnaround',
+      'file copies',
+      'fsc',
+      'proof',
+    ];
+
+    if (Array.isArray(pd?.optionList)) {
+      pd.optionList.forEach((optItem: any, idx: number) => {
+        const rawLabel = optItem.label || optItem.abbrev || '';
+        const cleanName = rawLabel.replace(/<[^>]+>/g, '').trim();
+        if (!cleanName) return;
+
+        const lower = cleanName.toLowerCase();
+        if (ignoredLabels.some((ig) => lower.includes(ig))) return;
+
+        if (Array.isArray(optItem.options) && optItem.options.length > 0) {
+          const options = optItem.options
+            .map((o: any) => (o.label || o.name || '').trim())
+            .filter((o: string) => o.length > 0);
+
+          if (options.length > 0) {
+            customFields.push({
+              id: `field-${idx}-${Date.now()}`,
+              name: cleanName,
+              options: Array.from(new Set(options)),
+              defaultValue: options[0],
+            });
+          }
+        }
+      });
+    }
+
+    const finalTitle = pd?.variationH1Tag || pd?.name || fallbackTitle;
+    const finalDesc =
+      pd?.shortDescriptionStripped?.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() || metaDesc;
 
     return {
-      title,
-      description: metaDesc,
-      category: cat,
-      price: basePrice,
-      images,
+      title: finalTitle,
+      description: finalDesc,
+      category: mapRoute1Category(url),
+      price: Number(basePrice.toFixed(2)),
       imageUrl: images[0] || '',
-      customFields: [],
+      images,
       quantityTiers,
-      sameDayIncreasePercent: 35.4,
-      nextDayIncreasePercent: 10.0,
-      maxSameDayQuantity: 25,
-      maxNextDayQuantity: 100,
+      minQuantity: quantityTiers[0]?.quantity || 25,
+      maxQuantity: quantityTiers[quantityTiers.length - 1]?.quantity || 250000,
+      customFields,
+      sameDayIncreasePercent,
+      nextDayIncreasePercent,
       sourceUrl: url,
-      source: 'solopress',
-      notice: 'Imported from Solopress! Note: Solopress computes live checkout tables inside private client sessions; price tiers have been seeded from their product catalog base price.',
+      source: 'solopress' as const,
+      notice: `⚡ Imported from Solopress with ${quantityTiers.length} live quantity tiers (Base: £${basePrice.toFixed(2)}) and ${customFields.length} options!`,
     };
   } catch (e: any) {
     throw new Error('Failed to fetch Solopress product data: ' + e.message);

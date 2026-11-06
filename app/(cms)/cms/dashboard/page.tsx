@@ -93,7 +93,7 @@ export default function CMSDashboardPage() {
     invalidateReviewsCache();
     try {
       const [prods, cats, inqs, secs, revs] = await Promise.all([
-        getProducts(),
+        getProducts(undefined, true),
         getCategories(),
         getInquiries(),
         getLandingSections(),

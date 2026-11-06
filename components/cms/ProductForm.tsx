@@ -142,6 +142,7 @@ export function ProductForm({
   const [discountedPrice, setDiscountedPrice] = useState<string>('');
   const [category, setCategory] = useState<string>(categories[0]?.name || '');
   const [isSameDayAvailable, setIsSameDayAvailable] = useState(true);
+  const [isActive, setIsActive] = useState(true);
   const [maxSameDayQuantity, setMaxSameDayQuantity] = useState<string>('');
   const [maxNextDayQuantity, setMaxNextDayQuantity] = useState<string>('');
   const [features, setFeatures] = useState<string[]>([]);
@@ -256,6 +257,7 @@ export function ProductForm({
       );
       setCategory(initialProduct.category || categories[0]?.name || '');
       setIsSameDayAvailable(initialProduct.isSameDayAvailable);
+      setIsActive(initialProduct.isActive !== false);
       setMaxSameDayQuantity(
         initialProduct.maxSameDayQuantity !== undefined && initialProduct.maxSameDayQuantity !== null
           ? initialProduct.maxSameDayQuantity.toString()
@@ -305,6 +307,7 @@ export function ProductForm({
       setDiscountedPrice('');
       setCategory(categories[0]?.name || '');
       setIsSameDayAvailable(true);
+      setIsActive(true);
       setMaxSameDayQuantity('');
       setMaxNextDayQuantity('');
       setSameDayIncreasePercent('35.4');
@@ -1025,6 +1028,7 @@ export function ProductForm({
             : (null as any),
         features: features.length > 0 ? features : [],
         customFields: validCustomFields.length > 0 ? validCustomFields : [],
+        isActive,
       };
 
       if (discountedPrice.trim() !== '') {
@@ -1809,23 +1813,51 @@ export function ProductForm({
               </div>
             </div>
 
-            {/* Same Day Toggle */}
-            <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Lightning weight="fill" className="h-4 w-4 text-emerald-600" />
-                <div>
-                  <div className="text-xs font-bold text-slate-900">Same-Day London Dispatch</div>
-                  <div className="text-[10px] text-slate-500">
-                    Enable express same-day rush turnaround option
+            {/* Storefront Active & Same Day Toggles */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Storefront Active / Published Toggle */}
+              <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div
+                    className={`h-2.5 w-2.5 rounded-full ${
+                      isActive ? 'bg-emerald-500 shadow-xs shadow-emerald-400' : 'bg-slate-400'
+                    }`}
+                  />
+                  <div>
+                    <div className="text-xs font-bold text-slate-900">
+                      {isActive ? 'Storefront: Live & Active' : 'Storefront: Hidden / Offline'}
+                    </div>
+                    <div className="text-[10px] text-slate-500">
+                      {isActive ? 'Visible to customers in catalog' : 'Hidden from storefront search & lists'}
+                    </div>
                   </div>
                 </div>
+                <input
+                  type="checkbox"
+                  checked={isActive}
+                  onChange={(e) => setIsActive(e.target.checked)}
+                  className="h-5 w-5 rounded-md text-[#012169] focus:ring-[#012169] cursor-pointer"
+                />
               </div>
-              <input
-                type="checkbox"
-                checked={isSameDayAvailable}
-                onChange={(e) => setIsSameDayAvailable(e.target.checked)}
-                className="h-5 w-5 rounded-md text-[#012169] focus:ring-[#012169] cursor-pointer"
-              />
+
+              {/* Same Day Toggle */}
+              <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Lightning weight="fill" className="h-4 w-4 text-emerald-600" />
+                  <div>
+                    <div className="text-xs font-bold text-slate-900">Same-Day London Dispatch</div>
+                    <div className="text-[10px] text-slate-500">
+                      Enable express same-day rush turnaround
+                    </div>
+                  </div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={isSameDayAvailable}
+                  onChange={(e) => setIsSameDayAvailable(e.target.checked)}
+                  className="h-5 w-5 rounded-md text-[#012169] focus:ring-[#012169] cursor-pointer"
+                />
+              </div>
             </div>
 
             {/* Description */}

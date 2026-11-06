@@ -23,6 +23,9 @@ import {
   Percent,
   TrendUp,
   TrendDown,
+  Copy,
+  Eye,
+  EyeSlash,
 } from '@phosphor-icons/react';
 import Link from 'next/link';
 
@@ -377,6 +380,64 @@ export function ProductManager({
     }
   };
 
+  const handleDuplicateProduct = async (sourceProduct: Product) => {
+    try {
+      const copyTitle = `${sourceProduct.title} (Copy)`;
+      const copySlug = `${slugify(sourceProduct.title)}-copy-${Date.now().toString(36)}`;
+
+      const newProductInput: ProductInput = {
+        title: copyTitle,
+        slug: copySlug,
+        description: sourceProduct.description || '',
+        imageUrl: sourceProduct.imageUrl || '',
+        images: sourceProduct.images ? [...sourceProduct.images] : (sourceProduct.imageUrl ? [sourceProduct.imageUrl] : []),
+        price: sourceProduct.price,
+        discountedPrice: sourceProduct.discountedPrice,
+        category: sourceProduct.category,
+        subcategory: sourceProduct.subcategory,
+        isSameDayAvailable: sourceProduct.isSameDayAvailable,
+        minQuantity: sourceProduct.minQuantity,
+        maxQuantity: sourceProduct.maxQuantity,
+        maxSameDayQuantity: sourceProduct.maxSameDayQuantity,
+        maxNextDayQuantity: sourceProduct.maxNextDayQuantity,
+        sameDayIncreasePercent: sourceProduct.sameDayIncreasePercent,
+        nextDayIncreasePercent: sourceProduct.nextDayIncreasePercent,
+        quantityTiers: sourceProduct.quantityTiers ? JSON.parse(JSON.stringify(sourceProduct.quantityTiers)) : undefined,
+        variantQuantityTiers: sourceProduct.variantQuantityTiers ? JSON.parse(JSON.stringify(sourceProduct.variantQuantityTiers)) : undefined,
+        customFields: sourceProduct.customFields ? JSON.parse(JSON.stringify(sourceProduct.customFields)) : undefined,
+        features: sourceProduct.features ? [...sourceProduct.features] : undefined,
+        isActive: sourceProduct.isActive !== false,
+      };
+
+      const created = await onCreateProduct(newProductInput);
+      showNotification('success', `⚡ Duplicated "${sourceProduct.title}" as "${copyTitle}"!`);
+      if (created) {
+        handleOpenEdit(created);
+      }
+    } catch (err: any) {
+      console.error('Failed to duplicate product:', err);
+      showNotification('error', `Failed to duplicate product: ${err.message || 'Unknown error'}`);
+    }
+  };
+
+  const handleToggleActive = async (product: Product) => {
+    const targetId = product.id || product.slug;
+    if (!targetId) return;
+    const currentActive = product.isActive !== false;
+    const newActive = !currentActive;
+
+    try {
+      await onUpdateProduct(targetId, { isActive: newActive });
+      showNotification(
+        'success',
+        `Product "${product.title}" is now ${newActive ? 'Live on Storefront' : 'Hidden from Storefront'}.`
+      );
+    } catch (err: any) {
+      console.error('Failed to toggle product status:', err);
+      showNotification('error', `Failed to update status: ${err.message || 'Unknown error'}`);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Status Notice Toast */}
@@ -497,6 +558,7 @@ export function ProductManager({
                   <th className="py-3.5 px-4">Product</th>
                   <th className="py-3.5 px-4">Category</th>
                   <th className="py-3.5 px-4">Price</th>
+                  <th className="py-3.5 px-4 text-center">Storefront</th>
                   <th className="py-3.5 px-4">Same-Day</th>
                   <th className="py-3.5 px-4 text-right">Actions</th>
                 </tr>
@@ -552,6 +614,27 @@ export function ProductManager({
                         )}
                       </td>
 
+                      {/* Storefront Status Toggle */}
+                      <td className="py-3.5 px-4 text-center">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleActive(product)}
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-black transition-all cursor-pointer border ${
+                            product.isActive !== false
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                              : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200'
+                          }`}
+                          title={product.isActive !== false ? 'Click to hide from storefront' : 'Click to make live on storefront'}
+                        >
+                          <span
+                            className={`h-2 w-2 rounded-full ${
+                              product.isActive !== false ? 'bg-emerald-500' : 'bg-slate-400'
+                            }`}
+                          />
+                          <span>{product.isActive !== false ? 'Live' : 'Hidden'}</span>
+                        </button>
+                      </td>
+
                       {/* Same Day */}
                       <td className="py-3.5 px-4">
                         {product.isSameDayAvailable ? (
@@ -575,6 +658,14 @@ export function ProductManager({
                           >
                             <ArrowSquareOut weight="bold" className="h-4 w-4" />
                           </Link>
+
+                          <button
+                            onClick={() => handleDuplicateProduct(product)}
+                            className="p-1.5 rounded-lg text-indigo-600 hover:bg-indigo-50 transition-colors cursor-pointer"
+                            title="Duplicate / Copy Product"
+                          >
+                            <Copy weight="bold" className="h-4 w-4" />
+                          </button>
 
                           <button
                             onClick={() => handleOpenEdit(product)}

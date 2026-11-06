@@ -154,7 +154,26 @@ export function ProductDetailClient({
   const [selectedSpeed, setSelectedSpeed] = useState<'sameDay' | 'nextDay' | 'standard'>('standard');
   const [customQuantityInput, setCustomQuantityInput] = useState<string>('');
   const [showAllQuantities, setShowAllQuantities] = useState(false);
+  const [showIncVat, setShowIncVat] = useState<boolean>(false);
   const tableScrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('printtoday_show_vat');
+      if (saved === 'true') {
+        setShowIncVat(true);
+      }
+    }
+  }, []);
+
+  const handleToggleVat = (val: boolean) => {
+    setShowIncVat(val);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('printtoday_show_vat', String(val));
+    }
+  };
+
+  const vatMultiplier = showIncVat ? 1.2 : 1.0;
 
   // Directly capture mouse wheel on price matrix to scroll rows smoothly instead of window
   useEffect(() => {
@@ -450,9 +469,11 @@ export function ProductDetailClient({
   const handleConfirmOrder = () => {
     const finalQty = selectedQuantity;
     const finalSpeedTitle = speedLabels[selectedSpeed].title;
-    const context = `${product.title} - ${finalQty.toLocaleString()} units (${finalSpeedTitle}, £${currentSelectedPrice.toFixed(
-      2
-    )}${physicalNumberOfSets > 1 ? `, ${physicalNumberOfSets} sets` : ''})`;
+    const exVatStr = `£${currentSelectedPrice.toFixed(2)} ex. VAT`;
+    const incVatStr = `£${(currentSelectedPrice * 1.20).toFixed(2)} inc. VAT`;
+    const context = `${product.title} - ${finalQty.toLocaleString()} units (${finalSpeedTitle}, ${exVatStr} / ${incVatStr}${
+      physicalNumberOfSets > 1 ? `, ${physicalNumberOfSets} sets` : ''
+    })`;
 
     const cleanedActiveOptions: Record<string, string> = {};
     for (const [k, v] of Object.entries(activeOptions)) {
@@ -478,7 +499,9 @@ export function ProductDetailClient({
 
     if (!isCustom) {
       msg += `⚡ *Delivery Speed:* ${speed.title} (Due ${speed.dueDate})\n`;
-      msg += `💰 *Estimated Price:* £${currentSelectedPrice.toFixed(2)}\n`;
+      msg += `💰 *Estimated Price:* £${currentSelectedPrice.toFixed(2)} ex. VAT (£${(
+        currentSelectedPrice * 1.20
+      ).toFixed(2)} inc. VAT)\n`;
     }
 
     msg += `\n📋 *Specifications:*\n`;
@@ -1129,8 +1152,8 @@ export function ProductDetailClient({
 
             {/* ================= THE DYNAMIC PRICE MATRIX TABLE (1:1 Clone of Image 1) ================= */}
             <div className="pt-2">
-              {/* Header info bar above table showing current selection */}
-              <div className="flex items-center justify-between mb-2">
+              {/* Header info bar above table showing current selection & VAT Toggle */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 mb-2.5">
                 <div className="text-xs font-bold text-slate-800 flex items-center gap-2">
                   <span>Price Chart & Delivery Schedule:</span>
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#102a43] text-white text-[11px] font-black shadow-xs">
@@ -1140,8 +1163,34 @@ export function ProductDetailClient({
                     </span>
                   </span>
                 </div>
-                <div className="text-[11px] text-slate-500 hidden sm:block">
-                  Click any price or quantity to select
+
+                {/* VAT Toggle Switch (Ex VAT vs Inc VAT 20%) */}
+                <div className="flex items-center gap-2 self-start sm:self-auto">
+                  <span className="text-[11px] font-bold text-slate-500">VAT:</span>
+                  <div className="inline-flex items-center p-0.5 rounded-lg bg-slate-100 border border-slate-200">
+                    <button
+                      type="button"
+                      onClick={() => handleToggleVat(false)}
+                      className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition-all cursor-pointer ${
+                        !showIncVat
+                          ? 'bg-[#102a43] text-white shadow-xs'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      Ex VAT
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleVat(true)}
+                      className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition-all cursor-pointer ${
+                        showIncVat
+                          ? 'bg-[#102a43] text-white shadow-xs'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      Inc VAT (20%)
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -1152,8 +1201,11 @@ export function ProductDetailClient({
                 {/* 1. TABLE HEADER */}
                 <div className="grid grid-cols-4 bg-white border-b border-slate-300 text-center select-none">
                   {/* Left Column Header: Quantity */}
-                  <div className="p-3 sm:p-4 flex items-center justify-center font-bold text-xs sm:text-sm text-slate-900 border-r border-slate-300">
-                    Quantity:
+                  <div className="p-3 sm:p-4 flex flex-col items-center justify-center font-bold text-xs sm:text-sm text-slate-900 border-r border-slate-300">
+                    <span>Quantity:</span>
+                    <span className="text-[10px] font-normal text-slate-500 mt-0.5">
+                      ({showIncVat ? 'inc. 20% VAT' : 'ex. VAT'})
+                    </span>
                   </div>
 
                   {/* Column 1: Same Day Express */}
@@ -1250,7 +1302,7 @@ export function ProductDetailClient({
                           >
                             <div className="flex items-baseline gap-1">
                               <span className="text-xs sm:text-sm">
-                                £{row.sameDay.price.toFixed(2)}
+                                £{(row.sameDay.price * vatMultiplier).toFixed(2)}
                               </span>
                               {row.sameDay.rrpPrice && (
                                 <span
@@ -1258,7 +1310,7 @@ export function ProductDetailClient({
                                     isSameDayActive ? 'text-slate-300' : 'text-slate-400'
                                   }`}
                                 >
-                                  £{row.sameDay.rrpPrice.toFixed(2)}
+                                  £{(row.sameDay.rrpPrice * vatMultiplier).toFixed(2)}
                                 </span>
                               )}
                             </div>
@@ -1302,7 +1354,7 @@ export function ProductDetailClient({
                           >
                             <div className="flex items-baseline gap-1">
                               <span className="text-xs sm:text-sm">
-                                £{row.nextDay.price.toFixed(2)}
+                                £{(row.nextDay.price * vatMultiplier).toFixed(2)}
                               </span>
                               {row.nextDay.rrpPrice && (
                                 <span
@@ -1310,7 +1362,7 @@ export function ProductDetailClient({
                                     isNextDayActive ? 'text-slate-300' : 'text-slate-400'
                                   }`}
                                 >
-                                  £{row.nextDay.rrpPrice.toFixed(2)}
+                                  £{(row.nextDay.rrpPrice * vatMultiplier).toFixed(2)}
                                 </span>
                               )}
                             </div>
@@ -1353,7 +1405,7 @@ export function ProductDetailClient({
                         >
                           <div className="flex items-baseline gap-1">
                             <span className="text-xs sm:text-sm">
-                              £{row.standard.price.toFixed(2)}
+                              £{(row.standard.price * vatMultiplier).toFixed(2)}
                             </span>
                             {row.standard.rrpPrice && (
                               <span
@@ -1361,7 +1413,7 @@ export function ProductDetailClient({
                                   isStandardActive ? 'text-slate-300' : 'text-slate-400'
                                 }`}
                               >
-                                £{row.standard.rrpPrice.toFixed(2)}
+                                £{(row.standard.rrpPrice * vatMultiplier).toFixed(2)}
                               </span>
                             )}
                           </div>
@@ -1477,16 +1529,26 @@ export function ProductDetailClient({
                 </div>
 
                 <div className="sm:text-right shrink-0">
-                  <div className="text-2xl font-black text-[#102a43]">
-                    £{currentSelectedPrice.toFixed(2)}
+                  <div className="flex items-baseline gap-1.5 sm:justify-end">
+                    <div className="text-2xl font-black text-[#102a43]">
+                      £{(currentSelectedPrice * vatMultiplier).toFixed(2)}
+                    </div>
+                    <span className="text-[11px] font-bold text-slate-500 uppercase">
+                      {showIncVat ? 'inc. VAT' : 'ex. VAT'}
+                    </span>
                   </div>
-                  <div className="text-[10px] text-slate-500 font-semibold">
+                  <div className="text-[10px] text-slate-500 font-semibold mt-0.5">
                     £
                     {(
-                      currentSelectedPrice /
+                      (currentSelectedPrice * vatMultiplier) /
                       (selectedQuantity * physicalNumberOfSets)
                     ).toFixed(2)}{' '}
-                    each
+                    each {showIncVat ? 'inc. VAT' : 'ex. VAT'}
+                    <span className="block text-[10px] text-slate-400">
+                      {showIncVat
+                        ? `(£${currentSelectedPrice.toFixed(2)} ex. VAT)`
+                        : `(£${(currentSelectedPrice * 1.20).toFixed(2)} inc. VAT)`}
+                    </span>
                   </div>
                 </div>
               </div>

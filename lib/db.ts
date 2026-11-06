@@ -183,10 +183,12 @@ export function invalidateProductsCache() {
   memoryProducts = null;
 }
 
-export async function getProducts(category?: string): Promise<Product[]> {
+export async function getProducts(category?: string, includeInactive: boolean = false): Promise<Product[]> {
   const now = Date.now();
   if (!category && memoryProducts && now - memoryProducts.timestamp < MEMORY_CACHE_TTL_MS) {
-    return memoryProducts.data;
+    return includeInactive
+      ? memoryProducts.data
+      : memoryProducts.data.filter((p) => p.isActive !== false);
   }
 
   if (isConfigured && db) {
@@ -214,17 +216,20 @@ export async function getProducts(category?: string): Promise<Product[]> {
         memoryProducts = { data: products, timestamp: now };
         saveLocalProducts(products);
       }
-      return products;
+      return includeInactive
+        ? products
+        : products.filter((p) => p.isActive !== false);
     } catch (error) {
       console.warn('Firestore fetch products failed, using local fallback:', error);
     }
   }
 
   const local = getLocalProducts();
+  const source = includeInactive ? local : local.filter((p) => p.isActive !== false);
   if (category) {
-    return local.filter((p) => p.category.toLowerCase() === category.toLowerCase());
+    return source.filter((p) => p.category.toLowerCase() === category.toLowerCase());
   }
-  return local;
+  return source;
 }
 
 export async function getProductById(idOrSlug: string): Promise<Product | null> {

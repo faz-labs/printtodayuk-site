@@ -38,6 +38,7 @@ export interface Product {
   variantQuantityTiers?: Record<string, QuantityTier[]>; // Variant-specific quantity tiers (e.g. key is "2000 x 1500mm")
   features?: string[];
   customFields?: CustomField[];
+  isActive?: boolean; // Controls whether product is published / visible on storefront
   createdAt: number;
   updatedAt: number;
 }
