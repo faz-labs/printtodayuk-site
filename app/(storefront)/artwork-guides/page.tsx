@@ -36,3 +36,4 @@ export default async function ArtworkGuidesPage() {
 
   return <ArtworkGuidesClient initialGuides={guides} />;
 }
+
