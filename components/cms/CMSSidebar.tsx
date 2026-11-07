@@ -16,6 +16,7 @@ import {
   Layout,
   House,
   Star,
+  BookOpen,
 } from '@phosphor-icons/react';
 
 export type CMSTab =
@@ -24,6 +25,7 @@ export type CMSTab =
   | 'products'
   | 'sections'
   | 'banners'
+  | 'artwork-guides'
   | 'inquiries'
   | 'reviews';
 
@@ -35,6 +37,7 @@ interface CMSSidebarProps {
   sectionsCount?: number;
   pendingInquiriesCount?: number;
   reviewsCount?: number;
+  artworkGuidesCount?: number;
   isOpenMobile?: boolean;
   onCloseMobile?: () => void;
 }
@@ -47,6 +50,7 @@ export function CMSSidebar({
   sectionsCount = 0,
   pendingInquiriesCount = 0,
   reviewsCount = 0,
+  artworkGuidesCount = 0,
   isOpenMobile = false,
   onCloseMobile,
 }: CMSSidebarProps) {
@@ -82,6 +86,13 @@ export function CMSSidebar({
       label: 'Hero Banners',
       icon: Images,
       badge: null,
+    },
+    {
+      id: 'artwork-guides' as const,
+      label: 'Artwork Guides',
+      icon: BookOpen,
+      badge: artworkGuidesCount > 0 ? artworkGuidesCount : null,
+      badgeColor: 'bg-[#012169] text-white',
     },
     {
       id: 'inquiries' as const,

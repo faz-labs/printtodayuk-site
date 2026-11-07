@@ -1263,6 +1263,9 @@ export function ProductForm({
                 onChange={(e) => setCategory(e.target.value)}
                 className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-900 focus:outline-hidden focus:border-[#012169]"
               >
+                {category && !categories.some((c) => c.name.toLowerCase() === category.toLowerCase()) && (
+                  <option value={category}>{category}</option>
+                )}
                 {categories.map((cat) => (
                   <option key={cat.name} value={cat.name}>
                     {cat.name}

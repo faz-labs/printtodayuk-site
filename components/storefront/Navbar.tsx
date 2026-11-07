@@ -29,6 +29,9 @@ import {
   UserCircle,
   ShoppingBag,
   Bell,
+  PaintBrush,
+  BookOpen,
+  Ruler,
 } from '@phosphor-icons/react';
 import { cn, formatCurrency } from '@/lib/utils';
 import { useCallMe } from './CallMeContext';
@@ -66,9 +69,11 @@ export function Navbar({ initialCategories = [], initialProducts = [] }: NavbarP
   const [searchQuery, setSearchQuery] = useState('');
   const [searchFocused, setSearchFocused] = useState(false);
   const [whatsNewOpen, setWhatsNewOpen] = useState(false);
+  const [artworkHubOpen, setArtworkHubOpen] = useState(false);
 
   const searchContainerRef = useRef<HTMLDivElement | null>(null);
   const whatsNewRef = useRef<HTMLDivElement | null>(null);
+  const artworkHubRef = useRef<HTMLDivElement | null>(null);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const headerRef = useRef<HTMLElement | null>(null);
 
@@ -95,7 +100,7 @@ export function Navbar({ initialCategories = [], initialProducts = [] }: NavbarP
     }
   };
 
-  // Close search dropdown and What's New dropdown on click outside or Escape
+  // Close search dropdown, What's New dropdown, and Artwork Hub on click outside or Escape
   useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {
       if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
@@ -104,11 +109,15 @@ export function Navbar({ initialCategories = [], initialProducts = [] }: NavbarP
       if (whatsNewRef.current && !whatsNewRef.current.contains(e.target as Node)) {
         setWhatsNewOpen(false);
       }
+      if (artworkHubRef.current && !artworkHubRef.current.contains(e.target as Node)) {
+        setArtworkHubOpen(false);
+      }
     };
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setSearchFocused(false);
         setWhatsNewOpen(false);
+        setArtworkHubOpen(false);
       }
     };
     document.addEventListener('mousedown', handleOutsideClick);
@@ -304,7 +313,7 @@ export function Navbar({ initialCategories = [], initialProducts = [] }: NavbarP
             </Link>
 
             {/* 2. Center: Search Box with Search Icon inside border */}
-            <div ref={searchContainerRef} className="hidden sm:flex flex-1 max-w-xl mx-2 md:mx-6 relative">
+            <div ref={searchContainerRef} className="hidden sm:flex flex-1 max-w-xs md:max-w-sm lg:max-w-md mx-2 md:mx-4 relative">
               <form onSubmit={handleSearch} className="w-full relative flex items-center">
                 <div className="relative w-full flex items-center">
                   <input
@@ -440,8 +449,75 @@ export function Navbar({ initialCategories = [], initialProducts = [] }: NavbarP
               </AnimatePresence>
             </div>
 
-            {/* 3. Right: What's New? + Sign In + Basket (0) */}
-            <div className="flex items-center gap-4 sm:gap-6 shrink-0">
+            {/* 3. Right: Artwork Hub + What's New? + Sign In + Basket (0) */}
+            <div className="flex items-center gap-3 sm:gap-5 shrink-0">
+              {/* Artwork Hub Hover Dropdown */}
+              <div
+                className="relative hidden md:block"
+                ref={artworkHubRef}
+                onMouseEnter={() => setArtworkHubOpen(true)}
+                onMouseLeave={() => setArtworkHubOpen(false)}
+              >
+                <button
+                  type="button"
+                  onClick={() => setArtworkHubOpen(!artworkHubOpen)}
+                  className="flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-800 hover:text-[#012169] transition-colors cursor-pointer py-2"
+                >
+                  <PaintBrush weight="bold" className="h-4 w-4 text-[#012169]" />
+                  <span>Artwork Hub</span>
+                  <CaretDown
+                    weight="bold"
+                    className={cn(
+                      'h-3 w-3 text-slate-400 transition-transform duration-200',
+                      artworkHubOpen ? 'rotate-180 text-[#012169]' : ''
+                    )}
+                  />
+                </button>
+
+                <AnimatePresence>
+                  {artworkHubOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 6 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute right-0 top-full mt-1 w-56 bg-white rounded-2xl shadow-xl border border-slate-200/90 py-1.5 z-50 overflow-hidden font-sans"
+                    >
+                      <Link
+                        href="/artwork-guides"
+                        onClick={() => setArtworkHubOpen(false)}
+                        className="flex items-start gap-3 px-4 py-2.5 hover:bg-slate-50 text-slate-700 hover:text-[#012169] transition-colors group"
+                      >
+                        <BookOpen weight="bold" className="h-4 w-4 text-[#012169] mt-0.5 shrink-0" />
+                        <div>
+                          <div className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-[#012169]">
+                            Artwork Guides
+                          </div>
+                          <div className="text-[11px] text-slate-400 leading-tight">
+                            Bleed, resolution & print specs
+                          </div>
+                        </div>
+                      </Link>
+                      <Link
+                        href="/product-templates"
+                        onClick={() => setArtworkHubOpen(false)}
+                        className="flex items-start gap-3 px-4 py-2.5 hover:bg-slate-50 text-slate-700 hover:text-[#012169] transition-colors group border-t border-slate-100"
+                      >
+                        <Ruler weight="bold" className="h-4 w-4 text-[#012169] mt-0.5 shrink-0" />
+                        <div>
+                          <div className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-[#012169]">
+                            Product Templates
+                          </div>
+                          <div className="text-[11px] text-slate-400 leading-tight">
+                            Downloadable PDF & AI dielines
+                          </div>
+                        </div>
+                      </Link>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
               {/* What's New? Dropdown (Signage & Build Website) */}
               <div
                 className="relative hidden md:block"
@@ -704,6 +780,26 @@ export function Navbar({ initialCategories = [], initialProducts = [] }: NavbarP
                       </div>
                     </motion.div>
                   )}
+                </div>
+
+                {/* Artwork Hub in Mobile Drawer */}
+                <div className="grid grid-cols-2 gap-2 pb-2">
+                  <Link
+                    href="/artwork-guides"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center justify-center gap-1.5 px-3 py-2 bg-blue-50/80 hover:bg-blue-100 rounded-xl text-xs font-bold text-[#012169] transition-colors"
+                  >
+                    <BookOpen weight="bold" className="h-3.5 w-3.5" />
+                    <span>Artwork Guides</span>
+                  </Link>
+                  <Link
+                    href="/product-templates"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center justify-center gap-1.5 px-3 py-2 bg-blue-50/80 hover:bg-blue-100 rounded-xl text-xs font-bold text-[#012169] transition-colors"
+                  >
+                    <Ruler weight="bold" className="h-3.5 w-3.5" />
+                    <span>Templates</span>
+                  </Link>
                 </div>
 
                 {/* Direct What's New links in Mobile Drawer */}

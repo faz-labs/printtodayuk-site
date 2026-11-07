@@ -22,11 +22,14 @@ import {
   DynamicSectionInput,
   ReviewItem,
   ReviewInput,
+  ArtworkGuide,
+  ArtworkGuideInput,
 } from './types';
 import {
   INITIAL_CATEGORIES,
   SEED_PRODUCTS,
   DEFAULT_HERO_SLIDES,
+  DEFAULT_ARTWORK_GUIDES,
   DUMMY_CATEGORY_NAMES,
   DUMMY_PRODUCT_IDS,
 } from './data';
@@ -1359,6 +1362,166 @@ export async function deleteReview(id: string): Promise<boolean> {
 
   const local = getLocalReviews().filter((r) => r.id !== id && (r as any).innerId !== id);
   saveLocalReviews(local);
+  return true;
+}
+
+// ====================================================
+// ARTWORK GUIDES CRUD (STOREFRONT & CMS)
+// ====================================================
+
+let serverInMemoryGuides: ArtworkGuide[] | null = null;
+
+export function getLocalArtworkGuides(): ArtworkGuide[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const data = localStorage.getItem('print_today_artwork_guides');
+    if (data) {
+      const parsed = JSON.parse(data);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch {}
+  return [];
+}
+
+export function saveLocalArtworkGuides(guides: ArtworkGuide[]) {
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem('print_today_artwork_guides', JSON.stringify(guides));
+      window.dispatchEvent(new CustomEvent('print_today_artwork_guides_updated', { detail: guides }));
+    } catch {}
+  }
+}
+
+export async function getArtworkGuides(includeUnpublished: boolean = false): Promise<ArtworkGuide[]> {
+  let guides: ArtworkGuide[] = [];
+
+  if (isConfigured && db) {
+    try {
+      const colRef = collection(db, 'artwork_guides');
+      const snap = await getDocs(colRef);
+      if (!snap.empty) {
+        snap.forEach((d) => {
+          const item = { id: d.id, ...d.data() } as ArtworkGuide;
+          guides.push(item);
+        });
+      }
+    } catch (err) {
+      console.warn('Firestore getArtworkGuides warning:', err);
+    }
+  }
+
+  // Fallback to local storage or defaults
+  if (guides.length === 0) {
+    const local = getLocalArtworkGuides();
+    if (local.length > 0) {
+      guides = local;
+    } else {
+      guides = [...DEFAULT_ARTWORK_GUIDES];
+      saveLocalArtworkGuides(guides);
+    }
+  } else {
+    saveLocalArtworkGuides(guides);
+  }
+
+  serverInMemoryGuides = guides;
+
+  // Filter unpublished if not in CMS
+  if (!includeUnpublished) {
+    guides = guides.filter((g) => g.isPublished !== false);
+  }
+
+  // Sort by order ascending, then by createdAt descending
+  guides.sort((a, b) => (a.order || 99) - (b.order || 99) || (b.createdAt || 0) - (a.createdAt || 0));
+  return guides;
+}
+
+export async function getArtworkGuideBySlug(slug: string): Promise<ArtworkGuide | null> {
+  const allGuides = await getArtworkGuides(true);
+  const cleanSlug = slug.toLowerCase().trim();
+  const found = allGuides.find((g) => g.slug.toLowerCase().trim() === cleanSlug || g.id === cleanSlug);
+  return found || null;
+}
+
+export async function createArtworkGuide(input: ArtworkGuideInput): Promise<ArtworkGuide> {
+  const newGuide: ArtworkGuide = {
+    id: `guide-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    ...input,
+    slug: slugify(input.slug || input.title),
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    isPublished: input.isPublished !== false,
+  };
+
+  const cleanData = cleanFirestoreData(newGuide);
+
+  if (isConfigured && db) {
+    try {
+      const docRef = doc(db, 'artwork_guides', newGuide.id);
+      await setDoc(docRef, cleanData);
+    } catch (err) {
+      console.warn('Firestore createArtworkGuide warning:', err);
+    }
+  }
+
+  const local = [newGuide, ...getLocalArtworkGuides().filter((g) => g.id !== newGuide.id)];
+  saveLocalArtworkGuides(local);
+  if (serverInMemoryGuides) {
+    serverInMemoryGuides = [newGuide, ...serverInMemoryGuides.filter((g) => g.id !== newGuide.id)];
+  }
+
+  return newGuide;
+}
+
+export async function updateArtworkGuide(
+  id: string,
+  updates: Partial<ArtworkGuide>
+): Promise<ArtworkGuide | null> {
+  const current = (await getArtworkGuides(true)).find((g) => g.id === id);
+  if (!current) return null;
+
+  const updated: ArtworkGuide = {
+    ...current,
+    ...updates,
+    slug: updates.slug ? slugify(updates.slug) : updates.title ? slugify(updates.title) : current.slug,
+    updatedAt: Date.now(),
+  };
+
+  const cleanData = cleanFirestoreData(updated);
+
+  if (isConfigured && db) {
+    try {
+      const docRef = doc(db, 'artwork_guides', id);
+      await setDoc(docRef, cleanData, { merge: true });
+    } catch (err) {
+      console.warn('Firestore updateArtworkGuide warning:', err);
+    }
+  }
+
+  const local = getLocalArtworkGuides().map((g) => (g.id === id ? updated : g));
+  saveLocalArtworkGuides(local);
+  if (serverInMemoryGuides) {
+    serverInMemoryGuides = serverInMemoryGuides.map((g) => (g.id === id ? updated : g));
+  }
+
+  return updated;
+}
+
+export async function deleteArtworkGuide(id: string): Promise<boolean> {
+  if (isConfigured && db) {
+    try {
+      const docRef = doc(db, 'artwork_guides', id);
+      await deleteDoc(docRef);
+    } catch (err) {
+      console.warn('Firestore deleteArtworkGuide warning:', err);
+    }
+  }
+
+  const local = getLocalArtworkGuides().filter((g) => g.id !== id);
+  saveLocalArtworkGuides(local);
+  if (serverInMemoryGuides) {
+    serverInMemoryGuides = serverInMemoryGuides.filter((g) => g.id !== id);
+  }
+
   return true;
 }
 

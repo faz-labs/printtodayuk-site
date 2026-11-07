@@ -136,14 +136,29 @@ function resolveAttributeSelections(
   return { selections, matchedVariantName, matchedTokens };
 }
 
+function parseSolopressPrice(val: any): number | null {
+  if (val === null || val === undefined || val === '-' || val === '') return null;
+  const num = typeof val === 'number' ? val : parseFloat(String(val).replace(/[^0-9.]/g, ''));
+  return !isNaN(num) && num > 0 ? num : null;
+}
+
 function scrapeSolopress(url: string) {
   try {
-    const safeUrl = url.replace(/"/g, '').trim();
-    const stdout = execSync(
-      `curl.exe -s -L -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36" "${safeUrl}"`,
-      { maxBuffer: 15 * 1024 * 1024 }
-    );
-    let html = stdout.toString('utf-8');
+    let safeUrl = url.replace(/"/g, '').trim();
+    if (!safeUrl.startsWith('http')) safeUrl = 'https://' + safeUrl;
+
+    const curl = (u: string) => {
+      try {
+        return execSync(
+          `curl.exe -s -L -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36" "${u}"`,
+          { maxBuffer: 15 * 1024 * 1024 }
+        ).toString('utf-8');
+      } catch (err) {
+        return '';
+      }
+    };
+
+    let html = curl(safeUrl);
 
     // Helper to extract __PRODUCT_DATA__ from Vue registration
     function extractProductData(pageHtml: string) {
@@ -175,17 +190,26 @@ function scrapeSolopress(url: string) {
 
     let pd = extractProductData(html);
 
-    // If this is a category/overview page with no product data, find child product links
+    // If this is a category/overview page or returned 404, find candidate child products
     if (!pd) {
       const urlObj = new URL(safeUrl);
-      const basePath = urlObj.pathname.replace(/\/+$/, '');
+      const parts = urlObj.pathname.split('/').filter(Boolean);
+      let parentUrl = safeUrl;
+      let targetSlug = parts[parts.length - 1] || '';
+
+      if (parts.length >= 2) {
+        parentUrl = `https://www.solopress.com/${parts[0]}/`;
+      }
+
+      const parentHtml = parentUrl === safeUrl ? html : curl(parentUrl);
+      const basePath = new URL(parentUrl).pathname.replace(/\/+$/, '');
       const escapedBase = basePath.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
       const childLinkRegex = new RegExp(
         `href=["'](https:\\/\\/www\\.solopress\\.com${escapedBase}\\/[a-z0-9\\-]+(?:\\/|))["']`,
         'gi'
       );
-      const childMatches = Array.from(html.matchAll(childLinkRegex));
-      const childUrls = Array.from(new Set(childMatches.map((m) => m[1]))).filter(
+      const childMatches = Array.from(parentHtml.matchAll(childLinkRegex));
+      let childUrls = Array.from(new Set(childMatches.map((m) => m[1]))).filter(
         (u) =>
           !u.endsWith(basePath + '/') &&
           !u.endsWith('/artwork-guide/') &&
@@ -193,15 +217,41 @@ function scrapeSolopress(url: string) {
           !u.endsWith('/support-guides/')
       );
 
-      if (childUrls.length > 0) {
-        const targetChildUrl = childUrls[0];
-        const childStdout = execSync(
-          `curl.exe -s -L -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36" "${targetChildUrl}"`,
-          { maxBuffer: 15 * 1024 * 1024 }
-        );
-        html = childStdout.toString('utf-8');
-        pd = extractProductData(html);
+      // Score candidates against target slug tokens
+      const tokens = targetSlug.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+      childUrls.sort((a, b) => {
+        const score = (u: string) => {
+          let s = 0;
+          const p = u.toLowerCase();
+          for (const t of tokens) {
+            if (t.length >= 2 && p.includes(t)) {
+              s += /^\d+$/.test(t) || /^a\d$/.test(t) ? 10 : 2;
+            }
+          }
+          return s;
+        };
+        return score(b) - score(a);
+      });
+
+      // Try top candidate child products
+      for (const cu of childUrls.slice(0, 5)) {
+        const cHtml = curl(cu);
+        const cPd = extractProductData(cHtml);
+        if (cPd && cPd.quantityPriceMap?.quantities?.length > 0) {
+          const hasValidPrice = cPd.quantityPriceMap.quantities.some((q: any) =>
+            (q.turnarounds || []).some((t: any) => parseSolopressPrice(t?.price?.ex) !== null)
+          );
+          if (hasValidPrice) {
+            html = cHtml;
+            pd = cPd;
+            break;
+          }
+        }
       }
+    }
+
+    if (!pd) {
+      throw new Error('Unable to extract product data from the provided Solopress URL.');
     }
 
     // Extract meta title & description fallbacks
@@ -243,53 +293,60 @@ function scrapeSolopress(url: string) {
 
     if (pd?.quantityPriceMap?.quantities && pd.quantityPriceMap.quantities.length > 0) {
       const qList = pd.quantityPriceMap.quantities;
-      const firstTurnarounds = qList[0].turnarounds || [];
-      const stdTurnaround = firstTurnarounds[firstTurnarounds.length - 1];
-      const fastTurnaround = firstTurnarounds[0];
 
-      const stdPrice = stdTurnaround?.price?.ex ?? stdTurnaround?.price?.inc ?? 0;
-      const fastPrice = fastTurnaround?.price?.ex ?? fastTurnaround?.price?.inc ?? 0;
+      // Extract all valid quantity tiers with non-null numbers
+      const rawValidTiers: { qty: number; stdPrice: number; fastPrice: number }[] = [];
+      for (const qItem of qList) {
+        const qty = Number(qItem.quantity);
+        if (!qty || isNaN(qty) || qty <= 0) continue;
 
-      if (stdPrice > 0) {
-        basePrice = Number(stdPrice.toFixed(2));
-        if (fastPrice > stdPrice) {
-          nextDayIncreasePercent = Number((((fastPrice - stdPrice) / stdPrice) * 100).toFixed(1));
-          sameDayIncreasePercent = Number((nextDayIncreasePercent * 1.5).toFixed(1));
+        const tList = qItem.turnarounds || [];
+        const validTurnaroundPrices: number[] = [];
+        for (const t of tList) {
+          const p =
+            parseSolopressPrice(t?.price?.ex) ??
+            parseSolopressPrice(t?.price?.inc) ??
+            parseSolopressPrice(t?.basePrice?.ex);
+          if (p !== null) validTurnaroundPrices.push(p);
+        }
+
+        if (validTurnaroundPrices.length > 0) {
+          const std = validTurnaroundPrices[validTurnaroundPrices.length - 1];
+          const fast = validTurnaroundPrices[0];
+          rawValidTiers.push({ qty, stdPrice: std, fastPrice: fast });
         }
       }
 
-      qList.forEach((qItem: any, idx: number) => {
-        const qty = Number(qItem.quantity);
-        if (!qty || isNaN(qty) || qty <= 0) return;
-
-        const tList = qItem.turnarounds || [];
-        const std = tList[tList.length - 1] || tList[0];
-        const tierPrice =
-          std?.price?.ex !== undefined
-            ? Number(std.price.ex)
-            : std?.price?.inc !== undefined
-            ? Number(std.price.inc)
-            : 0;
-
-        if (idx === 0) {
-          quantityTiers.push({
-            quantity: qty,
-            price: Number(tierPrice.toFixed(2)),
-          });
-        } else {
-          const pct = basePrice > 0 ? Number((((tierPrice - basePrice) / basePrice) * 100).toFixed(1)) : 0;
-          quantityTiers.push({
-            quantity: qty,
-            price: Number(tierPrice.toFixed(2)),
-            percentIncrease: pct,
-          });
+      if (rawValidTiers.length > 0) {
+        basePrice = rawValidTiers[0].stdPrice;
+        if (rawValidTiers[0].fastPrice > rawValidTiers[0].stdPrice) {
+          nextDayIncreasePercent = Number(
+            (((rawValidTiers[0].fastPrice - basePrice) / basePrice) * 100).toFixed(1)
+          );
+          sameDayIncreasePercent = Number((nextDayIncreasePercent * 1.5).toFixed(1));
         }
-      });
+
+        rawValidTiers.forEach((tier, idx) => {
+          if (idx === 0) {
+            quantityTiers.push({
+              quantity: tier.qty,
+              price: Number(tier.stdPrice.toFixed(2)),
+            });
+          } else {
+            const pct = basePrice > 0 ? Number((((tier.stdPrice - basePrice) / basePrice) * 100).toFixed(1)) : 0;
+            quantityTiers.push({
+              quantity: tier.qty,
+              price: Number(tier.stdPrice.toFixed(2)),
+              percentIncrease: pct,
+            });
+          }
+        });
+      }
     }
 
-    // Fallback if quantityPriceMap is missing
+    // Fallback if quantityPriceMap is missing or had no valid tiers
     if (quantityTiers.length === 0) {
-      basePrice = pd?.totalPrice?.ex || pd?.totalPrice?.inc || 24.0;
+      basePrice = parseSolopressPrice(pd?.totalPrice?.ex) || parseSolopressPrice(pd?.totalPrice?.inc) || 24.0;
       const isBanner = url.toLowerCase().includes('banner');
       const defaultTiers = isBanner
         ? [

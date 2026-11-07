@@ -130,3 +130,20 @@ export interface ReviewItem {
 }
 
 export type ReviewInput = Omit<ReviewItem, 'id' | 'createdAt' | 'updatedAt'>;
+
+export interface ArtworkGuide {
+  id: string;
+  title: string;
+  slug: string;
+  shortDescription: string;
+  imageUrl: string;
+  content: string; // Rich format HTML with headers, bold, italic, bullet points, numbering
+  category?: string;
+  isPublished?: boolean;
+  order?: number;
+  readingTime?: string;
+  createdAt?: number;
+  updatedAt?: number;
+}
+
+export type ArtworkGuideInput = Omit<ArtworkGuide, 'id' | 'createdAt' | 'updatedAt'>;
