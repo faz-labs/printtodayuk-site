@@ -3,7 +3,7 @@
  * Supports formula-based matrix generation, speed multipliers, option modifiers,
  * working-day due date calculation, and item/total weight estimations.
  */
-import { QuantityTier } from '@/lib/types';
+import { QuantityTier, CustomField } from '@/lib/types';
 export interface DeliverySpeedOption {
   id: 'same_day' | 'next_day' | 'standard';
   title: string;
@@ -543,7 +543,8 @@ function matchVariantPart(part: string, optionValue: string): boolean {
 export function resolveActiveVariantTiers(
   selectedOptions: Record<string, string>,
   variantQuantityTiers?: Record<string, QuantityTier[]>,
-  defaultTiers?: QuantityTier[]
+  defaultTiers?: QuantityTier[],
+  customFields?: CustomField[]
 ): QuantityTier[] | undefined {
   if (!variantQuantityTiers || Object.keys(variantQuantityTiers).length === 0) {
     return defaultTiers;
@@ -565,6 +566,23 @@ export function resolveActiveVariantTiers(
     }
   }
 
+  // Pre-build field conflicts map if customFields is available
+  // Maps each option name to its mutually exclusive sibling options in the same field
+  const conflictingSiblings = new Map<string, string[]>();
+  if (customFields && Array.isArray(customFields)) {
+    for (const cf of customFields) {
+      if (Array.isArray(cf.options) && cf.options.length > 1) {
+        for (const opt of cf.options) {
+          const cleanOpt = cleanOptionDisplayName(opt).trim().toLowerCase();
+          const others = cf.options
+            .filter((o) => o !== opt)
+            .map((o) => cleanOptionDisplayName(o).trim().toLowerCase());
+          conflictingSiblings.set(cleanOpt, others);
+        }
+      }
+    }
+  }
+
   let bestMatchedTiers = defaultTiers;
   let highestScore = 0;
 
@@ -577,6 +595,31 @@ export function resolveActiveVariantTiers(
       .split(/\s+-\s+|\s*\|\s*/)
       .map((k) => k.trim())
       .filter(Boolean);
+
+    // Conflict Check:
+    // Does keyParts contain a sibling option from the same field as any user selection?
+    // If so, this key explicitly belongs to a different variant option and must NOT match.
+    let hasConflict = false;
+    for (const userVal of rawValues) {
+      const cleanU = cleanOptionDisplayName(userVal).trim().toLowerCase();
+      const siblings = conflictingSiblings.get(cleanU);
+      if (siblings && siblings.length > 0) {
+        for (const sibling of siblings) {
+          if (keyParts.some((p) => matchVariantPart(p, sibling))) {
+            // Verify it does not also match userVal itself
+            if (!keyParts.some((p) => matchVariantPart(p, userVal))) {
+              hasConflict = true;
+              break;
+            }
+          }
+        }
+      }
+      if (hasConflict) break;
+    }
+
+    if (hasConflict) {
+      continue;
+    }
 
     // Direction A: All key parts match user selections (e.g. key has fewer parts than dropdowns)
     let allKeyPartsMatch = true;
@@ -606,17 +649,16 @@ export function resolveActiveVariantTiers(
     } else if (allUserSelectionsMatch) {
       // User choices are a subset of key (e.g. key has extra trailing supplier info)
       score = 200 + rawValues.length;
-    } else {
-      // Check if this variant key directly matches the primary option (e.g. Size or first dropdown)
-      // and does NOT conflict with any user selection
-      const primaryOption = rawValues[0];
-      const primaryPartMatched = keyParts.some((p) => matchVariantPart(p, primaryOption));
-      if (primaryPartMatched) {
-        let count = 0;
-        for (const p of keyParts) {
-          if (rawValues.some((optVal) => matchVariantPart(p, optVal))) count++;
+    } else if (customFields && customFields.length > 0) {
+      // Non-conflicting partial match (verified safe from conflicting sibling options)
+      let matchCount = 0;
+      for (const optVal of rawValues) {
+        if (keyParts.some((p) => matchVariantPart(p, optVal))) {
+          matchCount++;
         }
-        score = 10 + count;
+      }
+      if (matchCount > 0) {
+        score = 50 + matchCount;
       }
     }
 
@@ -647,7 +689,8 @@ export function generateDynamicPriceMatrix(
   sameDayIncreasePercent?: number,
   nextDayIncreasePercent?: number,
   productQuantityTiers?: QuantityTier[],
-  variantQuantityTiers?: Record<string, QuantityTier[]>
+  variantQuantityTiers?: Record<string, QuantityTier[]>,
+  customFields?: CustomField[]
 ): MatrixRow[] {
   const safeMin = Math.max(1, minQuantity || 25);
   const safeMax = maxQuantity && maxQuantity >= safeMin ? maxQuantity : 250000;
@@ -656,7 +699,8 @@ export function generateDynamicPriceMatrix(
   const activeProductTiers = resolveActiveVariantTiers(
     selectedOptions,
     variantQuantityTiers,
-    productQuantityTiers
+    productQuantityTiers,
+    customFields
   );
 
   // Determine tiers:
@@ -790,7 +834,8 @@ export function calculateCustomQuantityPrice(
   sameDayIncreasePercent?: number,
   nextDayIncreasePercent?: number,
   productQuantityTiers?: QuantityTier[],
-  variantQuantityTiers?: Record<string, QuantityTier[]>
+  variantQuantityTiers?: Record<string, QuantityTier[]>,
+  customFields?: CustomField[]
 ): {
   sameDay: number;
   nextDay: number;
@@ -813,7 +858,8 @@ export function calculateCustomQuantityPrice(
     sameDayIncreasePercent,
     nextDayIncreasePercent,
     productQuantityTiers,
-    variantQuantityTiers
+    variantQuantityTiers,
+    customFields
   );
   if (matrix.length === 0) return null;
 

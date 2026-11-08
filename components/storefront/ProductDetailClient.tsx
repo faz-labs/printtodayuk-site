@@ -319,7 +319,8 @@ export function ProductDetailClient({
       product?.sameDayIncreasePercent,
       product?.nextDayIncreasePercent,
       product?.quantityTiers,
-      product?.variantQuantityTiers
+      product?.variantQuantityTiers,
+      product?.customFields
     );
   }, [
     basePriceAnchor,
@@ -334,6 +335,7 @@ export function ProductDetailClient({
     product?.nextDayIncreasePercent,
     product?.quantityTiers,
     product?.variantQuantityTiers,
+    product?.customFields,
   ]);
 
   // Ensure selectedQuantity always matches a valid row in the matrix
