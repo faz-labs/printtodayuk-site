@@ -605,9 +605,26 @@ export function resolveActiveVariantTiers(
       const siblings = conflictingSiblings.get(cleanU);
       if (siblings && siblings.length > 0) {
         for (const sibling of siblings) {
-          if (keyParts.some((p) => matchVariantPart(p, sibling))) {
-            // Verify it does not also match userVal itself
+          const matchingPartForSibling = keyParts.find((p) => matchVariantPart(p, sibling));
+          if (matchingPartForSibling) {
+            const normP = normalizeKey(matchingPartForSibling);
+            const normS = normalizeKey(sibling);
+            const normU = normalizeKey(userVal);
+
+            // 1. Exact match to sibling while not matching user selection is a hard conflict
+            if (normP === normS && normP !== normU) {
+              hasConflict = true;
+              break;
+            }
+
+            // 2. Key does not match user's selected value at all
             if (!keyParts.some((p) => matchVariantPart(p, userVal))) {
+              hasConflict = true;
+              break;
+            }
+
+            // 3. Sibling is a longer/more specific version of userVal and key matches sibling
+            if (cleanOptionDisplayName(sibling).length > cleanOptionDisplayName(userVal).length) {
               hasConflict = true;
               break;
             }
@@ -716,16 +733,22 @@ export function generateDynamicPriceMatrix(
 
   // Turnaround speed multipliers
   // Configured via CMS product fields with industry standard fallbacks
-  const sameDayPct =
+  let sameDayPct =
     typeof sameDayIncreasePercent === 'number' && !isNaN(sameDayIncreasePercent)
       ? sameDayIncreasePercent
       : 35.4;
-  const SPEED_SAME_DAY = 1.0 + sameDayPct / 100;
 
   const nextDayPct =
     typeof nextDayIncreasePercent === 'number' && !isNaN(nextDayIncreasePercent)
       ? nextDayIncreasePercent
       : 7.4;
+
+  // Defensive sanity: Same Day Express must always command at least a premium above 1 Working Day
+  if (sameDayPct <= nextDayPct) {
+    sameDayPct = Math.max(sameDayPct, nextDayPct + 10.0, 35.4);
+  }
+
+  const SPEED_SAME_DAY = 1.0 + sameDayPct / 100;
   const SPEED_NEXT_DAY = 1.0 + nextDayPct / 100;
 
   // Reference base anchor: active variant base tier price takes precedence, then product basePrice
