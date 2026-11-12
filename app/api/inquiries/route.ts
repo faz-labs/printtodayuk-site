@@ -14,9 +14,16 @@ export async function POST(request: Request) {
       );
     }
 
+    if (!email || typeof email !== 'string' || !email.trim() || !email.includes('@')) {
+      return NextResponse.json(
+        { success: false, error: 'Please provide a valid email address.' },
+        { status: 400 }
+      );
+    }
+
     const cleanName = (name && typeof name === 'string' ? name.trim() : '') || 'Website Customer';
     const cleanPhone = phone.trim();
-    const cleanEmail = email && typeof email === 'string' ? email.trim() : undefined;
+    const cleanEmail = email.trim();
     const cleanProductContext =
       (productContext && typeof productContext === 'string' ? productContext.trim() : '') ||
       'General Product Inquiry';

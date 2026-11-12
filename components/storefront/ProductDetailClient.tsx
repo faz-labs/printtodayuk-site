@@ -488,22 +488,20 @@ export function ProductDetailClient({
   const buildWhatsAppUrl = (isCustom: boolean = false): string => {
     const parsedCustom = parseInt(customQuantityInput.trim(), 10);
     const customQty = !isNaN(parsedCustom) && parsedCustom > 0 ? parsedCustom : 0;
-    const qty = isCustom && customQty > 0 ? customQty : selectedQuantity;
+    const qty = isCustom && customQty > 0 ? customQty : (customQty > 0 ? customQty : selectedQuantity);
     const speed = speedLabels[selectedSpeed];
 
     let msg = `Hi Print Today UK, I would like to ${
-      isCustom ? 'request a bespoke trade quote' : 'order / enquire'
+      product.hidePriceTable
+        ? 'request an instant custom quote'
+        : isCustom
+        ? 'request a bespoke trade quote'
+        : 'order / enquire'
     } for:\n\n`;
     msg += `📄 *Product:* ${product.title}\n`;
-    msg += `🔢 *Quantity:* ${qty.toLocaleString()} units${
-      physicalNumberOfSets > 1 ? ` (${physicalNumberOfSets} sets)` : ''
-    }\n`;
 
-    if (!isCustom) {
-      msg += `⚡ *Delivery Speed:* ${speed.title} (Due ${speed.dueDate})\n`;
-      msg += `💰 *Estimated Price:* £${currentSelectedPrice.toFixed(2)} ex. VAT (£${(
-        currentSelectedPrice * 1.20
-      ).toFixed(2)} inc. VAT)\n`;
+    if (typeof window !== 'undefined') {
+      msg += `🔗 *Product Link:* ${window.location.href}\n`;
     }
 
     msg += `\n📋 *Specifications:*\n`;
@@ -511,12 +509,25 @@ export function ProductDetailClient({
       msg += `• ${key}: ${cleanOptionDisplayName(value)}\n`;
     }
 
-    if (isCustom && customQty > 0) {
-      msg += `\n💬 *Note:* Requesting bespoke volume trade pricing for ${customQty.toLocaleString()} units.\n`;
-    }
-
-    if (typeof window !== 'undefined') {
-      msg += `\n🔗 *Link:* ${window.location.href}`;
+    if (product.hidePriceTable) {
+      msg += `\n🔢 *Quantity Needed:* ${qty ? qty.toLocaleString() : 'Flexible'} units${
+        physicalNumberOfSets > 1 ? ` (${physicalNumberOfSets} sets)` : ''
+      }\n`;
+      msg += `⚡ *Turnaround:* Same Day / Next Day / Flexible\n`;
+      msg += `\nPlease send me the best trade price and turnaround. Thank you!`;
+    } else {
+      msg += `\n🔢 *Quantity:* ${qty.toLocaleString()} units${
+        physicalNumberOfSets > 1 ? ` (${physicalNumberOfSets} sets)` : ''
+      }\n`;
+      if (!isCustom) {
+        msg += `⚡ *Delivery Speed:* ${speed.title} (Due ${speed.dueDate})\n`;
+        msg += `💰 *Website Price:* £${(currentSelectedPrice * vatMultiplier).toFixed(2)} ${
+          showIncVat ? 'inc. VAT' : 'ex. VAT'
+        }\n`;
+      } else {
+        msg += `💬 *Note:* Requesting bespoke volume trade pricing for ${customQty.toLocaleString()} units.\n`;
+      }
+      msg += `\nPlease confirm order / same-day delivery availability. Thank you!`;
     }
 
     return `https://wa.me/447969559746?text=${encodeURIComponent(msg)}`;
@@ -1152,8 +1163,123 @@ export function ProductDetailClient({
               )}
             </div>
 
-            {/* ================= THE DYNAMIC PRICE MATRIX TABLE (1:1 Clone of Image 1) ================= */}
-            <div className="pt-2">
+            {/* ================= CONDITIONAL: WHATSAPP INSTANT QUOTE vs PRICE MATRIX ================= */}
+            {product.hidePriceTable ? (
+              <div className="pt-2 space-y-4">
+                {/* High-Converting WhatsApp Instant Quote Panel */}
+                <div className="rounded-2xl bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-white border-2 border-emerald-500/30 p-5 sm:p-6 shadow-sm relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-48 h-48 bg-[#25D366]/10 rounded-full blur-2xl pointer-events-none" />
+
+                  <div className="relative z-10 space-y-4">
+                    {/* Header */}
+                    <div>
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#25D366] text-white text-xs font-black shadow-xs mb-2.5">
+                        <WhatsappLogo weight="fill" className="h-4 w-4" />
+                        <span>Instant Studio Quote via WhatsApp</span>
+                      </div>
+                      <h3 className="text-lg sm:text-xl font-black text-slate-900 leading-snug">
+                        Get Direct Studio Pricing for {product.title}
+                      </h3>
+                      <p className="text-xs sm:text-sm text-slate-600 mt-1">
+                        Chat directly with our London print specialists. We calculate bespoke trade pricing for your selected specifications and reply on WhatsApp in under 5 minutes.
+                      </p>
+                    </div>
+
+                    {/* Dynamic Real-Time Specifications Box */}
+                    <div className="p-3.5 rounded-xl bg-white border border-emerald-200/80 shadow-2xs space-y-2">
+                      <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center justify-between">
+                        <span>Your Selected Specifications:</span>
+                        <span className="text-emerald-600 font-semibold lowercase">updates live</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {Object.entries(activeOptions).map(([key, val]) => (
+                          <span
+                            key={key}
+                            className="inline-flex items-center px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-950 text-xs font-bold border border-emerald-200/70"
+                          >
+                            <span className="text-emerald-700/80 font-medium mr-1.5">{key}:</span>
+                            {cleanOptionDisplayName(val)}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Quantity Required Input */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-800 mb-1.5">
+                        Estimated Quantity Needed (Units)
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={customQuantityInput}
+                          onChange={(e) => setCustomQuantityInput(e.target.value.replace(/[^0-9]/g, ''))}
+                          placeholder="e.g. 50, 100, 250, 500, 1000..."
+                          className="flex-1 h-12 px-4 rounded-xl border-2 border-emerald-200 focus:border-[#25D366] bg-white text-slate-900 font-bold text-sm focus:outline-hidden focus:ring-2 focus:ring-[#25D366]/20 transition-all placeholder:text-slate-400 placeholder:font-normal"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setCustomQuantityInput('100')}
+                          className="px-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs font-bold text-slate-700 cursor-pointer"
+                        >
+                          100
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCustomQuantityInput('250')}
+                          className="px-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs font-bold text-slate-700 cursor-pointer"
+                        >
+                          250
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCustomQuantityInput('500')}
+                          className="px-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs font-bold text-slate-700 cursor-pointer"
+                        >
+                          500
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* BIG PRIMARY CTA: Get Instant Quote on WhatsApp */}
+                    <a
+                      href={buildWhatsAppUrl(true)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full h-14 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-white font-black text-base sm:text-lg flex items-center justify-center gap-3 shadow-lg shadow-[#25D366]/30 hover:shadow-xl transition-all cursor-pointer transform hover:-translate-y-0.5"
+                    >
+                      <WhatsappLogo weight="fill" className="h-7 w-7 text-white" />
+                      <span>Get Instant Quote on WhatsApp</span>
+                    </a>
+
+                    <div className="flex items-center justify-center gap-2 text-center text-[11px] text-slate-500">
+                      <CheckCircle weight="fill" className="h-3.5 w-3.5 text-emerald-600" />
+                      <span>Specifications &amp; product link are pre-filled — just tap Send!</span>
+                    </div>
+
+                    {/* Secondary Actions: Call Back & Phone */}
+                    <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-200/80">
+                      <button
+                        type="button"
+                        onClick={handleConfirmOrder}
+                        className="flex items-center justify-center gap-2 h-11 rounded-xl bg-white hover:bg-slate-50 text-slate-800 font-bold text-xs border border-slate-300 transition-colors cursor-pointer shadow-2xs"
+                      >
+                        <Phone weight="fill" className="h-4 w-4 text-[#012169]" />
+                        <span>Request Call Back</span>
+                      </button>
+                      <a
+                        href="tel:03300103521"
+                        className="flex items-center justify-center gap-2 h-11 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs transition-colors"
+                      >
+                        <Phone weight="bold" className="h-4 w-4 text-[#C8102E]" />
+                        <span>Call 0330 010 3521</span>
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="pt-2">
               {/* Header info bar above table showing current selection & VAT Toggle */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 mb-2.5">
                 <div className="text-xs font-bold text-slate-800 flex items-center gap-2">
@@ -1512,7 +1638,6 @@ export function ProductDetailClient({
                   </div>
                 </div>
               </div>
-            </div>
 
             {/* ORDER SELECTION SUMMARY & ACTION BUTTONS */}
             <div className="pt-2 space-y-3">
@@ -1555,27 +1680,27 @@ export function ProductDetailClient({
                 </div>
               </div>
 
-              {/* Primary Action Button */}
-              <button
-                type="button"
-                onClick={handleConfirmOrder}
-                className="w-full h-12 rounded-md bg-[#C8102E] hover:bg-[#A80C24] text-white font-black text-sm flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer"
+              {/* Prioritized Primary Action: WhatsApp Instant Order / Quote */}
+              <a
+                href={buildWhatsAppUrl(false)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full h-13 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-white font-black text-sm sm:text-base flex items-center justify-center gap-2.5 shadow-md shadow-[#25D366]/30 hover:shadow-lg transition-all cursor-pointer transform hover:-translate-y-0.5"
               >
-                <Phone weight="fill" className="h-4 w-4" />
-                <span>Confirm Order / Request Same-Day Quote</span>
-              </button>
+                <WhatsappLogo weight="fill" className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+                <span>Order / Instant Quote on WhatsApp</span>
+              </a>
 
               {/* Secondary Action Grid */}
               <div className="grid grid-cols-2 gap-2.5">
-                <a
-                  href={buildWhatsAppUrl(false)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 h-10 rounded-md bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold text-xs shadow-xs transition-colors"
+                <button
+                  type="button"
+                  onClick={handleConfirmOrder}
+                  className="flex items-center justify-center gap-2 h-11 rounded-lg bg-[#012169] hover:bg-[#0A358C] text-white font-bold text-xs shadow-xs transition-colors cursor-pointer"
                 >
-                  <WhatsappLogo weight="fill" className="h-4 w-4" />
-                  <span>Chat on WhatsApp</span>
-                </a>
+                  <Phone weight="fill" className="h-3.5 w-3.5" />
+                  <span>Request Call Back</span>
+                </button>
 
                 <button
                   type="button"
@@ -1589,7 +1714,7 @@ export function ProductDetailClient({
                       cleanedActiveOptions
                     );
                   }}
-                  className="flex items-center justify-center gap-2 h-10 rounded-md bg-white hover:bg-slate-50 text-slate-800 font-bold text-xs border border-slate-300 transition-colors cursor-pointer shadow-2xs"
+                  className="flex items-center justify-center gap-2 h-11 rounded-lg bg-white hover:bg-slate-50 text-slate-800 font-bold text-xs border border-slate-300 transition-colors cursor-pointer shadow-2xs"
                 >
                   <Sparkle weight="fill" className="h-3.5 w-3.5 text-[#012169]" />
                   <span>Free Artwork Proof</span>
@@ -1597,6 +1722,8 @@ export function ProductDetailClient({
               </div>
             </div>
           </div>
+        )}
+        </div>
         </div>
 
         {/* ================= SEO TRUST & VALUE PROPOSITIONS ================= */}

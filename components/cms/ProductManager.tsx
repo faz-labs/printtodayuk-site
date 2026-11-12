@@ -26,6 +26,7 @@ import {
   Copy,
   Eye,
   EyeSlash,
+  WhatsappLogo,
 } from '@phosphor-icons/react';
 import Link from 'next/link';
 
@@ -407,6 +408,7 @@ export function ProductManager({
         customFields: sourceProduct.customFields ? JSON.parse(JSON.stringify(sourceProduct.customFields)) : undefined,
         features: sourceProduct.features ? [...sourceProduct.features] : undefined,
         isActive: sourceProduct.isActive !== false,
+        hidePriceTable: Boolean(sourceProduct.hidePriceTable),
       };
 
       const created = await onCreateProduct(newProductInput);
@@ -417,6 +419,25 @@ export function ProductManager({
     } catch (err: any) {
       console.error('Failed to duplicate product:', err);
       showNotification('error', `Failed to duplicate product: ${err.message || 'Unknown error'}`);
+    }
+  };
+
+  const handleToggleHidePriceTable = async (product: Product) => {
+    const targetId = product.id || product.slug;
+    if (!targetId) return;
+    const current = Boolean(product.hidePriceTable);
+    const newHide = !current;
+    try {
+      await onUpdateProduct(targetId, { hidePriceTable: newHide });
+      showNotification(
+        'success',
+        newHide
+          ? `💬 "${product.title}" price table hidden. Storefront now shows WhatsApp Instant Quote!`
+          : `✅ "${product.title}" price table restored to storefront.`
+      );
+    } catch (err: any) {
+      console.error('Failed to toggle price table:', err);
+      showNotification('error', `Failed to update price table status: ${err.message || 'Unknown error'}`);
     }
   };
 
@@ -604,13 +625,32 @@ export function ProductManager({
 
                       {/* Price */}
                       <td className="py-3.5 px-4">
-                        <div className="font-black text-slate-900">
-                          {formatCurrency(activePrice)}
-                        </div>
-                        {product.discountedPrice && (
-                          <div className="text-[10px] text-[#C8102E] font-semibold">
-                            -{discount}% OFF
+                        {product.hidePriceTable ? (
+                          <div>
+                            <button
+                              type="button"
+                              onClick={() => handleToggleHidePriceTable(product)}
+                              className="inline-flex items-center gap-1 text-[10px] font-black text-emerald-800 bg-emerald-100/90 hover:bg-emerald-200 border border-emerald-300 px-2 py-0.5 rounded-md cursor-pointer transition-colors shadow-2xs"
+                              title="Price table hidden on storefront. Click to restore table."
+                            >
+                              <WhatsappLogo weight="fill" className="h-3 w-3 text-emerald-600" />
+                              <span>WA Quote</span>
+                            </button>
+                            <div className="text-[10px] text-slate-400 mt-0.5 font-medium">
+                              Table Off
+                            </div>
                           </div>
+                        ) : (
+                          <>
+                            <div className="font-black text-slate-900">
+                              {formatCurrency(activePrice)}
+                            </div>
+                            {product.discountedPrice && (
+                              <div className="text-[10px] text-[#C8102E] font-semibold">
+                                -{discount}% OFF
+                              </div>
+                            )}
+                          </>
                         )}
                       </td>
 

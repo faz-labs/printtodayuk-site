@@ -25,6 +25,7 @@ import {
   WarningCircle,
   Copy,
   Globe,
+  WhatsappLogo,
 } from '@phosphor-icons/react';
 
 interface ProductFormProps {
@@ -143,6 +144,7 @@ export function ProductForm({
   const [category, setCategory] = useState<string>(categories[0]?.name || '');
   const [isSameDayAvailable, setIsSameDayAvailable] = useState(true);
   const [isActive, setIsActive] = useState(true);
+  const [hidePriceTable, setHidePriceTable] = useState(false);
   const [maxSameDayQuantity, setMaxSameDayQuantity] = useState<string>('');
   const [maxNextDayQuantity, setMaxNextDayQuantity] = useState<string>('');
   const [features, setFeatures] = useState<string[]>([]);
@@ -258,6 +260,7 @@ export function ProductForm({
       setCategory(initialProduct.category || categories[0]?.name || '');
       setIsSameDayAvailable(initialProduct.isSameDayAvailable);
       setIsActive(initialProduct.isActive !== false);
+      setHidePriceTable(Boolean(initialProduct.hidePriceTable));
       setMaxSameDayQuantity(
         initialProduct.maxSameDayQuantity !== undefined && initialProduct.maxSameDayQuantity !== null
           ? initialProduct.maxSameDayQuantity.toString()
@@ -308,6 +311,7 @@ export function ProductForm({
       setCategory(categories[0]?.name || '');
       setIsSameDayAvailable(true);
       setIsActive(true);
+      setHidePriceTable(false);
       setMaxSameDayQuantity('');
       setMaxNextDayQuantity('');
       setSameDayIncreasePercent('35.4');
@@ -1029,6 +1033,7 @@ export function ProductForm({
         features: features.length > 0 ? features : [],
         customFields: validCustomFields.length > 0 ? validCustomFields : [],
         isActive,
+        hidePriceTable: Boolean(hidePriceTable),
       };
 
       if (discountedPrice.trim() !== '') {
@@ -1816,8 +1821,8 @@ export function ProductForm({
               </div>
             </div>
 
-            {/* Storefront Active & Same Day Toggles */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* Storefront Active, Same Day & WhatsApp Quote Toggles */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {/* Storefront Active / Published Toggle */}
               <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -1828,10 +1833,10 @@ export function ProductForm({
                   />
                   <div>
                     <div className="text-xs font-bold text-slate-900">
-                      {isActive ? 'Storefront: Live & Active' : 'Storefront: Hidden / Offline'}
+                      {isActive ? 'Live & Active' : 'Hidden / Offline'}
                     </div>
                     <div className="text-[10px] text-slate-500">
-                      {isActive ? 'Visible to customers in catalog' : 'Hidden from storefront search & lists'}
+                      {isActive ? 'Published on store' : 'Hidden from store'}
                     </div>
                   </div>
                 </div>
@@ -1848,9 +1853,9 @@ export function ProductForm({
                 <div className="flex items-center gap-2">
                   <Lightning weight="fill" className="h-4 w-4 text-emerald-600" />
                   <div>
-                    <div className="text-xs font-bold text-slate-900">Same-Day London Dispatch</div>
+                    <div className="text-xs font-bold text-slate-900">Same-Day Dispatch</div>
                     <div className="text-[10px] text-slate-500">
-                      Enable express same-day rush turnaround
+                      Express London rush
                     </div>
                   </div>
                 </div>
@@ -1859,6 +1864,40 @@ export function ProductForm({
                   checked={isSameDayAvailable}
                   onChange={(e) => setIsSameDayAvailable(e.target.checked)}
                   className="h-5 w-5 rounded-md text-[#012169] focus:ring-[#012169] cursor-pointer"
+                />
+              </div>
+
+              {/* WhatsApp Quote Only (Hide Price Table) Toggle */}
+              <div
+                className={`p-3 rounded-2xl border transition-all flex items-center justify-between ${
+                  hidePriceTable
+                    ? 'bg-emerald-50/80 border-emerald-300 ring-1 ring-emerald-300/50'
+                    : 'bg-slate-50 border-slate-200'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <WhatsappLogo
+                    weight="fill"
+                    className={`h-4 w-4 ${hidePriceTable ? 'text-[#25D366]' : 'text-slate-400'}`}
+                  />
+                  <div>
+                    <div
+                      className={`text-xs font-bold ${
+                        hidePriceTable ? 'text-emerald-950 font-black' : 'text-slate-900'
+                      }`}
+                    >
+                      {hidePriceTable ? 'WhatsApp Quote (Active)' : 'Hide Price Table'}
+                    </div>
+                    <div className="text-[10px] text-slate-500">
+                      {hidePriceTable ? 'Price table hidden on storefront' : 'Get instant quote on WhatsApp'}
+                    </div>
+                  </div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={hidePriceTable}
+                  onChange={(e) => setHidePriceTable(e.target.checked)}
+                  className="h-5 w-5 rounded-md text-[#25D366] focus:ring-[#25D366] cursor-pointer"
                 />
               </div>
             </div>

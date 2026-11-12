@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Phone, CheckCircle, Clock, MapPin, Sparkle } from '@phosphor-icons/react';
+import { Phone, CheckCircle, Clock, MapPin, Sparkle, EnvelopeSimple, WhatsappLogo } from '@phosphor-icons/react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -14,10 +14,27 @@ export function CallMeModal() {
 
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [details, setDetails] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+
+  const buildWhatsAppUrlForModal = () => {
+    let msg = `Hi Print Today UK, I would like to request an instant quote / callback:\n\n`;
+    if (productContext) msg += `📄 *Inquiry For:* ${productContext}\n`;
+    if (selectedOptions && Object.keys(selectedOptions).length > 0) {
+      msg += `📋 *Specifications:*\n`;
+      for (const [k, v] of Object.entries(selectedOptions)) {
+        msg += `• ${k}: ${v}\n`;
+      }
+    }
+    if (name.trim()) msg += `👤 *Name:* ${name.trim()}\n`;
+    if (phone.trim()) msg += `📞 *Phone:* ${phone.trim()}\n`;
+    if (email.trim()) msg += `✉️ *Email:* ${email.trim()}\n`;
+    if (details.trim()) msg += `💬 *Notes:* ${details.trim()}\n`;
+    return `https://wa.me/447969559746?text=${encodeURIComponent(msg)}`;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,6 +42,12 @@ export function CallMeModal() {
 
     if (!phone.trim()) {
       setErrorMessage('Please enter a valid UK phone number.');
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email.trim() || !emailRegex.test(email.trim())) {
+      setErrorMessage('Please enter a valid email address.');
       return;
     }
 
@@ -36,6 +59,7 @@ export function CallMeModal() {
         body: JSON.stringify({
           name: name.trim() || 'Anonymous Customer',
           phone: phone.trim(),
+          email: email.trim(),
           productContext: productContext || 'General Inquiry',
           selectedOptions: selectedOptions || {},
           details: details.trim(),
@@ -47,6 +71,7 @@ export function CallMeModal() {
         await submitInquiry({
           name: name.trim() || 'Anonymous Customer',
           phone: phone.trim(),
+          email: email.trim(),
           productContext: productContext || 'General Inquiry',
           selectedOptions: selectedOptions || {},
           details: details.trim(),
@@ -61,6 +86,7 @@ export function CallMeModal() {
         await submitInquiry({
           name: name.trim() || 'Anonymous Customer',
           phone: phone.trim(),
+          email: email.trim(),
           productContext: productContext || 'General Inquiry',
           selectedOptions: selectedOptions || {},
           details: details.trim(),
@@ -69,7 +95,7 @@ export function CallMeModal() {
         setIsSubmitted(true);
       } catch (directErr) {
         console.error('Call Me submission error:', directErr);
-        setErrorMessage('Failed to submit. You can call us directly on +44 7969 559746.');
+        setErrorMessage('Failed to submit. You can call or WhatsApp us on +44 7969 559746.');
       }
     } finally {
       setIsSubmitting(false);
@@ -83,6 +109,7 @@ export function CallMeModal() {
       setIsSubmitted(false);
       setName('');
       setPhone('');
+      setEmail('');
       setDetails('');
       setErrorMessage('');
     }, 300);
@@ -192,6 +219,23 @@ export function CallMeModal() {
 
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+              Email Address <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="e.g. sarah.jenkins@example.com"
+                className="w-full h-11 pl-10 pr-3.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-900 focus:outline-hidden focus:border-[#012169] focus:ring-2 focus:ring-[#012169]/10 transition-all placeholder:text-slate-400"
+              />
+              <EnvelopeSimple weight="fill" className="absolute left-3.5 top-3.5 h-4 w-4 text-slate-400" />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1.5">
               What are you looking to print? (Optional)
             </label>
             <textarea
@@ -209,23 +253,38 @@ export function CallMeModal() {
             </div>
           )}
 
-          <div className="pt-2 flex flex-col sm:flex-row gap-2">
-            <Button
-              type="submit"
-              variant="uk-red"
-              size="lg"
-              isLoading={isSubmitting}
-              className="w-full flex-1"
-            >
-              <Phone weight="fill" className="h-4 w-4 mr-2" />
-              Request Call Back
-            </Button>
-            <a
-              href="tel:+447969559746"
-              className="inline-flex items-center justify-center h-12 px-4 rounded-xl border border-slate-200 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
-            >
-              Direct Call
-            </a>
+          <div className="pt-2 flex flex-col gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Button
+                type="submit"
+                variant="uk-red"
+                size="lg"
+                isLoading={isSubmitting}
+                className="w-full flex-1"
+              >
+                <Phone weight="fill" className="h-4 w-4 mr-2" />
+                Request Call Back
+              </Button>
+              <a
+                href="tel:+447969559746"
+                className="inline-flex items-center justify-center h-12 px-4 rounded-xl border border-slate-200 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+              >
+                Direct Call
+              </a>
+            </div>
+
+            {/* Prioritized instant WhatsApp option */}
+            <div className="pt-1.5 border-t border-slate-100 text-center">
+              <a
+                href={buildWhatsAppUrlForModal()}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 w-full h-11 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold text-xs shadow-xs transition-colors"
+              >
+                <WhatsappLogo weight="fill" className="h-4.5 w-4.5" />
+                <span>Prefer WhatsApp? Instant Chat &amp; Send</span>
+              </a>
+            </div>
           </div>
 
           <div className="text-center">

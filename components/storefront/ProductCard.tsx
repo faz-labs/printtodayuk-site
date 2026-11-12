@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { WhatsappLogo } from '@phosphor-icons/react';
 import { Product } from '@/lib/types';
 import { formatCurrency } from '@/lib/utils';
 import { ImageWithFallback } from './ImageWithFallback';
@@ -35,17 +36,31 @@ export function ProductCard({ product }: ProductCardProps) {
         </h3>
 
         <div className="pt-0.5">
-          <p className="text-sm sm:text-base font-bold text-slate-900">
-            From {formatCurrency(activePrice)} each
-          </p>
-          <p className="text-xs text-slate-500 leading-tight">
-            Incl. VAT
-          </p>
-          <p className="text-xs text-slate-500 leading-tight">
-            {product.minQuantity && product.minQuantity > 1
-              ? `Min. quantity ${product.minQuantity}`
-              : 'No minimum quantity'}
-          </p>
+          {product.hidePriceTable ? (
+            <div className="space-y-1">
+              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 text-xs font-bold border border-emerald-200">
+                <WhatsappLogo weight="fill" className="h-3.5 w-3.5 text-[#25D366]" />
+                <span>Quote via WhatsApp</span>
+              </span>
+              <p className="text-xs text-slate-500 leading-tight">
+                Instant studio trade pricing
+              </p>
+            </div>
+          ) : (
+            <>
+              <p className="text-sm sm:text-base font-bold text-slate-900">
+                From {formatCurrency(activePrice)} each
+              </p>
+              <p className="text-xs text-slate-500 leading-tight">
+                Incl. VAT
+              </p>
+              <p className="text-xs text-slate-500 leading-tight">
+                {product.minQuantity && product.minQuantity > 1
+                  ? `Min. quantity ${product.minQuantity}`
+                  : 'No minimum quantity'}
+              </p>
+            </>
+          )}
         </div>
       </div>
     </Link>

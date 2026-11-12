@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Phone, Sparkle, Envelope } from '@phosphor-icons/react';
+import { Phone, Sparkle, Envelope, WhatsappLogo } from '@phosphor-icons/react';
 
 export function TopBar() {
   return (
@@ -16,8 +16,19 @@ export function TopBar() {
           </span>
         </div>
 
-        {/* Right: Phone & Email (Live Chat removed per request) */}
-        <div className="flex items-center gap-2.5 sm:gap-4 shrink-0 text-xs sm:text-sm">
+        {/* Right: WhatsApp, Phone & Email */}
+        <div className="flex items-center gap-2 sm:gap-3.5 shrink-0 text-xs sm:text-sm">
+          {/* WhatsApp Direct */}
+          <a
+            href="https://wa.me/447969559746?text=Hello%20Print%20Today%20UK%2C%20I%20have%20an%20urgent%20print%20enquiry."
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 px-2.5 py-0.5 sm:py-1 rounded-full bg-[#25D366] hover:bg-[#20bd5a] text-white transition-all font-bold shrink-0 text-[11px] sm:text-xs shadow-xs"
+          >
+            <WhatsappLogo weight="fill" className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-white" />
+            <span className="whitespace-nowrap">WhatsApp Us</span>
+          </a>
+
           {/* Phone Number */}
           <a
             href="tel:03300103521"

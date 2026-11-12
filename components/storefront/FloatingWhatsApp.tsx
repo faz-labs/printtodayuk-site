@@ -1,16 +1,38 @@
 'use client';
 
 import React from 'react';
+import { usePathname } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { WhatsappLogo } from '@phosphor-icons/react';
 
 export function FloatingWhatsApp() {
   const phoneNumber = '+44 7969 559746';
   const cleanNumber = '447969559746';
-  const defaultMessage = encodeURIComponent(
-    'Hello Print Today UK, I would like to inquire about same-day printing/clothing services.'
-  );
-  const whatsappUrl = `https://wa.me/${cleanNumber}?text=${defaultMessage}`;
+  const pathname = usePathname() || '';
+
+  const getMessage = (): string => {
+    if (typeof window === 'undefined') {
+      return 'Hello Print Today UK, I would like to inquire about same-day printing services.';
+    }
+
+    const currentUrl = window.location.href;
+
+    if (pathname.startsWith('/product/')) {
+      return `Hello Print Today UK, I am looking at this product on your website:\n${currentUrl}\n\nI would like to get an instant quote / ask a question.`;
+    }
+
+    if (pathname.startsWith('/clothing')) {
+      return `Hello Print Today UK, I would like to inquire about same-day custom clothing & garment printing in London.`;
+    }
+
+    if (pathname.startsWith('/same-day-printing')) {
+      return `Hello Print Today UK, I need urgent same-day printing in London.`;
+    }
+
+    return `Hello Print Today UK, I would like to inquire about your same-day printing services in London.`;
+  };
+
+  const whatsappUrl = `https://wa.me/${cleanNumber}?text=${encodeURIComponent(getMessage())}`;
 
   return (
     <div className="fixed bottom-6 right-6 z-50 flex items-center group">

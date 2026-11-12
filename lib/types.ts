@@ -39,6 +39,7 @@ export interface Product {
   features?: string[];
   customFields?: CustomField[];
   isActive?: boolean; // Controls whether product is published / visible on storefront
+  hidePriceTable?: boolean; // When true, hides price table on storefront and displays 'Get Instant Quote via WhatsApp'
   createdAt: number;
   updatedAt: number;
 }
