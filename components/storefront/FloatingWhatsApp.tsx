@@ -4,6 +4,7 @@ import React from 'react';
 import { usePathname } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { WhatsappLogo } from '@phosphor-icons/react';
+import { trackWhatsAppClick } from '@/lib/analytics';
 
 export function FloatingWhatsApp() {
   const phoneNumber = '+44 7969 559746';
@@ -46,6 +47,7 @@ export function FloatingWhatsApp() {
         href={whatsappUrl}
         target="_blank"
         rel="noopener noreferrer"
+        onClick={() => trackWhatsAppClick('Floating Widget')}
         aria-label={`Chat with us on WhatsApp (${phoneNumber})`}
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.95 }}

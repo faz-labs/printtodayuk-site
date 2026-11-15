@@ -20,10 +20,46 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://printtodayuk.com'),
-  title: 'Print Today | Same Day Custom Printing & Apparel in London',
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://www.printtodayuk.com'),
+  title: {
+    default: 'Same-Day Printing London | Print Today UK',
+    template: '%s | Print Today UK',
+  },
   description:
-    'Custom business cards, flyers, booklets, brochures, t-shirts, hoodies, PVC banners, and ID cards with same-day small & large batch delivery across London.',
+    'In-house same-day printing in East London: business cards, flyers, banners, t-shirts and more. Collect free from Green St or London courier.',
+  keywords: [
+    'print shop near me',
+    'printing shop near me',
+    'same day printing london',
+    'same day printing',
+    'printing services london',
+    'business cards near me',
+    't shirt printing london',
+    'roller banners london',
+    'flyers printing london',
+    'document printing near me',
+    'east london printer',
+    'Print Today UK',
+  ],
+  alternates: {
+    canonical: 'https://www.printtodayuk.com',
+  },
+  openGraph: {
+    title: 'Same-Day Printing London | Print Today UK',
+    description:
+      'In-house same-day printing in East London: business cards, flyers, banners, t-shirts and more. Collect free from Green St or London courier.',
+    url: 'https://www.printtodayuk.com',
+    siteName: 'Print Today UK',
+    locale: 'en_GB',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Same-Day Printing London | Print Today UK',
+    description:
+      'In-house same-day printing in East London: business cards, flyers, banners, t-shirts and more. Collect free from Green St or London courier.',
+    site: '@printtodayuk',
+  },
 };
 
 export default function RootLayout({

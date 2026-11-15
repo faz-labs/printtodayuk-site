@@ -145,7 +145,7 @@ export function ProductDetailTabs({ product }: ProductDetailTabsProps) {
           }`}
         >
           <Star weight="bold" className="h-4 w-4" />
-          <span>Customer Reviews (4.9★)</span>
+          <span>Customer Reviews (4.6★)</span>
         </button>
 
         <button
@@ -346,9 +346,9 @@ export function ProductDetailTabs({ product }: ProductDetailTabsProps) {
                     {Array.from({ length: 5 }).map((_, i) => (
                       <Star key={i} weight="fill" className="h-5 w-5" />
                     ))}
-                    <span className="text-slate-900 font-black text-lg ml-2">4.9 out of 5</span>
+                    <span className="text-slate-900 font-black text-lg ml-2">4.6 out of 5</span>
                   </div>
-                  <p className="text-xs text-slate-500 mt-1">Based on 1,240+ verified client orders in Greater London</p>
+                  <p className="text-xs text-slate-500 mt-1">Based on 90 verified Google reviews in London</p>
                 </div>
                 <div className="text-xs font-bold text-[#012169] bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-xs">
                   ✓ 100% Verified Customers

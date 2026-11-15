@@ -10,7 +10,10 @@ import {
   FilePdf,
   CheckCircle,
   X,
+  Clock,
+  WhatsappLogo,
 } from '@phosphor-icons/react';
+import { trackCallClick, trackEmailClick, trackWhatsAppClick, trackConversion } from '@/lib/analytics';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export function FeatureHighlights() {
@@ -19,6 +22,7 @@ export function FeatureHighlights() {
   const [showUploadModal, setShowUploadModal] = useState(false);
 
   const handleUploadClick = () => {
+    trackConversion('generate_lead', { event_category: 'upload', event_label: 'Upload PDF button clicked' });
     fileInputRef.current?.click();
   };
 
@@ -34,13 +38,13 @@ export function FeatureHighlights() {
     <section className="w-full bg-white border-y border-slate-200/80 shadow-2xs relative z-20 font-sans py-12 sm:py-16 md:py-20">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-left">
         {/* 1. Eyebrow */}
-        <p className="text-xs sm:text-[13px] font-bold tracking-[0.2em] text-slate-500 uppercase mb-3 select-none">
-          LONDON &bull; OPEN 24 HOURS, 7 DAYS A WEEK
+        <p className="text-xs sm:text-[13px] font-bold tracking-[0.2em] text-slate-500 uppercase mb-3 select-none flex items-center gap-2">
+          <span>EAST LONDON PRODUCTION HUB &bull; OPEN 7 DAYS A WEEK</span>
         </p>
 
         {/* 2. Main Title with 'Signs' highlighted in cyan badge */}
         <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-[54px] font-black text-slate-900 tracking-tight leading-[1.15] max-w-4xl">
-          24 Hour &amp; Same-Day Printing &amp;{' '}
+          Express Same-Day Printing &amp;{' '}
           <span className="bg-[#A5F3FC]/80 text-slate-950 px-2 sm:px-2.5 py-0.5 rounded-sm inline-block shadow-2xs">
             Signs
           </span>{' '}
@@ -52,6 +56,7 @@ export function FeatureHighlights() {
           {/* Phone */}
           <a
             href="tel:03300103521"
+            onClick={() => trackCallClick('0330 010 3521')}
             className="inline-flex items-center gap-2 hover:text-[#012169] transition-colors group"
           >
             <div className="w-7 h-7 rounded-full bg-slate-900 group-hover:bg-[#012169] text-white flex items-center justify-center shrink-0 transition-colors">
@@ -60,9 +65,24 @@ export function FeatureHighlights() {
             <span>0330 010 3521</span>
           </a>
 
+          {/* WhatsApp Direct */}
+          <a
+            href="https://wa.me/447969559746?text=Hello%20Print%20Today%20UK%2C%20I%20have%20an%20urgent%20same-day%20print%20order."
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => trackWhatsAppClick('Hero Feature Bar')}
+            className="inline-flex items-center gap-2 text-emerald-700 hover:text-emerald-800 transition-colors group"
+          >
+            <div className="w-7 h-7 rounded-full bg-[#25D366] text-white flex items-center justify-center shrink-0 transition-colors shadow-2xs">
+              <WhatsappLogo weight="fill" className="h-4 w-4" />
+            </div>
+            <span className="font-bold">WhatsApp Instant Quote</span>
+          </a>
+
           {/* Email */}
           <a
             href="mailto:artwork@printtodayuk.com"
+            onClick={() => trackEmailClick('artwork@printtodayuk.com')}
             className="inline-flex items-center gap-2 hover:text-[#012169] transition-colors group"
           >
             <div className="w-7 h-7 rounded-full bg-slate-900 group-hover:bg-[#012169] text-white flex items-center justify-center shrink-0 transition-colors">
@@ -72,30 +92,33 @@ export function FeatureHighlights() {
           </a>
         </div>
 
-        {/* 4. Small availability notice */}
-        <p className="text-xs sm:text-[13px] text-slate-500 mt-2 font-medium">
-          Open 24 hours, 7 days a week — call or email and we will tell you what is possible today.
-        </p>
+        {/* 4. Small availability notice with confirmed hours */}
+        <div className="flex items-center gap-2 text-xs sm:text-[13px] text-slate-600 mt-2.5 font-medium">
+          <Clock weight="bold" className="h-4 w-4 text-[#C8102E] shrink-0" />
+          <span>
+            <strong>Production Hours:</strong> Mon–Fri 7am–8pm &bull; Sat 8am–5pm &bull; Sun 8am–4pm (75 Green St, E7 8JF).
+          </span>
+        </div>
 
         {/* 5. Description paragraph with highlighted keywords */}
         <p className="mt-5 text-sm sm:text-base md:text-lg text-slate-600 leading-relaxed max-w-4xl">
-          London’s <strong className="font-bold text-slate-900">24/7 print, signage and display</strong> production, made in our own facility. Specialising in{' '}
+          London’s dedicated <strong className="font-bold text-slate-900">in-house commercial print and signage facility</strong>. Specialising in{' '}
           <strong className="font-bold text-slate-900">
             urgent same-day{' '}
-            <span className="text-sky-500 font-semibold">document printing</span>
+            <span className="text-sky-600 font-semibold">document printing</span>
           </strong>
-          , exhibition signs and <span className="text-sky-500 font-semibold">large format</span> banners, with{' '}
-          <strong className="font-bold text-slate-900">express 1-hour courier delivery</strong> across Central London and same-day or overnight delivery across London.
+          , business cards, flyers, exhibition signs, and <span className="text-sky-600 font-semibold">large format roller banners</span>. Collect free in person or choose{' '}
+          <strong className="font-bold text-slate-900">express London courier delivery</strong> across Central and Greater London.
         </p>
 
         {/* 6. Action Buttons */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 mt-8 pt-1">
-          {/* Button 1: Open 24 hours — how it works → (Navy blue from second image) */}
+          {/* Button 1: Same-Day Turnaround — how it works */}
           <Link
             href="/same-day-printing"
             className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-[#012169] hover:bg-[#0A358C] text-white font-bold text-sm sm:text-[15px] shadow-md hover:shadow-lg transition-all text-center group cursor-pointer"
           >
-            <span>Open 24 hours — how it works</span>
+            <span>Same-Day Turnaround — How It Works</span>
             <ArrowRight weight="bold" className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
           </Link>
 
@@ -106,7 +129,7 @@ export function FeatureHighlights() {
             className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-white hover:bg-slate-50 text-slate-900 border-2 border-slate-900 hover:border-[#012169] hover:text-[#012169] font-bold text-sm sm:text-[15px] shadow-xs transition-all text-center cursor-pointer"
           >
             <UploadSimple weight="bold" className="h-4 w-4" />
-            <span>Upload PDF &amp; print now</span>
+            <span>Upload PDF &amp; Print Now</span>
           </button>
 
           {/* Hidden file input for direct PDF selection */}
@@ -121,10 +144,11 @@ export function FeatureHighlights() {
           {/* Button 3: Email PDF — walk in 10 mins (Sends to artwork@printtodayuk.com) */}
           <a
             href="mailto:artwork@printtodayuk.com?subject=Print%20Artwork%20Submission%20-%20Print%20Today%20UK&body=Hi%20Print%20Today%20Team%2C%0A%0AI%20am%20sending%20over%20our%20PDF%20artwork%20for%20urgent%20same-day%20printing.%0A%0AOrder%20Details%3A%0A-%20Item%20Type%3A%20%0A-%20Quantity%3A%20%0A-%20Collection%20or%20Delivery%3A%20%0A-%20Phone%20Number%3A%20%0A%0AThank%20you!"
+            onClick={() => trackEmailClick('Email PDF Walk-in')}
             className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-white hover:bg-slate-50 text-slate-800 border-2 border-slate-300 hover:border-slate-800 font-bold text-sm sm:text-[15px] shadow-xs transition-all text-center cursor-pointer"
           >
             <FilePdf weight="bold" className="h-4 w-4 text-[#C8102E]" />
-            <span>Email PDF — walk in 10 mins</span>
+            <span>Email PDF — Collect In E7</span>
           </a>
         </div>
       </div>

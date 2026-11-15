@@ -77,7 +77,7 @@ export function CustomerShowcaseSection({ initialReviews }: CustomerShowcaseSect
   return (
     <section className="bg-white py-16 border-b border-slate-200 font-sans">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Top Header & Trustpilot Rating Pill */}
+        {/* Top Header & Google Review Rating Pill */}
         <div className="text-center max-w-3xl mx-auto mb-10">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-800 mb-3 shadow-xs">
             <div className="flex items-center text-amber-400">
@@ -86,12 +86,12 @@ export function CustomerShowcaseSection({ initialReviews }: CustomerShowcaseSect
               ))}
             </div>
             <span>
-              Rated <strong>{metrics.avg} / 5.0</strong> on Google &amp; Trustpilot ({metrics.total}+ Reviews)
+              Rated <strong>4.6 / 5.0</strong> on Google (90 Reviews)
             </span>
           </div>
 
           <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-            Loved by 1,000+ London Businesses &amp; Creators
+            Trusted by London Businesses, Agencies &amp; Creators
           </h2>
           <p className="mt-2 text-sm text-slate-600 leading-relaxed">
             See real work printed in our London studio for cafes, tech agencies, corporate teams, and creators.

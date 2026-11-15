@@ -9,8 +9,18 @@ function parseSafeDate(val: any): Date {
   return isNaN(d.getTime()) ? new Date() : d;
 }
 
+// Key apparel products guaranteed to be indexed
+const KNOWN_APPAREL_SLUGS = [
+  't-shirts',
+  'hoodies',
+  'sweatshirts',
+  'polo-shirts',
+  'tote-bags',
+  'workwear-high-vis',
+];
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'https://printtodayuk.com').replace(/\/+$/, '');
+  const baseUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.printtodayuk.com').replace(/\/+$/, '');
 
   // 1. Core High-Priority Static Routes
   const staticRoutes: MetadataRoute.Sitemap = [
@@ -35,8 +45,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     {
       url: `${baseUrl}/clothing`,
       lastModified: new Date(),
-      changeFrequency: 'weekly',
-      priority: 0.85,
+      changeFrequency: 'daily',
+      priority: 0.9,
     },
     {
       url: `${baseUrl}/category/Printing`,
@@ -50,6 +60,37 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: 'monthly',
       priority: 0.8,
     },
+    // Ad Campaign High-Intent Landing Pages (P1-6)
+    {
+      url: `${baseUrl}/christmas-printing`,
+      lastModified: new Date(),
+      changeFrequency: 'daily',
+      priority: 0.95,
+    },
+    {
+      url: `${baseUrl}/new-year-2027-calendars-planners`,
+      lastModified: new Date(),
+      changeFrequency: 'daily',
+      priority: 0.95,
+    },
+    {
+      url: `${baseUrl}/printing-east-london`,
+      lastModified: new Date(),
+      changeFrequency: 'daily',
+      priority: 0.9,
+    },
+    {
+      url: `${baseUrl}/same-day-t-shirt-printing-london`,
+      lastModified: new Date(),
+      changeFrequency: 'daily',
+      priority: 0.9,
+    },
+    {
+      url: `${baseUrl}/document-printing-near-me`,
+      lastModified: new Date(),
+      changeFrequency: 'daily',
+      priority: 0.9,
+    },
   ];
 
   // 2. Dynamic Categories
@@ -62,13 +103,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         url: `${baseUrl}/category/${encodeURIComponent(c.name)}`,
         lastModified: new Date(),
         changeFrequency: 'weekly',
-        priority: 0.8,
+        priority: 0.85,
       }));
   } catch (err) {
     console.warn('Sitemap category fetch error:', err);
   }
 
-  // 3. Dynamic Products
+  // 3. Dynamic Products + Guaranteed Clothing Products
   let productRoutes: MetadataRoute.Sitemap = [];
   try {
     const products = await getProducts();
@@ -87,8 +128,22 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         url,
         lastModified: parseSafeDate(p.updatedAt || p.createdAt),
         changeFrequency: 'weekly',
-        priority: 0.75,
+        priority: 0.8,
       });
+    }
+
+    // Ensure known apparel products are always included (P1-2)
+    for (const slug of KNOWN_APPAREL_SLUGS) {
+      const url = `${baseUrl}/product/${slug}`;
+      if (!seenUrls.has(url)) {
+        seenUrls.add(url);
+        productRoutes.push({
+          url,
+          lastModified: new Date(),
+          changeFrequency: 'weekly',
+          priority: 0.8,
+        });
+      }
     }
   } catch (err) {
     console.warn('Sitemap product fetch error:', err);
@@ -96,4 +151,3 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   return [...staticRoutes, ...categoryRoutes, ...productRoutes];
 }
-

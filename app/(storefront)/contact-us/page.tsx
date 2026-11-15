@@ -16,13 +16,27 @@ import {
 import { ContactForm } from '@/components/storefront/ContactForm';
 
 export const metadata: Metadata = {
-  title: 'Contact Us | Print Today UK - London Studio & Express Print Hub',
+  title: 'Contact & Directions | Print Today UK, E7',
   description:
-    'Visit Print Today UK at 75 Green Street, E7 8JF London or contact our studio for instant quotes, same-day printing, custom clothing, and commercial printing orders.',
+    'Visit 75 Green Street, London E7 8JF or call 0330 010 3521 for quotes, same-day printing, custom clothing and large-format orders.',
+  alternates: {
+    canonical: 'https://www.printtodayuk.com/contact-us',
+  },
   openGraph: {
-    title: 'Contact Print Today UK - East London Studio',
+    title: 'Contact & Directions | Print Today UK, E7',
     description:
-      '75 Green Street, E7 8JF London. Call 0330 010 3521 or WhatsApp +44 7969 559746 for instant print quotes and express collections.',
+      'Visit 75 Green Street, London E7 8JF or call 0330 010 3521 for quotes, same-day printing, custom clothing and large-format orders.',
+    url: 'https://www.printtodayuk.com/contact-us',
+    siteName: 'Print Today UK',
+    locale: 'en_GB',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Contact & Directions | Print Today UK, E7',
+    description:
+      'Visit 75 Green Street, London E7 8JF or call 0330 010 3521 for quotes, same-day printing, custom clothing and large-format orders.',
+    site: '@printtodayuk',
   },
 };
 
@@ -57,7 +71,7 @@ export default function ContactUsPage() {
 
           <p className="mt-3 text-sm sm:text-base text-slate-600 max-w-3xl leading-relaxed">
             Have a question about a print run, custom finish, or rush order? Visit our East London production hub, call our hotline, or send us a message below. All web submissions go straight to{' '}
-            <strong className="text-slate-900">sales@printtodayuk.com</strong>.
+            <strong className="text-slate-900">artwork@printtodayuk.com</strong>.
           </p>
         </div>
 

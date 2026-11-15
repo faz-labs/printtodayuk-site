@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { useCallMe } from './CallMeContext';
 import { submitInquiry } from '@/lib/db';
+import { trackFormSubmission, trackWhatsAppClick, trackCallClick } from '@/lib/analytics';
 
 export function CallMeModal() {
   const { isOpen, closeCallMe, productContext, selectedOptions } = useCallMe();
@@ -80,6 +81,7 @@ export function CallMeModal() {
       }
 
       setIsSubmitted(true);
+      trackFormSubmission('Call Me Callback Form', { product: productContext || 'General' });
     } catch (err) {
       // In case fetch threw network error, attempt direct submitInquiry
       try {
@@ -93,6 +95,7 @@ export function CallMeModal() {
           status: 'pending',
         });
         setIsSubmitted(true);
+        trackFormSubmission('Call Me Callback Form', { product: productContext || 'General' });
       } catch (directErr) {
         console.error('Call Me submission error:', directErr);
         setErrorMessage('Failed to submit. You can call or WhatsApp us on +44 7969 559746.');

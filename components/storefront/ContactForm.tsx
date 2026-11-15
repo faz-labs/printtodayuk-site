@@ -10,6 +10,7 @@ import {
   Phone,
   Sparkle,
 } from '@phosphor-icons/react';
+import { trackFormSubmission, trackWhatsAppClick, trackCallClick } from '@/lib/analytics';
 
 export function ContactForm() {
   const [name, setName] = useState('');
@@ -67,6 +68,7 @@ export function ContactForm() {
       }
 
       setIsSuccess(true);
+      trackFormSubmission('Contact Form', { subject: subject.trim() });
     } catch (err: any) {
       console.error('Contact form submission error:', err);
       setErrorMessage(

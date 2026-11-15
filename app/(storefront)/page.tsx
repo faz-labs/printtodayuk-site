@@ -1,4 +1,5 @@
 import React from 'react';
+import type { Metadata } from 'next';
 import { HeroSection } from '@/components/storefront/HeroSection';
 import { TrustBar } from '@/components/storefront/TrustBar';
 import { FeatureHighlights } from '@/components/storefront/FeatureHighlights';
@@ -12,6 +13,86 @@ import { getLandingSections, getProducts, getHeroSlides, getCategories, getRevie
 // Always render the latest CMS-managed sections and hero banners in real-time
 export const dynamic = 'force-dynamic';
 
+export const metadata: Metadata = {
+  title: 'Same-Day Printing London | Print Today UK',
+  description:
+    'In-house same-day printing in East London: business cards, flyers, banners, t-shirts and more. Collect free from Green St or London courier.',
+  alternates: {
+    canonical: 'https://www.printtodayuk.com',
+  },
+  openGraph: {
+    title: 'Same-Day Printing London | Print Today UK',
+    description:
+      'In-house same-day printing in East London: business cards, flyers, banners, t-shirts and more. Collect free from Green St or London courier.',
+    url: 'https://www.printtodayuk.com',
+    siteName: 'Print Today UK',
+    locale: 'en_GB',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Same-Day Printing London | Print Today UK',
+    description:
+      'In-house same-day printing in East London: business cards, flyers, banners, t-shirts and more. Collect free from Green St or London courier.',
+    site: '@printtodayuk',
+  },
+};
+
+const LOCAL_BUSINESS_SCHEMA = {
+  '@context': 'https://schema.org',
+  '@type': 'LocalBusiness',
+  name: 'Print Today UK',
+  url: 'https://www.printtodayuk.com/',
+  telephone: '+44 330 010 3521',
+  email: 'artwork@printtodayuk.com',
+  image: 'https://www.printtodayuk.com/logo.png',
+  priceRange: '££',
+  address: {
+    '@type': 'PostalAddress',
+    streetAddress: '75 Green Street',
+    addressLocality: 'London',
+    postalCode: 'E7 8JF',
+    addressCountry: 'GB',
+  },
+  geo: {
+    '@type': 'GeoCoordinates',
+    latitude: 51.5367,
+    longitude: 0.0272,
+  },
+  areaServed: [
+    'London',
+    'East London',
+    'East Ham',
+    'Forest Gate',
+    'Upton Park',
+    'Stratford',
+    'Ilford',
+    'Barking',
+    'Canning Town',
+  ],
+  openingHoursSpecification: [
+    {
+      '@type': 'OpeningHoursSpecification',
+      dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+      opens: '07:00',
+      closes: '20:00',
+    },
+    {
+      '@type': 'OpeningHoursSpecification',
+      dayOfWeek: 'Saturday',
+      opens: '08:00',
+      closes: '17:00',
+    },
+    {
+      '@type': 'OpeningHoursSpecification',
+      dayOfWeek: 'Sunday',
+      opens: '08:00',
+      closes: '16:00',
+    },
+  ],
+  sameAs: ['https://www.instagram.com/printtodayuk'],
+};
+
 export default async function HomePage() {
   const [initialSections, initialProducts, initialHeroSlides, initialCategories, initialReviews] = await Promise.all([
     getLandingSections().catch(() => []),
@@ -23,16 +104,27 @@ export default async function HomePage() {
 
   return (
     <div className="space-y-0">
+      {/* Schema.org LocalBusiness Structured Data */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(LOCAL_BUSINESS_SCHEMA) }}
+      />
+
+      {/* Semantic Server-Rendered H1 for SEO keyword ranking */}
+      <h1 className="sr-only">
+        Same-Day Printing in London | Commercial Print Shop Near Me | Print Today UK
+      </h1>
+
       {/* 1. Hero Section */}
       <HeroSection categoryType="Printing" initialSlides={initialHeroSlides} />
 
       {/* 2. 6-Feature Confidence & Opening Hours Trust Bar */}
       <TrustBar />
 
-      {/* 3. 24-Hour & Same-Day Service Highlights */}
+      {/* 3. Same-Day Service Highlights & Confirmed Studio Hours */}
       <FeatureHighlights />
 
-      {/* 3. Dynamic CMS-Managed Landing Sections (Horizontal Auto-Scroll, 8-Tile Grids & Split Banners) */}
+      {/* 4. Dynamic CMS-Managed Landing Sections (Horizontal Auto-Scroll, 8-Tile Grids & Split Banners) */}
       <DynamicLandingSections
         initialSections={initialSections}
         initialProducts={initialProducts}
@@ -42,7 +134,7 @@ export default async function HomePage() {
       {/* 5. Curated Industry Solutions */}
       <CuratedSolutionsSection />
 
-      {/* 7. Real Customer Showcase & 4.9/5 Trustpilot / Google Reviews */}
+      {/* 7. Real Customer Showcase & 4.6/5 Google Reviews */}
       <CustomerShowcaseSection initialReviews={initialReviews} />
 
       {/* 8. Why London Businesses Choose Print Today UK */}

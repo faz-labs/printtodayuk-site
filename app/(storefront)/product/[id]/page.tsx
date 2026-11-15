@@ -1,5 +1,6 @@
 import React from 'react';
 import type { Metadata } from 'next';
+import { notFound } from 'next/navigation';
 import { getProductById, getProducts } from '@/lib/db';
 import { ProductDetailClient } from '@/components/storefront/ProductDetailClient';
 
@@ -9,31 +10,112 @@ interface PageProps {
   params: Promise<{ id: string }>;
 }
 
+const PRIORITY_PRODUCT_META: Record<string, { title: string; description: string }> = {
+  'business-cards': {
+    title: 'Business Cards London | Same Day | Print Today UK',
+    description:
+      'Business cards from £18.84, printed in-house in London. Same-day options, free artwork check, collect free from Green St E7.',
+  },
+  'flyers': {
+    title: 'Flyer Printing London | From £22.80 | Print Today UK',
+    description:
+      'Flyers from £22.80 for events, offers and launches. Printed in-house in London with same-day options and free artwork check.',
+  },
+  'large-format-posters': {
+    title: 'Large Format Posters London | From £39.90 | Print Today',
+    description:
+      'Large format posters from £39.90, printed in-house in London. Sharp colour, fast turnaround, collect free from E7.',
+  },
+  'standard-roller-banners': {
+    title: 'Roller Banners London | Print Today UK',
+    description:
+      'Roller banners printed in-house in London for events, shops and exhibitions. Fast turnaround, free artwork check.',
+  },
+  'wiro-bound-booklets': {
+    title: 'Wiro Bound Booklets London | Print Today UK',
+    description:
+      'Wiro bound booklets printed in London for reports, manuals and menus. Choose your size and pages. Free artwork check.',
+  },
+  'flat-wall-planners': {
+    title: '2027 Wall Planners | From £18.25 | Print Today UK',
+    description:
+      'Custom flat wall planners from £18.25. Branded for 2027, printed in-house in London. Order early for January.',
+  },
+  'wall-calendars': {
+    title: 'Custom Wall Calendars 2027 London | Print Today UK',
+    description:
+      'Custom 2027 wall calendars printed in London for businesses and gifts. Free artwork check, collect free from E7.',
+  },
+  'wiro-bound-diaries': {
+    title: 'Custom Wiro Bound Diaries 2027 | Print Today UK',
+    description:
+      'Branded wiro bound diaries from £188.18, printed in London. Perfect client and staff gifts for 2027.',
+  },
+  'flat-wrapping-paper': {
+    title: 'Custom Wrapping Paper London | From £44.88',
+    description:
+      'Custom printed flat wrapping paper from £44.88 for shops and brands. Printed in London. Order early for Christmas.',
+  },
+  'gift-tags': {
+    title: 'Custom Gift Tags London | From £24.53 | Print Today',
+    description:
+      'Custom printed gift tags from £24.53. Add your logo to every Christmas parcel. Printed in-house in London.',
+  },
+  'mugs': {
+    title: 'Custom Printed Mugs London | Print Today UK',
+    description:
+      'Personalised mugs for staff, events and customer gifts. Printed in London with a free artwork check.',
+  },
+  'pens': {
+    title: 'Custom Printed Pens London | Print Today UK',
+    description:
+      'Branded pens for events, offices and giveaways. Printed in London with a free artwork check and fast turnaround.',
+  },
+  'christmas-sample-pack': {
+    title: 'Christmas Sample Pack for Agencies | Print Today UK',
+    description:
+      'Unbranded Christmas sample pack with desk, wall and seasonal print examples. Ideal for agencies and trade customers.',
+  },
+  't-shirts': {
+    title: 'Custom T-Shirts London | Same Day Option | Print Today',
+    description:
+      'Custom printed t-shirts for teams, events and brands. DTF printing made in-house in East London. Small and bulk orders.',
+  },
+  'hoodies': {
+    title: 'Custom Hoodies London | Print Today UK',
+    description:
+      'Custom printed hoodies with your logo on the front and back. Made in-house in East London. Small and bulk orders.',
+  },
+  'heras-fence-covers': {
+    title: 'Heras Fence Covers Printed London | From £62.78',
+    description:
+      'Printed Heras fence covers from £62.78 for building sites, events and shops. Made in London.',
+  },
+};
+
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { id } = await params;
   const product = await getProductById(id).catch(() => null);
-  const baseUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'https://printtodayuk.com').replace(/\/+$/, '');
+  const baseUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.printtodayuk.com').replace(/\/+$/, '');
 
   if (!product) {
-    return {
-      title: 'Product Not Found | Print Today UK',
-      description: 'The requested custom print or apparel product is not available in our catalog.',
-      robots: { index: false, follow: false },
-    };
+    notFound();
   }
 
   const slugOrId = product.slug || product.id || id;
   const canonicalUrl = `${baseUrl}/product/${encodeURIComponent(slugOrId)}`;
 
-  // High-converting commercial title (under 65 chars for Google SERP display)
-  const metaTitle = `${product.title} London | Same Day Express Printing | Print Today UK`;
+  // Check for priority product metadata mapping or use clean end-customer template
+  const priorityMeta = PRIORITY_PRODUCT_META[slugOrId] || PRIORITY_PRODUCT_META[product.slug || ''];
+  const fromPrice = product.price && product.price > 0 ? product.price.toFixed(2) : '14.69';
 
-  // Compelling meta description (150-160 chars)
-  const metaDescription = product.description
-    ? product.description.length > 155
-      ? `${product.description.slice(0, 150).trim()}... Order same-day in London.`
-      : product.description
-    : `Order custom ${product.title} in London with same-day express printing & delivery. Premium FSC-certified paper stocks, free artwork check & collection from Green St.`;
+  const metaTitle = priorityMeta
+    ? priorityMeta.title
+    : `${product.title} London | Print Today UK`;
+
+  const metaDescription = priorityMeta
+    ? priorityMeta.description
+    : `${product.title} printed in-house in London from £${fromPrice}. High quality finish, sharp colour. Same-day options, collect free from Green St E7.`;
 
   // Commercial intent & local London keywords
   const keywords = [
@@ -109,23 +191,15 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function ProductDetailPage({ params }: PageProps) {
   const { id } = await params;
   const product = await getProductById(id).catch(() => null);
-  const baseUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'https://printtodayuk.com').replace(/\/+$/, '');
-
-  const relatedProducts = product
-    ? (await getProducts(product.category).catch(() => []))
-        .filter((p) => p.id !== product.id && p.slug !== product.slug)
-        .slice(0, 4)
-    : [];
+  const baseUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.printtodayuk.com').replace(/\/+$/, '');
 
   if (!product) {
-    return (
-      <ProductDetailClient
-        productIdOrSlug={id}
-        initialProduct={null}
-        initialRelatedProducts={[]}
-      />
-    );
+    notFound();
   }
+
+  const relatedProducts = (await getProducts(product.category).catch(() => []))
+    .filter((p) => p.id !== product.id && p.slug !== product.slug)
+    .slice(0, 4);
 
   const slugOrId = product.slug || product.id || id;
   const canonicalUrl = `${baseUrl}/product/${encodeURIComponent(slugOrId)}`;
@@ -204,8 +278,8 @@ export default async function ProductDetailPage({ params }: PageProps) {
     },
     aggregateRating: {
       '@type': 'AggregateRating',
-      ratingValue: '4.9',
-      reviewCount: '348',
+      ratingValue: '4.6',
+      reviewCount: '90',
       bestRating: '5',
       worstRating: '1',
     },
