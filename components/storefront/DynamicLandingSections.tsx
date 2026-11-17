@@ -65,7 +65,12 @@ export function DynamicLandingSections({
       if (localCats && localCats.length > 0) setCategories(localCats);
     }
 
-    // 2. Fetch fresh data through server API with cache-busting
+    // 2. Fetch fresh data through server API only if initial SSR data was missing
+    // Skipping when server data is present saves 100,000+ redundant serverless invocations and Fluid CPU
+    if (initialSections && initialSections.length > 0 && initialProducts && initialProducts.length > 0) {
+      return;
+    }
+
     async function loadData() {
       try {
         const res = await fetch(`/api/landing-data?t=${Date.now()}`, {

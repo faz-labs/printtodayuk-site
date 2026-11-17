@@ -4,7 +4,9 @@ import { notFound } from 'next/navigation';
 import { getProductById, getProducts } from '@/lib/db';
 import { ProductDetailClient } from '@/components/storefront/ProductDetailClient';
 
-export const dynamic = 'force-dynamic';
+// Revalidate product pages every 5 minutes (ISR) to cache static HTML on Edge CDN
+// Drastically cuts Vercel serverless function invocations & Fluid Active CPU usage
+export const revalidate = 300;
 
 interface PageProps {
   params: Promise<{ id: string }>;

@@ -49,6 +49,7 @@ export function ImagePreviewer({
               src={url}
               alt="Live URL Preview"
               fill
+              unoptimized={true}
               sizes="(max-width: 768px) 100vw, 400px"
               className="object-contain p-1"
               onError={() => setImgError(true)}

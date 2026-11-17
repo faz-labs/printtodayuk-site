@@ -56,6 +56,7 @@ export function ImageWithFallback({
         src={src}
         alt={alt || 'Product Image'}
         fill={fill ?? true}
+        unoptimized={true}
         sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
         onLoad={() => setIsLoading(false)}
         onError={() => {

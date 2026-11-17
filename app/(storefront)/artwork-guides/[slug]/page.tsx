@@ -23,7 +23,8 @@ interface GuidePageProps {
   params: Promise<{ slug: string }>;
 }
 
-export const dynamic = 'force-dynamic';
+// Revalidate individual artwork guide every 10 minutes (ISR)
+export const revalidate = 600;
 
 export async function generateMetadata({ params }: GuidePageProps): Promise<Metadata> {
   const { slug } = await params;

@@ -2,7 +2,8 @@ import { Metadata } from 'next';
 import { getArtworkGuides } from '@/lib/db';
 import { ArtworkGuidesClient } from '@/components/storefront/ArtworkGuidesClient';
 
-export const dynamic = 'force-dynamic';
+// Revalidate artwork guides every 10 minutes (ISR)
+export const revalidate = 600;
 
 export const metadata: Metadata = {
   title: 'Artwork Hub & Technical Print Guides | Print Today London',

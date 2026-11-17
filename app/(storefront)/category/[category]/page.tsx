@@ -4,7 +4,9 @@ import { notFound } from 'next/navigation';
 import { getCategories, getProducts } from '@/lib/db';
 import { CategoryClient } from '@/components/storefront/CategoryClient';
 
-export const dynamic = 'force-dynamic';
+// Revalidate category pages every 5 minutes (ISR) to cache static HTML on Edge CDN
+// Drastically cuts Vercel serverless function invocations & Fluid Active CPU usage
+export const revalidate = 300;
 
 interface CategoryPageProps {
   params: Promise<{ category: string }>;

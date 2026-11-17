@@ -10,8 +10,9 @@ import { WhyChooseUsSection } from '@/components/storefront/WhyChooseUsSection';
 import { NewsletterSection } from '@/components/storefront/NewsletterSection';
 import { getLandingSections, getProducts, getHeroSlides, getCategories, getReviews } from '@/lib/db';
 
-// Always render the latest CMS-managed sections and hero banners in real-time
-export const dynamic = 'force-dynamic';
+// Revalidate homepage every 60 seconds (ISR) to cache static HTML on Edge CDN
+// Drastically cuts Vercel serverless function invocations & Fluid Active CPU usage
+export const revalidate = 60;
 
 export const metadata: Metadata = {
   title: 'Same-Day Printing London | Print Today UK',
