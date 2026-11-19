@@ -15,6 +15,8 @@ import {
   Printer,
   Sparkle,
 } from '@phosphor-icons/react/dist/ssr';
+import { getPrintShopLocalBusinessSchema, getFaqSchema } from '@/lib/geo-aeo-schemas';
+import { AeoFaqSection } from '@/components/storefront/AeoFaqSection';
 
 export const metadata: Metadata = {
   title: 'Print Shop East London | 75 Green St E7 | Print Today UK',
@@ -65,12 +67,49 @@ const LOCAL_SERVICES = [
   { name: 'Custom T-Shirts & DTF Hoodies', href: '/clothing', desc: 'From £12.50. Printed in-house on our industrial DTF equipment.' },
 ];
 
+const EAST_LONDON_FAQS = [
+  {
+    question: 'Where is Print Today UK located in East London?',
+    answer:
+      'We are located at 75 Green Street, London, E7 8JF, directly between Forest Gate and Upton Park in East London. Our studio is easily accessible via the Elizabeth Line (Forest Gate) or District Line (Upton Park) with customer parking right outside.',
+  },
+  {
+    question: 'Can I walk into your East London shop to place or collect an order?',
+    answer:
+      'Yes, walk-ins are warmly welcome! You can visit our studio to review paper samples, discuss bespoke printing, or collect orders in person 7 days a week.',
+  },
+  {
+    question: 'What are the opening hours of your East London print studio?',
+    answer:
+      'We are open 7 days a week: Monday to Friday 7:00 AM – 8:00 PM, Saturday 8:00 AM – 5:00 PM, and Sunday 8:00 AM – 4:00 PM.',
+  },
+  {
+    question: 'Is there parking available for order collection at 75 Green Street?',
+    answer:
+      'Yes. There is a customer parking bay directly outside 75 Green Street for easy order pickups, loading large banner stands, or collecting heavy boxes of print.',
+  },
+];
+
 export default function PrintingEastLondonPage() {
   const googleMapsUrl =
     'https://www.google.com/maps/search/?api=1&query=75+Green+Street,+E7+8JF,+London,+United+Kingdom';
 
+  const localBusinessSchema = getPrintShopLocalBusinessSchema();
+  const faqSchema = getFaqSchema(EAST_LONDON_FAQS);
+
   return (
     <div className="bg-[#fbfcfd] min-h-screen font-sans text-slate-900">
+      {/* Schema.org LocalBusiness Structured Data */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(localBusinessSchema) }}
+      />
+      {/* Schema.org FAQPage Structured Data */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+      />
+
       {/* 1. Header Banner */}
       <div className="bg-gradient-to-b from-blue-50/50 via-white to-slate-50 border-b border-slate-200/80 py-10 sm:py-16">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -221,6 +260,16 @@ export default function PrintingEastLondonPage() {
               </Link>
             ))}
           </div>
+        </div>
+
+        {/* AEO Frequently Asked Questions */}
+        <div className="mt-16">
+          <AeoFaqSection
+            title="East London Print Shop FAQs"
+            subtitle="Everything you need to know about visiting 75 Green Street, order collection, turnaround times, and local parking."
+            badge="Local East London Q&A"
+            faqs={EAST_LONDON_FAQS}
+          />
         </div>
       </div>
     </div>

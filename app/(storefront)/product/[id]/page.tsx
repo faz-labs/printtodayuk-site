@@ -396,6 +396,14 @@ export default async function ProductDetailPage({ params }: PageProps) {
         closes: '16:00',
       },
     ],
+    speakable: {
+      '@type': 'SpeakableSpecification',
+      cssSelector: ['.aeo-quick-answer', '.aeo-summary', 'h1', '.speakable-text'],
+    },
+    sameAs: [
+      'https://www.instagram.com/printtodayuk',
+      'https://www.trustpilot.com/review/printtodayuk.com',
+    ],
   };
 
   return (

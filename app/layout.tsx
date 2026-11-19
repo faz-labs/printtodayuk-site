@@ -4,6 +4,11 @@ import Script from 'next/script';
 import './globals.css';
 import { SmoothScrollProvider } from '@/components/providers/SmoothScrollProvider';
 import { ScrollToTop } from '@/components/providers/ScrollToTop';
+import {
+  getGlobalOrganizationSchema,
+  getGlobalWebSiteSchema,
+  getPrintShopLocalBusinessSchema,
+} from '@/lib/geo-aeo-schemas';
 
 const lato = Lato({
   subsets: ['latin'],
@@ -67,9 +72,26 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const globalKnowledgeGraph = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      getGlobalOrganizationSchema(),
+      getGlobalWebSiteSchema(),
+      getPrintShopLocalBusinessSchema(),
+    ],
+  };
+
   return (
     <html lang="en" className={`${lato.variable} ${lato.className}`}>
       <body className={`${lato.className} min-h-screen bg-slate-50 text-slate-900 font-sans antialiased selection:bg-[#C8102E] selection:text-white`}>
+        {/* GEO & AEO Global Knowledge Graph (Organization, WebSite & PrintShop) */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(globalKnowledgeGraph),
+          }}
+        />
+
         {/* Google tag (gtag.js) - Google Analytics (G-0FWH5K8KNN) & Google Ads (AW-819537929) */}
         <Script
           strategy="afterInteractive"

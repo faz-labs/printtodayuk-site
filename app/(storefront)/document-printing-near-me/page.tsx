@@ -14,6 +14,8 @@ import {
   Star,
   FilePdf,
 } from '@phosphor-icons/react/dist/ssr';
+import { getFaqSchema } from '@/lib/geo-aeo-schemas';
+import { AeoFaqSection } from '@/components/storefront/AeoFaqSection';
 
 export const metadata: Metadata = {
   title: 'Document Printing Near Me London | A4/A3 & Binding | Print Today',
@@ -48,9 +50,40 @@ const DOCUMENT_PRICING = [
   { service: 'A4 Gloss or Matt Pouch Encapsulation / Lamination', single: '£1.50', qty50: '£1.00/ea', qty250: '£0.70/ea', qty500: '£0.50/ea' },
 ];
 
+const DOCUMENT_FAQS = [
+  {
+    question: 'Where can I print documents near me today in London?',
+    answer:
+      'You can print documents immediately in London at Print Today UK, located at 75 Green Street, London, E7 8JF. Walk in with a USB drive, send your PDF via WhatsApp (+44 7969 559746), or email artwork@printtodayuk.com for instant printing.',
+  },
+  {
+    question: 'Do you offer document wire binding and thesis printing?',
+    answer:
+      'Yes. We provide Wire-O metal spiral binding with clear protective front acetate covers and heavy card backing. Suitable for university dissertations, pitch decks, corporate reports, and training manuals.',
+  },
+  {
+    question: 'Can I print A4 and A3 documents in full colour or black and white?',
+    answer:
+      'Yes. We print on premium 80gsm, 100gsm, 120gsm, and 300gsm paper stocks in crisp high-contrast black & white or rich full-colour laser print.',
+  },
+  {
+    question: 'Is there a minimum page count or order fee for document printing?',
+    answer:
+      'No. There is no minimum page limit. You can print a single flight ticket or legal contract, up to thousands of pages with tiered volume discounts.',
+  },
+];
+
 export default function DocumentPrintingPage() {
+  const faqSchema = getFaqSchema(DOCUMENT_FAQS);
+
   return (
     <div className="bg-[#fbfcfd] min-h-screen font-sans text-slate-900">
+      {/* Schema.org FAQPage Structured Data */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+      />
+
       {/* 1. Hero Section */}
       <div className="bg-gradient-to-b from-slate-100 via-white to-slate-50 border-b border-slate-200/80 py-10 sm:py-16">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -161,6 +194,16 @@ export default function DocumentPrintingPage() {
               ))}
             </tbody>
           </table>
+        </div>
+
+        {/* AEO Frequently Asked Questions */}
+        <div className="mt-14">
+          <AeoFaqSection
+            title="London Document Printing FAQs"
+            subtitle="Fast answers for customers printing PDFs, theses, tickets, pitch decks, and presentations near them."
+            badge="Document Printing Q&A"
+            faqs={DOCUMENT_FAQS}
+          />
         </div>
       </div>
     </div>

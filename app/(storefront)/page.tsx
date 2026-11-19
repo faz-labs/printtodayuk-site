@@ -8,7 +8,15 @@ import { CuratedSolutionsSection } from '@/components/storefront/CuratedSolution
 import { CustomerShowcaseSection } from '@/components/storefront/CustomerShowcaseSection';
 import { WhyChooseUsSection } from '@/components/storefront/WhyChooseUsSection';
 import { NewsletterSection } from '@/components/storefront/NewsletterSection';
+import { AeoQuickAnswer } from '@/components/storefront/AeoQuickAnswer';
+import { AeoFaqSection } from '@/components/storefront/AeoFaqSection';
 import { getLandingSections, getProducts, getHeroSlides, getCategories, getReviews } from '@/lib/db';
+import {
+  HOMEPAGE_AEO_FAQS,
+  getFaqSchema,
+  getHowToOrderSchema,
+  getPrintShopLocalBusinessSchema,
+} from '@/lib/geo-aeo-schemas';
 
 // Revalidate homepage every 60 seconds (ISR) to cache static HTML on Edge CDN
 // Drastically cuts Vercel serverless function invocations & Fluid Active CPU usage
@@ -103,12 +111,25 @@ export default async function HomePage() {
     getReviews().catch(() => []),
   ]);
 
+  const faqSchema = getFaqSchema(HOMEPAGE_AEO_FAQS);
+  const howToSchema = getHowToOrderSchema();
+
   return (
     <div className="space-y-0">
       {/* Schema.org LocalBusiness Structured Data */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(LOCAL_BUSINESS_SCHEMA) }}
+      />
+      {/* Schema.org FAQPage for Generative Engine Optimization (GEO) & Answer Engines (AEO) */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+      />
+      {/* Schema.org HowTo: Ordering Same-Day Printing in London */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(howToSchema) }}
       />
 
       {/* Semantic Server-Rendered H1 for SEO keyword ranking */}
@@ -122,17 +143,20 @@ export default async function HomePage() {
       {/* 2. 6-Feature Confidence & Opening Hours Trust Bar */}
       <TrustBar />
 
-      {/* 3. Same-Day Service Highlights & Confirmed Studio Hours */}
+      {/* 3. AEO Direct Answer Summary for AI Overviews, Siri & Google Assistant */}
+      <AeoQuickAnswer />
+
+      {/* 4. Same-Day Service Highlights & Confirmed Studio Hours */}
       <FeatureHighlights />
 
-      {/* 4. Dynamic CMS-Managed Landing Sections (Horizontal Auto-Scroll, 8-Tile Grids & Split Banners) */}
+      {/* 5. Dynamic CMS-Managed Landing Sections (Horizontal Auto-Scroll, 8-Tile Grids & Split Banners) */}
       <DynamicLandingSections
         initialSections={initialSections}
         initialProducts={initialProducts}
         initialCategories={initialCategories}
       />
 
-      {/* 5. Curated Industry Solutions */}
+      {/* 6. Curated Industry Solutions */}
       <CuratedSolutionsSection />
 
       {/* 7. Real Customer Showcase & 4.6/5 Google Reviews */}
@@ -141,7 +165,10 @@ export default async function HomePage() {
       {/* 8. Why London Businesses Choose Print Today UK */}
       <WhyChooseUsSection />
 
-      {/* 9. Newsletter Voucher Offer (Claim 10% Off) */}
+      {/* 9. AEO Frequently Asked Questions Section with Microdata */}
+      <AeoFaqSection faqs={HOMEPAGE_AEO_FAQS} />
+
+      {/* 10. Newsletter Voucher Offer (Claim 10% Off) */}
       <NewsletterSection />
     </div>
   );

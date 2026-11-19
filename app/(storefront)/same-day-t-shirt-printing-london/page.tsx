@@ -13,6 +13,8 @@ import {
   ArrowRight,
   Package,
 } from '@phosphor-icons/react/dist/ssr';
+import { getFaqSchema } from '@/lib/geo-aeo-schemas';
+import { AeoFaqSection } from '@/components/storefront/AeoFaqSection';
 
 export const metadata: Metadata = {
   title: 'Same Day T-Shirt Printing London | No Minimum | Print Today UK',
@@ -47,9 +49,40 @@ const APPAREL_PRICES = [
   { item: 'Natural Cotton Tote Bags (Long Handles)', single: '£9.50', qty10: '£6.50/ea', qty50: '£4.20/ea', qty100: '£2.90/ea' },
 ];
 
+const TSHIRT_FAQS = [
+  {
+    question: 'How fast can I get custom t-shirts printed in London?',
+    answer:
+      'We offer same-day collection in as little as 3 hours from our East London print hub at 75 Green Street, E7 8JF, or direct motorcycle/van courier delivery anywhere across London. Orders placed before 2:00 PM are guaranteed for same-day completion.',
+  },
+  {
+    question: 'Is there a minimum order quantity for same-day t-shirt printing?',
+    answer:
+      'No. There is strictly no minimum order. You can print 1 custom t-shirt for a birthday, brand sample, or emergency event, up to hundreds of units.',
+  },
+  {
+    question: 'What printing method is used for same-day clothing orders?',
+    answer:
+      'We use high-definition Direct-to-Film (DTF) digital transfer printing. It prints photographic full-colour designs with sharp details, vibrant white ink underbases, and durable stretchability on 100% cotton garments.',
+  },
+  {
+    question: 'Can I bring my own garments for printing?',
+    answer:
+      'Yes. While we stock premium 100% ring-spun cotton t-shirts and fleece hoodies, you are welcome to bring or deliver your own garments to our 75 Green Street studio for printing.',
+  },
+];
+
 export default function SameDayTShirtPrintingPage() {
+  const faqSchema = getFaqSchema(TSHIRT_FAQS);
+
   return (
     <div className="bg-[#fbfcfd] min-h-screen font-sans text-slate-900">
+      {/* Schema.org FAQPage Structured Data */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+      />
+
       {/* 1. Header Banner */}
       <div className="bg-gradient-to-b from-red-50/40 via-white to-slate-50 border-b border-slate-200/80 py-10 sm:py-16">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -160,6 +193,16 @@ export default function SameDayTShirtPrintingPage() {
               ))}
             </tbody>
           </table>
+        </div>
+
+        {/* AEO Frequently Asked Questions */}
+        <div className="mt-14">
+          <AeoFaqSection
+            title="London Same-Day T-Shirt Printing FAQs"
+            subtitle="Clear answers about DTF garment printing, turnaround speeds, artwork requirements, and no-minimum ordering."
+            badge="Apparel Q&A"
+            faqs={TSHIRT_FAQS}
+          />
         </div>
       </div>
     </div>
