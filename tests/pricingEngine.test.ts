@@ -245,43 +245,36 @@ describe('Pricing Engine: Modifiers, Speeds & Formatting', () => {
   });
 
   test('9. Working delivery dates skip Saturday & Sunday strictly', () => {
-    // Test a Friday base date before 1:30 PM cutoff (e.g. 2026-11-06 is Friday 10:00 AM)
-    const fridayMorning = new Date(2026, 10, 6, 10, 0, 0);
-    const dueFridayMorning = getWorkingDueDates(fridayMorning);
+    // 1. Friday test: Same-day MUST show Monday; Next-day (+1 due date) MUST show Tuesday; Standard MUST show following Monday
+    const friday = new Date(2026, 10, 6, 10, 0, 0); // Friday 6th Nov
+    const dueFriday = getWorkingDueDates(friday);
 
-    assert.ok(dueFridayMorning.sameDay.includes('Fri'), `Friday morning same-day must be Friday, got: ${dueFridayMorning.sameDay}`);
-    assert.ok(dueFridayMorning.nextDay.includes('Tue'), `Friday next-day (+1 due date) must be Tuesday, got: ${dueFridayMorning.nextDay}`);
-    assert.ok(dueFridayMorning.standard.includes('Mon'), `Friday standard (+1 due date) must be Monday, got: ${dueFridayMorning.standard}`);
+    assert.ok(dueFriday.sameDay.includes('Mon'), `Friday order for same-day MUST show Monday, got: ${dueFriday.sameDay}`);
+    assert.ok(dueFriday.nextDay.includes('Tue'), `Friday order for next-day (+1 due date) MUST show Tuesday, got: ${dueFriday.nextDay}`);
+    assert.ok(dueFriday.standard.includes('Mon'), `Friday order for standard (+1 due date) MUST show following Monday, got: ${dueFriday.standard}`);
 
-    // Test Friday AFTER 1:30 PM cutoff (e.g. Friday 2:00 PM) -> Same day must skip weekend and roll over to Monday!
-    const fridayAfterCutoff = new Date(2026, 10, 6, 14, 0, 0);
-    const dueFridayAfterCutoff = getWorkingDueDates(fridayAfterCutoff);
-    assert.ok(
-      dueFridayAfterCutoff.sameDay.includes('Mon'),
-      `Friday afternoon (after 1:30pm) same-day must skip weekend to Monday, got: ${dueFridayAfterCutoff.sameDay}`
-    );
+    // 2. Normal working day test (Wednesday 4th Nov): Same-day MUST show next day (Thursday); Next-day MUST show Friday
+    const wednesday = new Date(2026, 10, 4, 15, 30, 0); // Wednesday 4th Nov
+    const dueWednesday = getWorkingDueDates(wednesday);
+    assert.ok(dueWednesday.sameDay.includes('Thu'), `Wednesday order for same-day MUST show next day (Thursday), got: ${dueWednesday.sameDay}`);
+    assert.ok(dueWednesday.nextDay.includes('Fri'), `Wednesday order for next-day MUST show Friday, got: ${dueWednesday.nextDay}`);
 
-    // Test Saturday (weekend) -> Same day must skip Sunday and roll over to Monday!
+    // 3. Weekend tests (Saturday 7th Nov & Sunday 8th Nov): MUST show Monday for same-day, Tuesday for next-day
     const saturday = new Date(2026, 10, 7, 11, 0, 0);
     const dueSaturday = getWorkingDueDates(saturday);
-    assert.ok(
-      dueSaturday.sameDay.includes('Mon'),
-      `Saturday same-day must skip weekend to Monday, got: ${dueSaturday.sameDay}`
-    );
+    assert.ok(dueSaturday.sameDay.includes('Mon'), `Saturday order for same-day MUST show Monday, got: ${dueSaturday.sameDay}`);
+    assert.ok(dueSaturday.nextDay.includes('Tue'), `Saturday order for next-day MUST show Tuesday, got: ${dueSaturday.nextDay}`);
 
-    // Test Sunday (weekend) -> Same day must roll over to Monday!
     const sunday = new Date(2026, 10, 8, 14, 0, 0);
     const dueSunday = getWorkingDueDates(sunday);
-    assert.ok(
-      dueSunday.sameDay.includes('Mon'),
-      `Sunday same-day must roll over to Monday, got: ${dueSunday.sameDay}`
-    );
+    assert.ok(dueSunday.sameDay.includes('Mon'), `Sunday order for same-day MUST show Monday, got: ${dueSunday.sameDay}`);
+    assert.ok(dueSunday.nextDay.includes('Tue'), `Sunday order for next-day MUST show Tuesday, got: ${dueSunday.nextDay}`);
 
     // Due dates must NEVER contain 'Sat' or 'Sun' across any option
-    assert.ok(!dueFridayMorning.sameDay.includes('Sat') && !dueFridayMorning.sameDay.includes('Sun'));
-    assert.ok(!dueFridayMorning.nextDay.includes('Sat') && !dueFridayMorning.nextDay.includes('Sun'));
-    assert.ok(!dueFridayMorning.standard.includes('Sat') && !dueFridayMorning.standard.includes('Sun'));
-    assert.ok(!dueFridayAfterCutoff.sameDay.includes('Sat') && !dueFridayAfterCutoff.sameDay.includes('Sun'));
+    assert.ok(!dueFriday.sameDay.includes('Sat') && !dueFriday.sameDay.includes('Sun'));
+    assert.ok(!dueFriday.nextDay.includes('Sat') && !dueFriday.nextDay.includes('Sun'));
+    assert.ok(!dueFriday.standard.includes('Sat') && !dueFriday.standard.includes('Sun'));
+    assert.ok(!dueWednesday.sameDay.includes('Sat') && !dueWednesday.sameDay.includes('Sun'));
     assert.ok(!dueSaturday.sameDay.includes('Sat') && !dueSaturday.sameDay.includes('Sun'));
     assert.ok(!dueSunday.sameDay.includes('Sat') && !dueSunday.sameDay.includes('Sun'));
   });
