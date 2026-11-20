@@ -58,14 +58,17 @@ export function formatOrdinalDate(d: Date, includeWeekday: boolean = true): stri
  * Calculates human-friendly working-day delivery dates (strictly skipping Saturday and Sunday).
  * - 1 Working Day (+1 working day due date): 2 full working days (e.g. Friday/Sunday order -> Tuesday).
  * - 3-5 Working Days (+1 working day due date): 6 full working days (e.g. Friday/Sunday order -> Monday).
- * - Same Day Express: today if weekday before 1pm cutoff; next working day (Monday) if weekend/after cutoff.
+ * - Same Day Express: today if weekday before 1:30pm cutoff; next working day (Monday) if weekend/after cutoff.
  * - Weekends (Saturday and Sunday) are strictly non-delivery and non-production days.
  */
 export function getWorkingDueDates(baseDate: Date = new Date()): { sameDay: string; nextDay: string; standard: string } {
   const now = new Date(baseDate);
   const dayOfWeek = now.getDay(); // 0 is Sun, 6 is Sat
   const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-  const isPastCutoff = now.getHours() >= 13; // 1:00 PM London cutoff
+
+  // 1:30 PM (13:30) London daily cutoff for same-day production
+  const totalMinutes = now.getHours() * 60 + now.getMinutes();
+  const isPastCutoff = totalMinutes >= 13 * 60 + 30; // 1:30 PM (13:30) London cutoff
 
   function addWorkingDays(from: Date, count: number): Date {
     const cur = new Date(from);
