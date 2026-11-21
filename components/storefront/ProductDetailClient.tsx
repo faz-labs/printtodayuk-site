@@ -320,7 +320,8 @@ export function ProductDetailClient({
       product?.nextDayIncreasePercent,
       product?.quantityTiers,
       product?.variantQuantityTiers,
-      product?.customFields
+      product?.customFields,
+      product?.priceMatrix
     );
   }, [
     basePriceAnchor,
@@ -336,6 +337,7 @@ export function ProductDetailClient({
     product?.quantityTiers,
     product?.variantQuantityTiers,
     product?.customFields,
+    product?.priceMatrix,
   ]);
 
   // Ensure selectedQuantity always matches a valid row in the matrix

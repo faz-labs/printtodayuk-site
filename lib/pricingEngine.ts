@@ -3,7 +3,7 @@
  * Supports formula-based matrix generation, speed multipliers, option modifiers,
  * working-day due date calculation, and item/total weight estimations.
  */
-import { QuantityTier, CustomField } from '@/lib/types';
+import { QuantityTier, CustomField, PriceMatrixConfig } from '@/lib/types';
 export interface DeliverySpeedOption {
   id: 'same_day' | 'next_day' | 'standard';
   title: string;
@@ -681,13 +681,127 @@ export function resolveActiveVariantTiers(
 }
 
 /**
+ * Process 2: Resolves pricing from a PriceMatrixConfig if configured.
+ * Matches selected options against matrix primaryFieldId (and optional secondaryFieldId).
+ * Returns the resolved column tiers and the field keys consumed by the matrix.
+ */
+export function resolvePriceMatrixTiers(
+  selectedOptions: Record<string, string>,
+  priceMatrix?: PriceMatrixConfig,
+  customFields?: CustomField[]
+): { tiers?: QuantityTier[]; matchedColumn?: string; consumedFieldKeys: Set<string> } {
+  const consumedFieldKeys = new Set<string>();
+  if (!priceMatrix || !Array.isArray(priceMatrix.columns) || priceMatrix.columns.length === 0 || !Array.isArray(priceMatrix.quantities) || priceMatrix.quantities.length === 0) {
+    return { consumedFieldKeys };
+  }
+
+  let primaryVal = '';
+  let secondaryVal = '';
+
+  for (const [key, val] of Object.entries(selectedOptions)) {
+    const cleanK = key.toLowerCase().trim();
+    const cleanP = (priceMatrix.primaryFieldId || '').toLowerCase().trim();
+    const cleanS = (priceMatrix.secondaryFieldId || '').toLowerCase().trim();
+
+    const fieldObj = customFields?.find(
+      (f) => f.id.toLowerCase() === cleanK || f.name.toLowerCase() === cleanK
+    );
+
+    const matchesPrimary =
+      cleanK === cleanP ||
+      (fieldObj && (fieldObj.id.toLowerCase() === cleanP || fieldObj.name.toLowerCase() === cleanP));
+
+    const matchesSecondary =
+      Boolean(cleanS) &&
+      (cleanK === cleanS ||
+        (fieldObj && (fieldObj.id.toLowerCase() === cleanS || fieldObj.name.toLowerCase() === cleanS)));
+
+    if (matchesPrimary) {
+      primaryVal = cleanOptionDisplayName(val).trim();
+      consumedFieldKeys.add(key);
+    } else if (matchesSecondary) {
+      secondaryVal = cleanOptionDisplayName(val).trim();
+      consumedFieldKeys.add(key);
+    }
+  }
+
+  // Fallback: match by option value if key didn't match field id directly
+  if (!primaryVal) {
+    for (const [key, val] of Object.entries(selectedOptions)) {
+      const cleanV = cleanOptionDisplayName(val).trim().toLowerCase();
+      const colMatch = priceMatrix.columns.some((c) => c.toLowerCase().includes(cleanV));
+      if (colMatch) {
+        primaryVal = cleanOptionDisplayName(val).trim();
+        consumedFieldKeys.add(key);
+        break;
+      }
+    }
+  }
+
+  if (!primaryVal) {
+    return { consumedFieldKeys };
+  }
+
+  // Look for target column in priceMatrix.columns
+  let matchedCol: string | undefined;
+
+  if (secondaryVal) {
+    const compoundTarget1 = `${primaryVal} - ${secondaryVal}`.toLowerCase();
+    const compoundTarget2 = `${secondaryVal} - ${primaryVal}`.toLowerCase();
+    matchedCol = priceMatrix.columns.find((c) => {
+      const lowC = c.toLowerCase().trim();
+      return lowC === compoundTarget1 || lowC === compoundTarget2;
+    });
+  }
+
+  if (!matchedCol) {
+    const cleanP = primaryVal.toLowerCase();
+    const cleanS = secondaryVal ? secondaryVal.toLowerCase() : '';
+    matchedCol = priceMatrix.columns.find((c) => {
+      const lowC = c.toLowerCase().trim();
+      if (cleanS) {
+        return (lowC.includes(cleanP) || cleanP.includes(lowC)) && (lowC.includes(cleanS) || cleanS.includes(lowC));
+      }
+      return lowC === cleanP || lowC.includes(cleanP) || cleanP.includes(lowC);
+    });
+  }
+
+  if (!matchedCol) {
+    return { consumedFieldKeys };
+  }
+
+  // Build QuantityTier[] from matrix cells
+  const matrixTiers: QuantityTier[] = [];
+  for (const qty of priceMatrix.quantities) {
+    const cellKey = `${qty}__${matchedCol}`;
+    const cellPrice = priceMatrix.cells?.[cellKey];
+    if (typeof cellPrice === 'number' && cellPrice > 0) {
+      matrixTiers.push({
+        quantity: qty,
+        price: cellPrice,
+      });
+    }
+  }
+
+  if (matrixTiers.length === 0) {
+    return { consumedFieldKeys };
+  }
+
+  return {
+    tiers: matrixTiers,
+    matchedColumn: matchedCol,
+    consumedFieldKeys,
+  };
+}
+
+/**
  * Generates an entire dynamic price matrix for any product and any combination of options.
  * Base price represents the cost of `minQuantity` items on Standard delivery.
  * When `productQuantityTiers` are defined, uses explicit merchant tiers and Base Price + % logic.
  */
 export function generateDynamicPriceMatrix(
   basePrice: number,
-  selectedOptions: Record<string, string>,
+  selectedOptions: Record<string, string> = {},
   numberOfSets: number = 1,
   quantityTiers?: number[],
   minQuantity: number = 25,
@@ -699,18 +813,26 @@ export function generateDynamicPriceMatrix(
   nextDayIncreasePercent?: number,
   productQuantityTiers?: QuantityTier[],
   variantQuantityTiers?: Record<string, QuantityTier[]>,
-  customFields?: CustomField[]
+  customFields?: CustomField[],
+  priceMatrix?: PriceMatrixConfig
 ): MatrixRow[] {
+  const safeSelectedOptions = selectedOptions || {};
   const safeMin = Math.max(1, minQuantity || 25);
   const safeMax = maxQuantity && maxQuantity >= safeMin ? maxQuantity : 250000;
 
-  // Approach B: Resolve active variant-specific quantity tiers (supports compound keys like A6-170gsm-DSP)
-  const activeProductTiers = resolveActiveVariantTiers(
-    selectedOptions,
-    variantQuantityTiers,
-    productQuantityTiers,
-    customFields
-  );
+  // Process 2: Try resolving from Price Matrix first!
+  const matrixResolution = resolvePriceMatrixTiers(safeSelectedOptions, priceMatrix, customFields);
+
+  // If matrix matched, use matrix tiers; otherwise fallback to variantQuantityTiers, then base tiers
+  const activeProductTiers =
+    matrixResolution.tiers && matrixResolution.tiers.length > 0
+      ? matrixResolution.tiers
+      : resolveActiveVariantTiers(
+          safeSelectedOptions,
+          variantQuantityTiers,
+          productQuantityTiers,
+          customFields
+        );
 
   // Determine tiers:
   // 1. If explicit quantityTiers array passed (e.g. custom quantity single-element array [customQty]), use that.
@@ -766,7 +888,13 @@ export function generateDynamicPriceMatrix(
   const hasExplicitTiers = Boolean(activeProductTiers && activeProductTiers.length > 0);
   const skipHardcodedDefaults = isCMSCustomFieldProduct || hasExplicitTiers;
 
-  for (const [field, val] of Object.entries(selectedOptions)) {
+  for (const [field, val] of Object.entries(safeSelectedOptions)) {
+    // If this field was consumed by the priceMatrix (e.g. Number of Pages or Inside Paper),
+    // its price is already reflected in the matrix table cells, so skip adding its modifier again!
+    if (matrixResolution.consumedFieldKeys.has(field)) {
+      continue;
+    }
+
     // If the field is "Number of Sets", sets are multiplied separately via numberOfSets parameter
     const isSetField =
       /\bsets?\b/i.test(field) &&

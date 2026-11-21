@@ -8,7 +8,9 @@ import { Modal } from '@/components/ui/Modal';
 import { ProductForm } from './ProductForm';
 import { ImageWithFallback } from '@/components/storefront/ImageWithFallback';
 import { formatCurrency, calculateDiscount, slugify } from '@/lib/utils';
-import { invalidateProductsCache } from '@/lib/db';
+import { invalidateProductsCache, bulkUpdateProductStatus } from '@/lib/db';
+import { ProductImportModal } from './ProductImportModal';
+import { ProductRepriceModal } from './ProductRepriceModal';
 import {
   Plus,
   MagnifyingGlass,
@@ -27,6 +29,8 @@ import {
   Eye,
   EyeSlash,
   WhatsappLogo,
+  UploadSimple,
+  CurrencyGbp,
 } from '@phosphor-icons/react';
 import Link from 'next/link';
 
@@ -86,6 +90,12 @@ export function ProductManager({
   const [bulkDirection, setBulkDirection] = useState<'increase' | 'decrease'>('increase');
   const [bulkPercent, setBulkPercent] = useState<string>('10');
   const [isApplyingBulk, setIsApplyingBulk] = useState(false);
+
+  // Process 1 & Process 6 & Process 5 Modal & Selection States
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [repriceProduct, setRepriceProduct] = useState<Product | null>(null);
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
+  const [isBulkStatusUpdating, setIsBulkStatusUpdating] = useState(false);
 
   React.useEffect(() => {
     if (categories?.length && !bulkCategory) {
@@ -459,6 +469,64 @@ export function ProductManager({
     }
   };
 
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedProductIds(filteredProducts.map((p) => p.id || p.slug).filter(Boolean));
+    } else {
+      setSelectedProductIds([]);
+    }
+  };
+
+  const handleToggleSelectOne = (id: string) => {
+    setSelectedProductIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const isAllSelected =
+    filteredProducts.length > 0 &&
+    filteredProducts.every((p) => selectedProductIds.includes(p.id || p.slug));
+
+  const handleBulkToggleActive = async (isActive: boolean) => {
+    if (selectedProductIds.length === 0) return;
+    const actionLabel = isActive ? 'publish (make live)' : 'hide';
+    if (!window.confirm(`Are you sure you want to ${actionLabel} ${selectedProductIds.length} selected product(s)?`)) {
+      return;
+    }
+
+    setIsBulkStatusUpdating(true);
+    try {
+      const res = await bulkUpdateProductStatus(selectedProductIds, isActive);
+      showNotification(
+        'success',
+        `Successfully updated ${res.updatedCount} products to ${isActive ? 'Live' : 'Hidden'}.`
+      );
+      setSelectedProductIds([]);
+      if (onRefreshData) {
+        await onRefreshData();
+      }
+    } catch (err: any) {
+      showNotification('error', `Failed to update products: ${err.message}`);
+    } finally {
+      setIsBulkStatusUpdating(false);
+    }
+  };
+
+  const handleSaveRepricedProduct = async (repriced: Product) => {
+    const targetId = repriced.id || repriced.slug;
+    if (!targetId) return;
+    try {
+      await onUpdateProduct(targetId, repriced);
+      showNotification('success', `Product "${repriced.title}" repriced successfully!`);
+      setRepriceProduct(null);
+      if (onRefreshData) {
+        await onRefreshData();
+      }
+    } catch (err: any) {
+      showNotification('error', `Failed to reprice product: ${err.message}`);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Status Notice Toast */}
@@ -524,6 +592,17 @@ export function ProductManager({
           <Button
             variant="outline"
             size="md"
+            data-testid="import-products-btn"
+            onClick={() => setIsImportModalOpen(true)}
+            className="flex items-center gap-1.5 border-emerald-300 text-emerald-800 hover:text-emerald-950 hover:border-emerald-500 hover:bg-emerald-50/60 font-bold"
+          >
+            <UploadSimple weight="bold" className="h-4 w-4 text-emerald-600" />
+            <span>Import Products</span>
+          </Button>
+
+          <Button
+            variant="outline"
+            size="md"
             onClick={() => setIsBulkPriceModalOpen(true)}
             className="flex items-center gap-1.5 border-slate-300 text-slate-700 hover:text-[#012169] hover:border-[#012169] hover:bg-blue-50/50"
           >
@@ -557,6 +636,47 @@ export function ProductManager({
           )}
         </div>
 
+        {/* Bulk Selection Bar (Process 5) */}
+        {selectedProductIds.length > 0 && (
+          <div className="p-3 bg-indigo-50 border-b border-indigo-100 flex flex-wrap items-center justify-between gap-3 px-4">
+            <div className="flex items-center gap-2 text-xs font-bold text-indigo-900">
+              <span className="px-2 py-0.5 rounded-full bg-indigo-200 text-indigo-800">
+                {selectedProductIds.length} selected
+              </span>
+              <span>Bulk Status Actions:</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isBulkStatusUpdating}
+                onClick={() => handleBulkToggleActive(true)}
+                className="bg-white text-emerald-700 border-emerald-300 hover:bg-emerald-50 text-xs font-bold"
+              >
+                <Eye weight="bold" className="h-3.5 w-3.5 mr-1 text-emerald-600" />
+                <span>Publish Selected (Live)</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isBulkStatusUpdating}
+                onClick={() => handleBulkToggleActive(false)}
+                className="bg-white text-slate-700 border-slate-300 hover:bg-slate-100 text-xs font-bold"
+              >
+                <EyeSlash weight="bold" className="h-3.5 w-3.5 mr-1 text-slate-500" />
+                <span>Hide Selected (Hidden)</span>
+              </Button>
+              <button
+                type="button"
+                onClick={() => setSelectedProductIds([])}
+                className="text-xs text-indigo-700 hover:text-indigo-900 underline font-semibold ml-2 cursor-pointer"
+              >
+                Clear Selection
+              </button>
+            </div>
+          </div>
+        )}
+
         {filteredProducts.length === 0 ? (
           <div className="p-12 text-center">
             <Sparkle weight="fill" className="h-10 w-10 text-slate-300 mx-auto mb-3" />
@@ -576,6 +696,15 @@ export function ProductManager({
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50/80 text-[11px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">
+                  <th className="py-3.5 px-3 w-10 text-center">
+                    <input
+                      type="checkbox"
+                      checked={isAllSelected}
+                      onChange={(e) => handleSelectAll(e.target.checked)}
+                      className="rounded border-slate-300 text-[#012169] focus:ring-[#012169] cursor-pointer"
+                      title="Select all"
+                    />
+                  </th>
                   <th className="py-3.5 px-4">Product</th>
                   <th className="py-3.5 px-4">Category</th>
                   <th className="py-3.5 px-4">Price</th>
@@ -592,6 +721,15 @@ export function ProductManager({
 
                   return (
                     <tr key={itemKey} className="hover:bg-slate-50/80 transition-colors">
+                      {/* Selection Checkbox */}
+                      <td className="py-3.5 px-3 text-center">
+                        <input
+                          type="checkbox"
+                          checked={selectedProductIds.includes(product.id || product.slug)}
+                          onChange={() => handleToggleSelectOne(product.id || product.slug)}
+                          className="rounded border-slate-300 text-[#012169] focus:ring-[#012169] cursor-pointer"
+                        />
+                      </td>
                       {/* Product details */}
                       <td className="py-3.5 px-4">
                         <div className="flex items-center gap-3">
@@ -700,6 +838,15 @@ export function ProductManager({
                           </Link>
 
                           <button
+                            type="button"
+                            onClick={() => setRepriceProduct(product)}
+                            className="p-1.5 rounded-lg text-emerald-700 hover:bg-emerald-50 transition-colors cursor-pointer"
+                            title="Reprice Product (Rules & Floor)"
+                          >
+                            <CurrencyGbp weight="bold" className="h-4 w-4" />
+                          </button>
+
+                          <button
                             onClick={() => handleDuplicateProduct(product)}
                             className="p-1.5 rounded-lg text-indigo-600 hover:bg-indigo-50 transition-colors cursor-pointer"
                             title="Duplicate / Copy Product"
@@ -744,6 +891,24 @@ export function ProductManager({
         onSubmit={handleFormSubmit}
         initialProduct={editingProduct}
         categories={categories}
+      />
+
+      {/* Bulk Product Import Modal (Process 1) */}
+      <ProductImportModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onImportComplete={async () => {
+          if (onRefreshData) await onRefreshData();
+          showNotification('success', 'Import completed successfully!');
+        }}
+      />
+
+      {/* Product Reprice Modal (Process 6) */}
+      <ProductRepriceModal
+        product={repriceProduct}
+        isOpen={Boolean(repriceProduct)}
+        onClose={() => setRepriceProduct(null)}
+        onSaveRepriced={handleSaveRepricedProduct}
       />
 
       {/* Bulk Price Adjustment Modal */}

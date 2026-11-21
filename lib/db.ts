@@ -24,6 +24,8 @@ import {
   ReviewInput,
   ArtworkGuide,
   ArtworkGuideInput,
+  PriceMatrixConfig,
+  QuantityTier,
 } from './types';
 import {
   INITIAL_CATEGORIES,
@@ -180,12 +182,89 @@ function saveLocalInquiries(inquiries: Inquiry[]) {
 // ---------------- PRODUCTS CRUD ----------------
 
 let memoryProducts: { data: Product[]; timestamp: number } | null = null;
+const memoryPricingCache: Map<string, { data: { variantQuantityTiers?: Record<string, QuantityTier[]>; priceMatrix?: PriceMatrixConfig }; timestamp: number }> = new Map();
 const MEMORY_CACHE_TTL_MS = 60 * 1000; // 60 seconds
 
 export function invalidateProductsCache() {
   memoryProducts = null;
+  memoryPricingCache.clear();
 }
 
+/**
+ * Process 3: Saves variant tables and price matrix to a subcollection
+ * avoiding Firestore 1 MB document limits for large booklet/brochure products.
+ */
+export async function saveProductPricingData(
+  productId: string,
+  pricingData: {
+    variantQuantityTiers?: Record<string, QuantityTier[]>;
+    priceMatrix?: PriceMatrixConfig;
+  }
+): Promise<void> {
+  if (!productId) return;
+  memoryPricingCache.set(productId, { data: pricingData, timestamp: Date.now() });
+
+  if (isConfigured && db) {
+    try {
+      const cleanData = cleanFirestoreData(pricingData);
+      const subRef = doc(db, 'products', productId, 'pricingData', 'default');
+      await setDoc(subRef, cleanData, { merge: true });
+    } catch (err) {
+      console.warn(`Firestore saveProductPricingData failed for ${productId}:`, err);
+    }
+  }
+
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(`print_today_pricing_${productId}`, JSON.stringify(pricingData));
+    } catch {}
+  }
+}
+
+/**
+ * Process 3: Loads variant tables and price matrix from the subcollection on demand.
+ */
+export async function getProductPricingData(
+  productId: string
+): Promise<{ variantQuantityTiers?: Record<string, QuantityTier[]>; priceMatrix?: PriceMatrixConfig } | null> {
+  if (!productId) return null;
+
+  const cached = memoryPricingCache.get(productId);
+  if (cached && Date.now() - cached.timestamp < MEMORY_CACHE_TTL_MS) {
+    return cached.data;
+  }
+
+  if (isConfigured && db) {
+    try {
+      const subRef = doc(db, 'products', productId, 'pricingData', 'default');
+      const subSnap = await getDoc(subRef);
+      if (subSnap.exists()) {
+        const data = subSnap.data() as any;
+        memoryPricingCache.set(productId, { data, timestamp: Date.now() });
+        return data;
+      }
+    } catch (err) {
+      console.warn(`Firestore getProductPricingData failed for ${productId}:`, err);
+    }
+  }
+
+  if (typeof window !== 'undefined') {
+    try {
+      const local = localStorage.getItem(`print_today_pricing_${productId}`);
+      if (local) {
+        const parsed = JSON.parse(local);
+        memoryPricingCache.set(productId, { data: parsed, timestamp: Date.now() });
+        return parsed;
+      }
+    } catch {}
+  }
+
+  return null;
+}
+
+/**
+ * Process 3: Product list screens load only the product summary, not large variant tables.
+ */
 export async function getProducts(category?: string, includeInactive: boolean = false): Promise<Product[]> {
   const now = Date.now();
   if (!category && memoryProducts && now - memoryProducts.timestamp < MEMORY_CACHE_TTL_MS) {
@@ -206,9 +285,11 @@ export async function getProducts(category?: string, includeInactive: boolean = 
 
       const products = snap.docs.map((d) => {
         const data = d.data() as any;
+        // Strip heavy variant tables from list calls for instant loading and minimal bandwidth
+        const { variantQuantityTiers, priceMatrix, ...summary } = data;
         return {
           id: d.id,
-          ...data,
+          ...summary,
           title: data.title || '',
           category: data.category || '',
           subcategory: data.subcategory || '',
@@ -235,82 +316,131 @@ export async function getProducts(category?: string, includeInactive: boolean = 
   return source;
 }
 
+/**
+ * Process 3: getProductById loads full pricing data on demand (from subcollection if external).
+ */
 export async function getProductById(idOrSlug: string): Promise<Product | null> {
   if (!idOrSlug) return null;
   const decoded = decodeURIComponent(idOrSlug).trim();
 
+  let resolvedProduct: Product | null = null;
+
   if (isConfigured && db) {
     try {
-      // 1. Slug query check first (since storefront links use human-friendly slugs)
+      // 1. Slug query check first
       const qSlug = query(collection(db, 'products'), where('slug', '==', decoded));
       const snapSlug = await getDocs(qSlug);
       if (!snapSlug.empty) {
         const firstDoc = snapSlug.docs[0];
-        return { id: firstDoc.id, ...firstDoc.data() } as Product;
+        resolvedProduct = { id: firstDoc.id, ...firstDoc.data() } as Product;
       }
 
-      // Also check raw string if different from decoded
-      if (idOrSlug !== decoded) {
+      if (!resolvedProduct && idOrSlug !== decoded) {
         const qRaw = query(collection(db, 'products'), where('slug', '==', idOrSlug));
         const snapRaw = await getDocs(qRaw);
         if (!snapRaw.empty) {
           const firstDoc = snapRaw.docs[0];
-          return { id: firstDoc.id, ...firstDoc.data() } as Product;
+          resolvedProduct = { id: firstDoc.id, ...firstDoc.data() } as Product;
         }
       }
 
       // 2. Direct doc ID check
-      const docRef = doc(db, 'products', decoded);
-      const docSnap = await getDoc(docRef);
-      if (docSnap.exists()) {
-        return { id: docSnap.id, ...docSnap.data() } as Product;
-      }
-
-      // 3. Resilient fallback: search all products for case-insensitive slug or ID
-      const allSnap = await getDocs(collection(db, 'products'));
-      const targetLower = decoded.toLowerCase();
-      for (const d of allSnap.docs) {
-        const data = d.data() as any;
-        const prodSlug = (data.slug || '').toLowerCase().trim();
-        if (prodSlug === targetLower || d.id === decoded || d.id === idOrSlug) {
-          return { id: d.id, ...data } as Product;
+      if (!resolvedProduct) {
+        const docRef = doc(db, 'products', decoded);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          resolvedProduct = { id: docSnap.id, ...docSnap.data() } as Product;
         }
       }
 
-      return null;
+      // 3. Fallback scan
+      if (!resolvedProduct) {
+        const allSnap = await getDocs(collection(db, 'products'));
+        const targetLower = decoded.toLowerCase();
+        for (const d of allSnap.docs) {
+          const data = d.data() as any;
+          const prodSlug = (data.slug || '').toLowerCase().trim();
+          if (prodSlug === targetLower || d.id === decoded || d.id === idOrSlug) {
+            resolvedProduct = { id: d.id, ...data } as Product;
+            break;
+          }
+        }
+      }
     } catch (error) {
       console.warn('Firestore fetch single product error:', error);
     }
   }
 
-  const local = getLocalProducts();
-  const targetLower = decoded.toLowerCase();
-  const found = local.find(
-    (p) =>
-      (p.slug && p.slug.toLowerCase().trim() === targetLower) ||
-      p.slug === decoded ||
-      p.slug === idOrSlug ||
-      p.id === decoded ||
-      p.id === idOrSlug
-  );
-  return found || null;
+  if (!resolvedProduct) {
+    const local = getLocalProducts();
+    const targetLower = decoded.toLowerCase();
+    resolvedProduct = local.find(
+      (p) =>
+        (p.slug && p.slug.toLowerCase().trim() === targetLower) ||
+        p.slug === decoded ||
+        p.slug === idOrSlug ||
+        p.id === decoded ||
+        p.id === idOrSlug
+    ) || null;
+  }
+
+  // Hydrate external subcollection pricing data if needed
+  if (resolvedProduct) {
+    const productId = resolvedProduct.id || resolvedProduct.slug;
+    if (resolvedProduct.pricingDataExternal || (!resolvedProduct.variantQuantityTiers && !resolvedProduct.priceMatrix)) {
+      const externalPricing = await getProductPricingData(productId);
+      if (externalPricing) {
+        if (externalPricing.variantQuantityTiers) {
+          resolvedProduct.variantQuantityTiers = externalPricing.variantQuantityTiers;
+        }
+        if (externalPricing.priceMatrix) {
+          resolvedProduct.priceMatrix = externalPricing.priceMatrix;
+        }
+      }
+    }
+  }
+
+  return resolvedProduct;
 }
 
 export async function createProduct(productInput: ProductInput): Promise<Product> {
   invalidateProductsCache();
+  const slug = productInput.slug || slugify(productInput.title);
+
+  // Check if variant tables or matrix are large enough to decouple into subcollection
+  const variantKeysCount = productInput.variantQuantityTiers ? Object.keys(productInput.variantQuantityTiers).length : 0;
+  const isLargePricingData = variantKeysCount > 5 || Boolean(productInput.priceMatrix) || Boolean(productInput.pricingDataExternal);
+
   const newProduct: Product = {
     ...productInput,
-    slug: productInput.slug || slugify(productInput.title),
+    slug,
+    pricingDataExternal: isLargePricingData ? true : productInput.pricingDataExternal,
     createdAt: Date.now(),
     updatedAt: Date.now(),
   };
+
+  const pricingPayload = {
+    variantQuantityTiers: productInput.variantQuantityTiers,
+    priceMatrix: productInput.priceMatrix,
+  };
+
+  if (isLargePricingData) {
+    delete (newProduct as any).variantQuantityTiers;
+    delete (newProduct as any).priceMatrix;
+  }
 
   if (isConfigured && db) {
     try {
       const cleanData = cleanFirestoreData(newProduct);
       const docRef = await addDoc(collection(db, 'products'), cleanData);
       newProduct.id = docRef.id;
-      // Also sync to local cache
+
+      if (isLargePricingData) {
+        await saveProductPricingData(docRef.id, pricingPayload);
+        newProduct.variantQuantityTiers = pricingPayload.variantQuantityTiers;
+        newProduct.priceMatrix = pricingPayload.priceMatrix;
+      }
+
       const local = getLocalProducts();
       local.unshift(newProduct);
       saveLocalProducts(local);
@@ -322,6 +452,11 @@ export async function createProduct(productInput: ProductInput): Promise<Product
   }
 
   newProduct.id = `prod-${Date.now()}`;
+  if (isLargePricingData) {
+    await saveProductPricingData(newProduct.id, pricingPayload);
+    newProduct.variantQuantityTiers = pricingPayload.variantQuantityTiers;
+    newProduct.priceMatrix = pricingPayload.priceMatrix;
+  }
   const local = getLocalProducts();
   local.unshift(newProduct);
   saveLocalProducts(local);
@@ -345,6 +480,23 @@ export async function updateProduct(
       typeof updates.variantQuantityTiers === 'object' &&
       Object.keys(updates.variantQuantityTiers).length === 0);
 
+  const hasVariantsInUpdate = updates.variantQuantityTiers !== undefined;
+  const hasMatrixInUpdate = updates.priceMatrix !== undefined;
+  const variantKeysCount = updates.variantQuantityTiers ? Object.keys(updates.variantQuantityTiers).length : 0;
+  const isLargePricing = variantKeysCount > 5 || Boolean(updates.priceMatrix) || updates.pricingDataExternal === true;
+
+  // Separate subcollection pricing data if large
+  if (isLargePricing && (hasVariantsInUpdate || hasMatrixInUpdate)) {
+    payload.pricingDataExternal = true;
+    const pricingPayload: any = {};
+    if (hasVariantsInUpdate) pricingPayload.variantQuantityTiers = updates.variantQuantityTiers;
+    if (hasMatrixInUpdate) pricingPayload.priceMatrix = updates.priceMatrix;
+
+    await saveProductPricingData(id, pricingPayload);
+    delete payload.variantQuantityTiers;
+    delete payload.priceMatrix;
+  }
+
   if (isConfigured && db) {
     try {
       const cleanData: any = cleanFirestoreData(payload);
@@ -366,7 +518,14 @@ export async function updateProduct(
         const qSlug = query(collection(db, 'products'), where('slug', '==', id));
         const snapSlug = await getDocs(qSlug);
         if (!snapSlug.empty) {
-          await updateDoc(doc(db, 'products', snapSlug.docs[0].id), cleanData);
+          const matchedId = snapSlug.docs[0].id;
+          await updateDoc(doc(db, 'products', matchedId), cleanData);
+          if (isLargePricing) {
+            await saveProductPricingData(matchedId, {
+              variantQuantityTiers: updates.variantQuantityTiers,
+              priceMatrix: updates.priceMatrix,
+            });
+          }
         } else {
           // Fallback 2: Search across all products
           const allSnap = await getDocs(collection(db, 'products'));
@@ -420,6 +579,89 @@ export async function deleteProduct(id: string): Promise<boolean> {
   const filtered = local.filter((p) => p.id !== id && p.slug !== id);
   saveLocalProducts(filtered);
   return true;
+}
+
+/**
+ * Process 5: Bulk Live/Hidden toggle on the catalog list.
+ */
+export async function bulkUpdateProductStatus(
+  productIds: string[],
+  isActive: boolean
+): Promise<{ updatedCount: number; errors: string[] }> {
+  invalidateProductsCache();
+  let updatedCount = 0;
+  const errors: string[] = [];
+
+  for (const id of productIds) {
+    try {
+      await updateProduct(id, { isActive });
+      updatedCount++;
+    } catch (err: any) {
+      errors.push(`Failed to update status for ${id}: ${err.message}`);
+    }
+  }
+
+  return { updatedCount, errors };
+}
+
+/**
+ * Process 3: Migration script moves existing inline variantQuantityTiers & priceMatrix
+ * to the new subcollection structure with no data loss.
+ */
+export async function migrateProductPricingToSubcollections(): Promise<{ migratedCount: number; errors: string[] }> {
+  let migratedCount = 0;
+  const errors: string[] = [];
+
+  if (isConfigured && db) {
+    try {
+      const snap = await getDocs(collection(db, 'products'));
+      for (const d of snap.docs) {
+        const data = d.data() as any;
+        const hasVariants = data.variantQuantityTiers && typeof data.variantQuantityTiers === 'object' && Object.keys(data.variantQuantityTiers).length > 0;
+        const hasMatrix = Boolean(data.priceMatrix);
+
+        if ((hasVariants || hasMatrix) && !data.pricingDataExternal) {
+          try {
+            await saveProductPricingData(d.id, {
+              variantQuantityTiers: data.variantQuantityTiers,
+              priceMatrix: data.priceMatrix,
+            });
+            await updateDoc(doc(db, 'products', d.id), {
+              pricingDataExternal: true,
+              variantQuantityTiers: deleteField(),
+              priceMatrix: deleteField(),
+              updatedAt: Date.now(),
+            });
+            migratedCount++;
+          } catch (err: any) {
+            errors.push(`Failed to migrate ${d.id}: ${err.message}`);
+          }
+        }
+      }
+    } catch (err: any) {
+      errors.push(`Migration query failed: ${err.message}`);
+    }
+  }
+
+  // Also migrate local storage products
+  if (typeof window !== 'undefined') {
+    const local = getLocalProducts();
+    for (const p of local) {
+      if ((p.variantQuantityTiers || p.priceMatrix) && !p.pricingDataExternal) {
+        p.pricingDataExternal = true;
+        saveProductPricingData(p.id || p.slug, {
+          variantQuantityTiers: p.variantQuantityTiers,
+          priceMatrix: p.priceMatrix,
+        });
+        delete p.variantQuantityTiers;
+        delete p.priceMatrix;
+        migratedCount++;
+      }
+    }
+    saveLocalProducts(local);
+  }
+
+  return { migratedCount, errors };
 }
 
 /**

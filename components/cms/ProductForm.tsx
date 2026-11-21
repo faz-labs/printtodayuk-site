@@ -2,12 +2,13 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Product, ProductInput, CategoryConfig, CustomField, QuantityTier } from '@/lib/types';
+import { Product, ProductInput, CategoryConfig, CustomField, QuantityTier, PriceMatrixConfig } from '@/lib/types';
 import { slugify } from '@/lib/utils';
 import { cleanOptionDisplayName } from '@/lib/pricingEngine';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { MultiImageUploader } from './MultiImageUploader';
+import { PriceMatrixEditor } from './PriceMatrixEditor';
 import {
   Plus,
   Trash,
@@ -167,6 +168,12 @@ export function ProductForm({
   const [pickerSelections, setPickerSelections] = useState<Record<string, string>>({});
   const [copySourceTable, setCopySourceTable] = useState<string>('default');
 
+  // Process 2: 2D Price Matrix Grid
+  const [priceMatrix, setPriceMatrix] = useState<PriceMatrixConfig | undefined>(initialProduct?.priceMatrix);
+  const [pricingModelTab, setPricingModelTab] = useState<'tiers' | 'matrix'>(
+    initialProduct?.priceMatrix && initialProduct.priceMatrix.columns?.length ? 'matrix' : 'tiers'
+  );
+
   // Approach C & Universal Auto-Fill Tool
   const [route1Url, setRoute1Url] = useState<string>('');
   const [isImportingRoute1, setIsImportingRoute1] = useState<boolean>(false);
@@ -300,6 +307,10 @@ export function ProductForm({
       setSelectedVariantToAdd('');
       setFeatures(initialProduct.features || []);
       setCustomFields(initialProduct.customFields || []);
+      setPriceMatrix(initialProduct.priceMatrix);
+      setPricingModelTab(
+        initialProduct.priceMatrix && initialProduct.priceMatrix.columns?.length ? 'matrix' : 'tiers'
+      );
     } else {
       // Default reset
       setTitle('');
@@ -327,6 +338,8 @@ export function ProductForm({
       setVariantQuantityTiers({});
       setActiveVariantTab('default');
       setSelectedVariantToAdd('');
+      setPriceMatrix(undefined);
+      setPricingModelTab('tiers');
       setFeatures([
         'Premium High Definition Print Quality',
         'Same-day London Dispatch Available',
@@ -1026,6 +1039,7 @@ export function ProductForm({
         sameDayIncreasePercent: !isNaN(parsedSameDayPct) ? parsedSameDayPct : 35.4,
         nextDayIncreasePercent: !isNaN(parsedNextDayPct) ? parsedNextDayPct : 10,
         quantityTiers: sortedTiers,
+        priceMatrix: priceMatrix && priceMatrix.columns && priceMatrix.columns.length > 0 ? priceMatrix : undefined,
         variantQuantityTiers:
           variantQuantityTiers && Object.keys(variantQuantityTiers).length > 0
             ? variantQuantityTiers
@@ -1236,6 +1250,7 @@ export function ProductForm({
                 <input
                   type="text"
                   required
+                  data-testid="product-title-input"
                   value={title}
                   onChange={(e) => handleTitleChange(e.target.value)}
                   placeholder="e.g. Luxury Business Cards"
@@ -1250,6 +1265,7 @@ export function ProductForm({
                 <input
                   type="text"
                   required
+                  data-testid="product-slug-input"
                   value={slug}
                   onChange={(e) => setSlug(e.target.value)}
                   placeholder="e.g. luxury-business-cards"
@@ -1265,6 +1281,7 @@ export function ProductForm({
               </label>
               <select
                 value={category}
+                data-testid="product-category-select"
                 onChange={(e) => setCategory(e.target.value)}
                 className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-900 focus:outline-hidden focus:border-[#012169]"
               >
@@ -1382,8 +1399,50 @@ export function ProductForm({
               </div>
             </div>
 
-            {/* Dynamic Quantity Tiers & Base Price Engine Matrix */}
-            <div className="space-y-3 p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs">
+            {/* Pricing Model Tab Switcher (Process 2: Price Matrix Grid vs Standard Tiers) */}
+            <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-2xl border border-slate-200">
+              <button
+                type="button"
+                onClick={() => setPricingModelTab('tiers')}
+                className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  pricingModelTab === 'tiers'
+                    ? 'bg-white text-[#012169] shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                📊 Standard Quantity Tiers &amp; Tables
+              </button>
+              <button
+                type="button"
+                data-testid="price-matrix-tab"
+                onClick={() => setPricingModelTab('matrix')}
+                className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  pricingModelTab === 'matrix'
+                    ? 'bg-[#012169] text-white shadow-xs'
+                    : 'text-slate-600 hover:text-[#012169]'
+                }`}
+              >
+                <span>⚡ 2D Price Matrix (Excel Grid)</span>
+                {priceMatrix && priceMatrix.columns && priceMatrix.columns.length > 0 && (
+                  <span className="px-1.5 py-0.5 rounded text-[9px] bg-emerald-500 text-white font-extrabold">
+                    Active ({priceMatrix.columns.length} Cols)
+                  </span>
+                )}
+              </button>
+            </div>
+
+            {pricingModelTab === 'matrix' ? (
+              <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-4">
+                <PriceMatrixEditor
+                  customFields={customFields}
+                  priceMatrix={priceMatrix}
+                  onChange={setPriceMatrix}
+                  basePrice={currentTiers[0]?.price || 25.0}
+                />
+              </div>
+            ) : (
+              /* Dynamic Quantity Tiers & Base Price Engine Matrix */
+              <div className="space-y-3 p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
                   <div className="font-bold text-xs uppercase tracking-wider text-slate-900 flex items-center gap-2">
@@ -1544,6 +1603,7 @@ export function ProductForm({
                     {/* Steady Multi-Option Picker Button */}
                     <button
                       type="button"
+                      data-testid="variant-select-options"
                       onClick={() => handleOpenVariantPicker()}
                       className="h-8.5 px-3 rounded-lg border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-[#012169] text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shrink-0 shadow-2xs"
                       title="Open steady list where you select each value and click Done"
@@ -1568,6 +1628,7 @@ export function ProductForm({
                     {/* Create Table Button */}
                     <button
                       type="button"
+                      data-testid="create-variant-table-btn"
                       disabled={!selectedVariantToAdd.trim()}
                       onClick={() => handleCreateVariantTable()}
                       className="h-8.5 px-3.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shrink-0 shadow-2xs"
@@ -1580,6 +1641,7 @@ export function ProductForm({
                     {allCombinations.length > 0 && (
                       <button
                         type="button"
+                        data-testid="generate-all-combinations-btn"
                         onClick={handleGenerateAllCombinationTables}
                         className="h-8.5 px-3.5 rounded-lg border border-purple-300 bg-purple-50 hover:bg-purple-100 text-purple-900 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shrink-0 shadow-2xs"
                         title={`Generate a dedicated pricing table for every dropdown combination (${allCombinations.length} tables) in 1 click`}
@@ -1738,6 +1800,7 @@ export function ProductForm({
                                   step="0.01"
                                   min="0.01"
                                   required={isBaseTier}
+                                  data-testid={isBaseTier ? 'product-price-input' : undefined}
                                   value={tier.price ?? (standardTotal > 0 ? Number(standardTotal.toFixed(2)) : '')}
                                   onChange={(e) => handleUpdateTier(idx, 'price', e.target.value)}
                                   placeholder={isBaseTier ? '25.00' : '0.00'}
@@ -1820,6 +1883,7 @@ export function ProductForm({
                 </div>
               </div>
             </div>
+          )}
 
             {/* Storefront Active, Same Day & WhatsApp Quote Toggles */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -2371,7 +2435,13 @@ export function ProductForm({
             >
               Cancel
             </Button>
-            <Button type="submit" variant="uk-blue" size="md" isLoading={isSubmitting}>
+            <Button
+              type="submit"
+              variant="uk-blue"
+              size="md"
+              isLoading={isSubmitting}
+              data-testid="product-save-btn"
+            >
               <FloppyDisk weight="bold" className="h-4 w-4 mr-1.5" />
               <span>{initialProduct ? 'Update Product' : 'Create Product'}</span>
             </Button>

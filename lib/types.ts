@@ -16,6 +16,14 @@ export interface QuantityTier {
   percentIncrease?: number;  // % increase from base price (used for tier 2, 3, etc.)
 }
 
+export interface PriceMatrixConfig {
+  primaryFieldId: string;        // e.g. "field_pages" (Number of Pages)
+  secondaryFieldId?: string;     // e.g. "field_paper" (Inside Paper Stock) - optional
+  columns: string[];             // Headers: ["8 Pages", "12 Pages", ...] or ["8 Pages - 130gsm Silk", ...]
+  quantities: number[];          // Quantity rows: [25, 50, 100, 250, 500, ...]
+  cells: Record<string, number>; // Key: `${quantity}__${columnName}` -> price in £
+}
+
 export interface Product {
   id?: string;
   title: string;
@@ -36,12 +44,34 @@ export interface Product {
   nextDayIncreasePercent?: number;  // Turnaround surcharge % for 1 working day (e.g. 10%)
   quantityTiers?: QuantityTier[];   // Merchant-defined explicit quantity tiers
   variantQuantityTiers?: Record<string, QuantityTier[]>; // Variant-specific quantity tiers (e.g. key is "2000 x 1500mm")
+  priceMatrix?: PriceMatrixConfig;  // Process 2: Spreadsheet Price Matrix (rows=qty, cols=options)
+  priceMultiplier?: number;         // Process 6: Pricing rules multiplier (e.g. 1.3)
+  sourcePrice?: number;             // Process 6: Original price before multiplier
+  pricingDataExternal?: boolean;    // Process 3: True when variant tables/matrix stored in Firestore subcollection
   features?: string[];
   customFields?: CustomField[];
   isActive?: boolean; // Controls whether product is published / visible on storefront
   hidePriceTable?: boolean; // When true, hides price table on storefront and displays 'Get Instant Quote via WhatsApp'
   createdAt: number;
   updatedAt: number;
+}
+
+export interface ProductImportValidationReport {
+  valid: boolean;
+  totalProducts: number;
+  validCount: number;
+  invalidCount: number;
+  errors: Array<{ productIndex: number; slug?: string; title?: string; errors: string[] }>;
+  warnings: Array<{ productIndex: number; slug?: string; warnings: string[] }>;
+}
+
+export interface ProductImportResult {
+  success: boolean;
+  created: number;
+  updated: number;
+  skipped: number;
+  errors: Array<{ slug?: string; title?: string; message: string }>;
+  details: Array<{ slug: string; action: 'created' | 'updated' | 'skipped' | 'error'; message?: string }>;
 }
 
 export interface CategoryConfig {
