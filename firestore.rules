@@ -16,6 +16,18 @@ service cloud.firestore {
     match /products/{productId} {
       allow read: if true;
       allow write: if isAdmin();
+
+      // Process 3: Subcollection for decoupled variant tables & 2D price matrices
+      match /pricingData/{docId} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
+
+      // Safe recursive match for any nested product subcollections
+      match /{allSubcollections=**} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
     }
 
     // ----------------------------------------------------
@@ -75,6 +87,15 @@ service cloud.firestore {
     // Admin: CMS admins can create, update, or delete guides
     match /artwork_guides/{guideId} {
       allow read: if true;
+      allow write: if true;
+    }
+
+    // ----------------------------------------------------
+    // Admin Audit Logs Collection (Process 4)
+    // ----------------------------------------------------
+    // Audit trail for bulk imports, repricing, and API operations
+    match /admin_audit_logs/{logId} {
+      allow read: if isAdmin();
       allow write: if true;
     }
   }
