@@ -73,8 +73,38 @@ export function validateProductImport(
       prodErrors.push('Missing required field: "category".');
     }
 
-    // 2. Base Price validation
-    const basePrice = Number(rawProd.price);
+    // Auto-parse JSON strings for structured fields if passed as strings
+    if (typeof rawProd.customFields === 'string') {
+      try { rawProd.customFields = JSON.parse(rawProd.customFields); } catch {}
+    }
+    if (typeof rawProd.features === 'string') {
+      try { rawProd.features = JSON.parse(rawProd.features); } catch {}
+    }
+    if (typeof rawProd.priceMatrix === 'string') {
+      try { rawProd.priceMatrix = JSON.parse(rawProd.priceMatrix); } catch {}
+    }
+
+    // 2. Base Price validation & Auto-Derivation
+    let basePrice = Number(rawProd.price);
+
+    // Auto-derive only if price was omitted
+    if (rawProd.price === undefined || rawProd.price === null || rawProd.price === '') {
+      const qTiers = parseTiers(rawProd.quantityTiers);
+      if (Array.isArray(qTiers) && qTiers.length > 0 && typeof qTiers[0]?.price === 'number' && qTiers[0].price > 0) {
+        basePrice = qTiers[0].price;
+        rawProd.price = basePrice;
+      } else if (rawProd.priceMatrix?.cells) {
+        const cellValues = Object.values(rawProd.priceMatrix.cells).filter((v): v is number => typeof v === 'number' && v > 0);
+        if (cellValues.length > 0) {
+          basePrice = Math.min(...cellValues);
+          rawProd.price = basePrice;
+        }
+      } else if (existingSlugs.has(slug)) {
+        // In merge update mode for existing product, missing price is allowed (retains existing product price)
+        basePrice = 1;
+      }
+    }
+
     if (isNaN(basePrice) || basePrice <= 0) {
       prodErrors.push(`Invalid price "${rawProd.price}". Price must be a positive numeric value.`);
     }
@@ -86,13 +116,17 @@ export function validateProductImport(
       }
     }
 
-    // 4. Base Quantity Tiers validation
+    // 4. Base Quantity Tiers validation & normalization
     if (rawProd.quantityTiers !== undefined) {
       const qTiers = parseTiers(rawProd.quantityTiers);
       if (!Array.isArray(qTiers)) {
-        prodErrors.push('Invalid "quantityTiers". Must be a valid JSON array of quantity tiers.');
-      } else if (qTiers.length > 0) {
-        validateTierList(qTiers, 'Base quantityTiers', prodErrors);
+        prodErrors.push('Invalid "quantityTiers". Must be a valid JSON array of quantity tiers or JSON string.');
+      } else {
+        // Normalise rawProd.quantityTiers to array so it is never saved as string
+        rawProd.quantityTiers = qTiers;
+        if (qTiers.length > 0) {
+          validateTierList(qTiers, 'Base quantityTiers', prodErrors);
+        }
       }
     }
 
@@ -115,8 +149,11 @@ export function validateProductImport(
       });
     }
 
-    // 6. Variant Quantity Tiers validation
+    // 6. Variant Quantity Tiers validation & normalization
     if (rawProd.variantQuantityTiers) {
+      if (typeof rawProd.variantQuantityTiers === 'string') {
+        try { rawProd.variantQuantityTiers = JSON.parse(rawProd.variantQuantityTiers); } catch {}
+      }
       if (typeof rawProd.variantQuantityTiers !== 'object' || Array.isArray(rawProd.variantQuantityTiers)) {
         prodErrors.push('"variantQuantityTiers" must be an object with variant keys as properties.');
       } else {
@@ -125,6 +162,7 @@ export function validateProductImport(
           if (!Array.isArray(parsedV) || parsedV.length === 0) {
             prodErrors.push(`Variant table "${varKey}" contains empty or invalid quantity tiers.`);
           } else {
+            rawProd.variantQuantityTiers[varKey] = parsedV;
             validateTierList(parsedV, `Variant "${varKey}"`, prodErrors);
           }
 

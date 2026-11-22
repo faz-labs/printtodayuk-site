@@ -206,9 +206,23 @@ export async function saveProductPricingData(
 
   if (isConfigured && db) {
     try {
+      let targetDocId = productId;
       const cleanData = cleanFirestoreData(pricingData);
-      const subRef = doc(db, 'products', productId, 'pricingData', 'default');
+      let subRef = doc(db, 'products', targetDocId, 'pricingData', 'default');
+
+      // Check if targetDocId exists as a direct doc; if not, resolve slug
+      const parentSnap = await getDoc(doc(db, 'products', targetDocId));
+      if (!parentSnap.exists()) {
+        const qSlug = query(collection(db, 'products'), where('slug', '==', productId));
+        const snapSlug = await getDocs(qSlug);
+        if (!snapSlug.empty) {
+          targetDocId = snapSlug.docs[0].id;
+          subRef = doc(db, 'products', targetDocId, 'pricingData', 'default');
+        }
+      }
+
       await setDoc(subRef, cleanData, { merge: true });
+      memoryPricingCache.set(targetDocId, { data: pricingData, timestamp: Date.now() });
     } catch (err) {
       console.warn(`Firestore saveProductPricingData failed for ${productId}:`, err);
     }
@@ -236,11 +250,25 @@ export async function getProductPricingData(
 
   if (isConfigured && db) {
     try {
-      const subRef = doc(db, 'products', productId, 'pricingData', 'default');
-      const subSnap = await getDoc(subRef);
+      let targetDocId = productId;
+      let subRef = doc(db, 'products', targetDocId, 'pricingData', 'default');
+      let subSnap = await getDoc(subRef);
+
+      // If doc does not exist, productId might be a slug rather than a doc ID
+      if (!subSnap.exists()) {
+        const qSlug = query(collection(db, 'products'), where('slug', '==', productId));
+        const snapSlug = await getDocs(qSlug);
+        if (!snapSlug.empty) {
+          targetDocId = snapSlug.docs[0].id;
+          subRef = doc(db, 'products', targetDocId, 'pricingData', 'default');
+          subSnap = await getDoc(subRef);
+        }
+      }
+
       if (subSnap.exists()) {
         const data = subSnap.data() as any;
         memoryPricingCache.set(productId, { data, timestamp: Date.now() });
+        memoryPricingCache.set(targetDocId, { data, timestamp: Date.now() });
         return data;
       }
     } catch (err) {
@@ -407,12 +435,21 @@ export async function createProduct(productInput: ProductInput): Promise<Product
   invalidateProductsCache();
   const slug = productInput.slug || slugify(productInput.title);
 
+  // Normalise quantityTiers if passed as string
+  let safeQuantityTiers = productInput.quantityTiers;
+  if (typeof safeQuantityTiers === 'string') {
+    try {
+      safeQuantityTiers = JSON.parse(safeQuantityTiers);
+    } catch {}
+  }
+
   // Check if variant tables or matrix are large enough to decouple into subcollection
   const variantKeysCount = productInput.variantQuantityTiers ? Object.keys(productInput.variantQuantityTiers).length : 0;
   const isLargePricingData = variantKeysCount > 5 || Boolean(productInput.priceMatrix) || Boolean(productInput.pricingDataExternal);
 
   const newProduct: Product = {
     ...productInput,
+    quantityTiers: Array.isArray(safeQuantityTiers) ? safeQuantityTiers : productInput.quantityTiers,
     slug,
     pricingDataExternal: isLargePricingData ? true : productInput.pricingDataExternal,
     createdAt: Date.now(),
@@ -468,8 +505,17 @@ export async function updateProduct(
   updates: Partial<Product>
 ): Promise<Product | null> {
   invalidateProductsCache();
+
+  let safeQuantityTiers = updates.quantityTiers;
+  if (typeof safeQuantityTiers === 'string') {
+    try {
+      safeQuantityTiers = JSON.parse(safeQuantityTiers);
+    } catch {}
+  }
+
   const payload: any = {
     ...updates,
+    ...(safeQuantityTiers !== undefined ? { quantityTiers: Array.isArray(safeQuantityTiers) ? safeQuantityTiers : updates.quantityTiers } : {}),
     updatedAt: Date.now(),
   };
 

@@ -96,6 +96,42 @@ describe('CMS Bulk Product Creation & Price Matrix Suite', () => {
       assert.strictEqual(parsedCsv[0].price, 15.5);
       assert.strictEqual(parsedCsv[1].slug, 'banner-2x1');
     });
+
+    test('normalises quantityTiers passed as JSON string and auto-derives base price', () => {
+      const rawWithJsonString: any[] = [
+        {
+          title: 'Brochure Test',
+          slug: 'brochure-test',
+          category: 'Brochures',
+          // omitted top-level price
+          quantityTiers: JSON.stringify([
+            { quantity: 5, price: 57.17 },
+            { quantity: 10, price: 62.85 },
+          ]),
+        },
+      ];
+
+      const report = validateProductImport(rawWithJsonString, new Set());
+      assert.strictEqual(report.valid, true);
+      assert.strictEqual(report.errors.length, 0);
+      assert.strictEqual(Array.isArray(rawWithJsonString[0].quantityTiers), true);
+      assert.strictEqual(rawWithJsonString[0].price, 57.17);
+    });
+
+    test('allows omitted top-level price on merge update for existing slug', () => {
+      const existingSlugs = new Set(['existing-brochures']);
+      const mergePayload = [
+        {
+          title: 'Existing Brochures',
+          slug: 'existing-brochures',
+          category: 'Brochures',
+          // no price or quantityTiers provided
+        },
+      ];
+      const report = validateProductImport(mergePayload, existingSlugs);
+      assert.strictEqual(report.valid, true);
+      assert.strictEqual(report.errors.length, 0);
+    });
   });
 
   // Process 2: Price Matrix Table Type & Resolution
@@ -187,6 +223,76 @@ describe('CMS Bulk Product Creation & Price Matrix Suite', () => {
       assert.deepStrictEqual(imported.quantities, [25, 50, 100]);
       assert.strictEqual(imported.cells['25__A4'], 100.0);
       assert.strictEqual(imported.cells['100__A5'], 140.0);
+    });
+
+    test('resolves compound primary and secondary dropdown options (pages and paper stocks) correctly', () => {
+      const bookletFields: CustomField[] = [
+        {
+          id: 'fld-pages',
+          name: 'Number of Pages',
+          required: true,
+          options: ['8pp', '12pp', '64pp'],
+        },
+        {
+          id: 'fld-paper',
+          name: 'Inside Paper Stock',
+          required: true,
+          options: ['100gsm Bond', '130gsm Silk'],
+        },
+      ];
+
+      const bookletMatrix: PriceMatrixConfig = {
+        primaryFieldId: 'fld-pages',
+        secondaryFieldId: 'fld-paper',
+        columns: ['8pp - 100gsm Bond', '8pp - 130gsm Silk', '12pp - 100gsm Bond', '64pp - 100gsm Bond'],
+        quantities: [5, 10],
+        cells: {
+          '5__8pp - 100gsm Bond': 61.03,
+          '5__8pp - 130gsm Silk': 57.17,
+          '5__12pp - 100gsm Bond': 62.85,
+          '5__64pp - 100gsm Bond': 80.38,
+          '10__8pp - 100gsm Bond': 75.0,
+          '10__8pp - 130gsm Silk': 70.0,
+          '10__12pp - 100gsm Bond': 78.0,
+          '10__64pp - 100gsm Bond': 99.0,
+        },
+      };
+
+      // 1. Default (8pp, 100gsm Bond) -> 61.03
+      const res8_100 = resolvePriceMatrixTiers(
+        { 'Number of Pages': '8pp', 'Inside Paper Stock': '100gsm Bond' },
+        bookletMatrix,
+        bookletFields
+      );
+      assert.strictEqual(res8_100.matchedColumn, '8pp - 100gsm Bond');
+      assert.strictEqual(res8_100.tiers?.[0]?.price, 61.03);
+
+      // 2. 8pp, 130gsm Silk -> 57.17
+      const res8_130 = resolvePriceMatrixTiers(
+        { 'Number of Pages': '8pp', 'Inside Paper Stock': '130gsm Silk' },
+        bookletMatrix,
+        bookletFields
+      );
+      assert.strictEqual(res8_130.matchedColumn, '8pp - 130gsm Silk');
+      assert.strictEqual(res8_130.tiers?.[0]?.price, 57.17);
+
+      // 3. 12pp, 100gsm Bond -> 62.85 (higher than 8pp)
+      const res12 = resolvePriceMatrixTiers(
+        { 'Number of Pages': '12pp', 'Inside Paper Stock': '100gsm Bond' },
+        bookletMatrix,
+        bookletFields
+      );
+      assert.strictEqual(res12.matchedColumn, '12pp - 100gsm Bond');
+      assert.strictEqual(res12.tiers?.[0]?.price, 62.85);
+
+      // 4. 64pp, 100gsm Bond -> 80.38 (much higher than 8pp)
+      const res64 = resolvePriceMatrixTiers(
+        { 'Number of Pages': '64pp', 'Inside Paper Stock': '100gsm Bond' },
+        bookletMatrix,
+        bookletFields
+      );
+      assert.strictEqual(res64.matchedColumn, '64pp - 100gsm Bond');
+      assert.strictEqual(res64.tiers?.[0]?.price, 80.38);
     });
   });
 

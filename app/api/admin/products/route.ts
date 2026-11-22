@@ -123,9 +123,16 @@ export async function POST(request: NextRequest) {
       const existing = existingSlugMap.get(slug);
 
       try {
+        if (typeof rawProd.quantityTiers === 'string') {
+          try { rawProd.quantityTiers = JSON.parse(rawProd.quantityTiers); } catch {}
+        }
+
         if (existing) {
           // Update existing
           const updatePayload = importMode === 'replace' ? rawProd : { ...existing, ...rawProd };
+          if (updatePayload.price === undefined && existing.price) {
+            updatePayload.price = existing.price;
+          }
           await updateProduct(existing.id || existing.slug, updatePayload);
           importResult.updated++;
           importResult.details.push({ slug, action: 'updated' });

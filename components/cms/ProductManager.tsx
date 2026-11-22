@@ -8,7 +8,7 @@ import { Modal } from '@/components/ui/Modal';
 import { ProductForm } from './ProductForm';
 import { ImageWithFallback } from '@/components/storefront/ImageWithFallback';
 import { formatCurrency, calculateDiscount, slugify } from '@/lib/utils';
-import { invalidateProductsCache, bulkUpdateProductStatus } from '@/lib/db';
+import { invalidateProductsCache, bulkUpdateProductStatus, getProductById } from '@/lib/db';
 import { ProductImportModal } from './ProductImportModal';
 import { ProductRepriceModal } from './ProductRepriceModal';
 import {
@@ -154,7 +154,14 @@ export function ProductManager({
 
   const bulkPreviewItems = useMemo(() => {
     return targetBulkProducts.map((p) => {
-      const oldPrice = p.price || p.quantityTiers?.[0]?.price || 0;
+      const rawTiers = p.quantityTiers;
+      const tiersList: QuantityTier[] = Array.isArray(rawTiers)
+        ? rawTiers
+        : typeof rawTiers === 'string'
+        ? (() => { try { return JSON.parse(rawTiers); } catch { return []; } })()
+        : [];
+
+      const oldPrice = p.price || tiersList[0]?.price || 0;
       const newPrice = Math.max(0.5, Number((oldPrice * adjustmentFactor).toFixed(2)));
       const priceDiff = Number((newPrice - oldPrice).toFixed(2));
 
@@ -166,7 +173,7 @@ export function ProductManager({
       }
 
       // 1. Scale standard quantity tiers
-      const updatedQuantityTiers = (p.quantityTiers || []).map((t, idx) => {
+      const updatedQuantityTiers = tiersList.map((t, idx) => {
         const rawPrice =
           typeof t.price === 'number'
             ? t.price
@@ -347,9 +354,19 @@ export function ProductManager({
     setIsFormOpen(true);
   };
 
-  const handleOpenEdit = (product: Product) => {
+  const handleOpenEdit = async (product: Product) => {
     setEditingProduct(product);
     setIsFormOpen(true);
+    if (product.pricingDataExternal || !product.priceMatrix) {
+      try {
+        const full = await getProductById(product.id || product.slug);
+        if (full) {
+          setEditingProduct(full);
+        }
+      } catch (err) {
+        console.warn('Could not hydrate pricing data for edit:', err);
+      }
+    }
   };
 
   const handleFormSubmit = async (data: ProductInput, id?: string) => {

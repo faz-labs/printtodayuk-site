@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Product, ProductInput, CategoryConfig, CustomField, QuantityTier, PriceMatrixConfig } from '@/lib/types';
 import { slugify } from '@/lib/utils';
+import { getProductPricingData } from '@/lib/db';
 import { cleanOptionDisplayName } from '@/lib/pricingEngine';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
@@ -288,8 +289,15 @@ export function ProductForm({
           ? initialProduct.nextDayIncreasePercent.toString()
           : '10'
       );
-      if (initialProduct.quantityTiers && initialProduct.quantityTiers.length > 0) {
-        setQuantityTiers(initialProduct.quantityTiers);
+      const rawTiers = initialProduct.quantityTiers;
+      const parsedTiers: QuantityTier[] = Array.isArray(rawTiers)
+        ? rawTiers
+        : typeof rawTiers === 'string'
+        ? (() => { try { return JSON.parse(rawTiers); } catch { return []; } })()
+        : [];
+
+      if (parsedTiers.length > 0) {
+        setQuantityTiers(parsedTiers);
       } else {
         const firstQty = initialProduct.minQuantity || 25;
         const firstPrice = initialProduct.price || 14.69;
@@ -311,6 +319,22 @@ export function ProductForm({
       setPricingModelTab(
         initialProduct.priceMatrix && initialProduct.priceMatrix.columns?.length ? 'matrix' : 'tiers'
       );
+
+      // Hydrate subcollection pricing data if external and not yet in memory
+      if (initialProduct.pricingDataExternal && (!initialProduct.priceMatrix || !initialProduct.variantQuantityTiers)) {
+        const targetId = initialProduct.id || initialProduct.slug;
+        if (targetId) {
+          getProductPricingData(targetId).then((pricing) => {
+            if (pricing?.priceMatrix && pricing.priceMatrix.columns?.length) {
+              setPriceMatrix(pricing.priceMatrix);
+              setPricingModelTab('matrix');
+            }
+            if (pricing?.variantQuantityTiers) {
+              setVariantQuantityTiers(pricing.variantQuantityTiers);
+            }
+          });
+        }
+      }
     } else {
       // Default reset
       setTitle('');

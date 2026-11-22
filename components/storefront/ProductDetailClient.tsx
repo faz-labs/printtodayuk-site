@@ -29,7 +29,7 @@ import { formatCurrency } from '@/lib/utils';
 import { ImageWithFallback } from '@/components/storefront/ImageWithFallback';
 import { ProductCard } from '@/components/storefront/ProductCard';
 import { useCallMe } from '@/components/storefront/CallMeContext';
-import { getLocalProducts } from '@/lib/db';
+import { getLocalProducts, getProductPricingData } from '@/lib/db';
 import {
   getWorkingDueDates,
   calculatePrintWeight,
@@ -69,7 +69,11 @@ export function ProductDetailClient({
           (p.id && p.id.toLowerCase() === target)
       );
       if (found) {
-        setProduct(found);
+        setProduct((prev) => ({
+          ...found,
+          priceMatrix: found.priceMatrix || prev?.priceMatrix,
+          variantQuantityTiers: found.variantQuantityTiers || prev?.variantQuantityTiers,
+        }));
       }
     };
 
@@ -85,13 +89,54 @@ export function ProductDetailClient({
     };
   }, [productIdOrSlug, product?.id, product?.slug]);
 
+  // On-demand subcollection hydration if priceMatrix or variant tables are decoupled/external
+  useEffect(() => {
+    const targetId = product?.id || product?.slug || productIdOrSlug;
+    if (!targetId) return;
+
+    const needsMatrix = product?.pricingDataExternal && !product?.priceMatrix;
+    const needsVariants =
+      product?.pricingDataExternal &&
+      (!product?.variantQuantityTiers || Object.keys(product.variantQuantityTiers).length === 0);
+
+    if (needsMatrix || needsVariants) {
+      getProductPricingData(targetId).then((pricing) => {
+        if (pricing?.priceMatrix || pricing?.variantQuantityTiers) {
+          setProduct((prev) => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              priceMatrix: pricing.priceMatrix || prev.priceMatrix,
+              variantQuantityTiers: pricing.variantQuantityTiers || prev.variantQuantityTiers,
+            };
+          });
+        }
+      });
+    }
+  }, [
+    product?.id,
+    product?.slug,
+    product?.pricingDataExternal,
+    product?.priceMatrix,
+    product?.variantQuantityTiers,
+    productIdOrSlug,
+  ]);
+
   useEffect(() => {
     if (initialProduct) {
       setProduct((prev) => {
         if (prev?.updatedAt && initialProduct.updatedAt && prev.updatedAt > initialProduct.updatedAt) {
-          return prev;
+          return {
+            ...prev,
+            priceMatrix: prev.priceMatrix || initialProduct.priceMatrix,
+            variantQuantityTiers: prev.variantQuantityTiers || initialProduct.variantQuantityTiers,
+          };
         }
-        return initialProduct;
+        return {
+          ...initialProduct,
+          priceMatrix: initialProduct.priceMatrix || prev?.priceMatrix,
+          variantQuantityTiers: initialProduct.variantQuantityTiers || prev?.variantQuantityTiers,
+        };
       });
       setSelectedImageIndex(0);
     }
@@ -142,10 +187,32 @@ export function ProductDetailClient({
     }
   }, [product]);
 
+  // Safely normalise quantityTiers in case it was stored as a JSON string or non-array
+  const safeQuantityTiers = useMemo(() => {
+    const raw = product?.quantityTiers;
+    if (Array.isArray(raw)) return raw;
+    if (typeof raw === 'string') {
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed;
+      } catch {}
+    }
+    return [];
+  }, [product?.quantityTiers]);
+
   // MATRIX SELECTION STATE
   const [selectedQuantity, setSelectedQuantity] = useState<number>(() => {
-    if (initialProduct?.quantityTiers && initialProduct.quantityTiers.length > 0) {
-      return initialProduct.quantityTiers[0].quantity;
+    const rawTiers = initialProduct?.quantityTiers;
+    const tiers = Array.isArray(rawTiers)
+      ? rawTiers
+      : typeof rawTiers === 'string'
+      ? (() => { try { return JSON.parse(rawTiers); } catch { return []; } })()
+      : [];
+    if (tiers.length > 0 && typeof tiers[0]?.quantity === 'number') {
+      return tiers[0].quantity;
+    }
+    if (initialProduct?.priceMatrix?.quantities && initialProduct.priceMatrix.quantities.length > 0) {
+      return initialProduct.priceMatrix.quantities[0];
     }
     return initialProduct?.minQuantity && initialProduct.minQuantity > 0
       ? initialProduct.minQuantity
@@ -199,13 +266,13 @@ export function ProductDetailClient({
 
   useEffect(() => {
     const firstQty =
-      product?.quantityTiers && product.quantityTiers.length > 0
-        ? product.quantityTiers[0].quantity
-        : product?.minQuantity;
+      safeQuantityTiers.length > 0
+        ? safeQuantityTiers[0].quantity
+        : product?.priceMatrix?.quantities?.[0] || product?.minQuantity;
     if (firstQty && firstQty > 0) {
-      setSelectedQuantity((prev) => (prev < firstQty ? firstQty : prev));
+      setSelectedQuantity((prev) => (!prev || prev < firstQty ? firstQty : prev));
     }
-  }, [product?.quantityTiers, product?.minQuantity]);
+  }, [safeQuantityTiers, product?.priceMatrix?.quantities, product?.minQuantity]);
 
   // Accordion state for Left Column Pill Buttons
   const [activeAccordion, setActiveAccordion] = useState<string | null>(null);
@@ -271,8 +338,8 @@ export function ProductDetailClient({
   const basePriceAnchor =
     product?.price && product.price > 0
       ? product.price
-      : product?.quantityTiers && product.quantityTiers.length > 0 && typeof product.quantityTiers[0].price === 'number' && product.quantityTiers[0].price > 0
-      ? product.quantityTiers[0].price
+      : safeQuantityTiers.length > 0 && typeof safeQuantityTiers[0].price === 'number' && safeQuantityTiers[0].price > 0
+      ? safeQuantityTiers[0].price
       : 14.69;
 
   // Has CMS Custom Fields defined?
@@ -318,7 +385,7 @@ export function ProductDetailClient({
       product?.maxNextDayQuantity,
       product?.sameDayIncreasePercent,
       product?.nextDayIncreasePercent,
-      product?.quantityTiers,
+      safeQuantityTiers,
       product?.variantQuantityTiers,
       product?.customFields,
       product?.priceMatrix
@@ -334,7 +401,7 @@ export function ProductDetailClient({
     effectiveMaxQty,
     product?.sameDayIncreasePercent,
     product?.nextDayIncreasePercent,
-    product?.quantityTiers,
+    safeQuantityTiers,
     product?.variantQuantityTiers,
     product?.customFields,
     product?.priceMatrix,

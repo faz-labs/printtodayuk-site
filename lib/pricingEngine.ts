@@ -742,27 +742,35 @@ export function resolvePriceMatrixTiers(
     return { consumedFieldKeys };
   }
 
-  // Look for target column in priceMatrix.columns
+  // Look for target column in priceMatrix.columns with dash and whitespace normalization
   let matchedCol: string | undefined;
 
-  if (secondaryVal) {
-    const compoundTarget1 = `${primaryVal} - ${secondaryVal}`.toLowerCase();
-    const compoundTarget2 = `${secondaryVal} - ${primaryVal}`.toLowerCase();
+  const normalizeToken = (s: string) =>
+    s
+      .replace(/[\u2010-\u2015\u2212]/g, '-')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase();
+
+  const normP = normalizeToken(primaryVal);
+  const normS = secondaryVal ? normalizeToken(secondaryVal) : '';
+
+  if (normS) {
+    const compoundTarget1 = `${normP} - ${normS}`;
+    const compoundTarget2 = `${normS} - ${normP}`;
     matchedCol = priceMatrix.columns.find((c) => {
-      const lowC = c.toLowerCase().trim();
+      const lowC = normalizeToken(c);
       return lowC === compoundTarget1 || lowC === compoundTarget2;
     });
   }
 
   if (!matchedCol) {
-    const cleanP = primaryVal.toLowerCase();
-    const cleanS = secondaryVal ? secondaryVal.toLowerCase() : '';
     matchedCol = priceMatrix.columns.find((c) => {
-      const lowC = c.toLowerCase().trim();
-      if (cleanS) {
-        return (lowC.includes(cleanP) || cleanP.includes(lowC)) && (lowC.includes(cleanS) || cleanS.includes(lowC));
+      const lowC = normalizeToken(c);
+      if (normS) {
+        return (lowC.includes(normP) || normP.includes(lowC)) && (lowC.includes(normS) || normS.includes(lowC));
       }
-      return lowC === cleanP || lowC.includes(cleanP) || cleanP.includes(lowC);
+      return lowC === normP || lowC.includes(normP) || normP.includes(lowC);
     });
   }
 
@@ -770,11 +778,22 @@ export function resolvePriceMatrixTiers(
     return { consumedFieldKeys };
   }
 
-  // Build QuantityTier[] from matrix cells
+  // Build QuantityTier[] from matrix cells (with case-insensitive / normalized cell coordinate fallback)
   const matrixTiers: QuantityTier[] = [];
+  const cells = priceMatrix.cells || {};
   for (const qty of priceMatrix.quantities) {
     const cellKey = `${qty}__${matchedCol}`;
-    const cellPrice = priceMatrix.cells?.[cellKey];
+    let cellPrice = cells[cellKey];
+
+    if (cellPrice === undefined || cellPrice === null) {
+      // Fallback: case-insensitive cell key match
+      const lowerCellKey = cellKey.toLowerCase();
+      const directKey = Object.keys(cells).find((k) => k.toLowerCase() === lowerCellKey);
+      if (directKey) {
+        cellPrice = cells[directKey];
+      }
+    }
+
     if (typeof cellPrice === 'number' && cellPrice > 0) {
       matrixTiers.push({
         quantity: qty,
