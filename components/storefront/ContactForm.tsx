@@ -10,7 +10,7 @@ import {
   Phone,
   Sparkle,
 } from '@phosphor-icons/react';
-import { trackFormSubmission, trackWhatsAppClick, trackCallClick } from '@/lib/analytics';
+import { trackFormSubmission } from '@/lib/analytics';
 
 export function ContactForm() {
   const [name, setName] = useState('');
@@ -141,6 +141,7 @@ export function ContactForm() {
                 href="https://wa.me/447969559746?text=Hi%20Print%20Today%20UK%2C%20I%20just%20submitted%20a%20website%20enquiry."
                 target="_blank"
                 rel="noopener noreferrer"
+                data-loc="contact_page"
                 className="w-full sm:w-auto px-5 py-3 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-white text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
               >
                 <WhatsappLogo weight="fill" className="h-4 w-4" />

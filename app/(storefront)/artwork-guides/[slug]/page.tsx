@@ -213,6 +213,7 @@ export default async function ArtworkGuideDetailPage({ params }: GuidePageProps)
                   href="https://wa.me/447969559746?text=Hi%2C%20can%20you%20check%20my%20artwork%20file%3F"
                   target="_blank"
                   rel="noopener noreferrer"
+                  data-loc="artwork_guide"
                   className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-colors border border-white/20"
                 >
                   <Chats weight="bold" className="h-4 w-4 text-emerald-300" />

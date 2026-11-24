@@ -142,6 +142,7 @@ export default function PrintingEastLondonPage() {
                 href={googleMapsUrl}
                 target="_blank"
                 rel="noopener noreferrer"
+                data-loc="east_london_page"
                 className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-[#012169] hover:bg-[#0A358C] text-white text-sm font-bold shadow-md hover:shadow-lg transition-all"
               >
                 <MapPin weight="fill" className="h-4 w-4 text-red-400" />
@@ -152,6 +153,7 @@ export default function PrintingEastLondonPage() {
                 href="https://wa.me/447969559746?text=Hi%20Print%20Today%20UK%2C%20I'm%20visiting%20your%20East%20London%20shop%20and%20need%20a%20print%20quote."
                 target="_blank"
                 rel="noopener noreferrer"
+                data-loc="east_london_page"
                 className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-white text-sm font-black shadow-md hover:shadow-lg transition-all"
               >
                 <WhatsappLogo weight="fill" className="h-5 w-5" />
@@ -160,6 +162,7 @@ export default function PrintingEastLondonPage() {
 
               <a
                 href="tel:03300103521"
+                data-loc="east_london_page"
                 className="inline-flex items-center gap-2 px-5 py-3.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-300 text-slate-800 text-sm font-bold shadow-2xs transition-colors"
               >
                 <Phone weight="fill" className="h-4 w-4 text-[#012169]" />

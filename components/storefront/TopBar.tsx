@@ -2,7 +2,6 @@
 
 import React from 'react';
 import { Phone, Sparkle, Envelope, WhatsappLogo } from '@phosphor-icons/react';
-import { trackCallClick, trackWhatsAppClick, trackEmailClick } from '@/lib/analytics';
 
 export function TopBar() {
   return (
@@ -24,7 +23,7 @@ export function TopBar() {
             href="https://wa.me/447969559746?text=Hello%20Print%20Today%20UK%2C%20I%20have%20an%20urgent%20print%20enquiry."
             target="_blank"
             rel="noopener noreferrer"
-            onClick={() => trackWhatsAppClick('TopBar')}
+            data-loc="topbar"
             className="inline-flex items-center gap-1.5 px-2.5 py-0.5 sm:py-1 rounded-full bg-[#25D366] hover:bg-[#20bd5a] text-white transition-all font-bold shrink-0 text-[11px] sm:text-xs shadow-xs"
           >
             <WhatsappLogo weight="fill" className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-white" />
@@ -34,7 +33,7 @@ export function TopBar() {
           {/* Phone Number */}
           <a
             href="tel:03300103521"
-            onClick={() => trackCallClick('0330 010 3521 - TopBar')}
+            data-loc="topbar"
             className="inline-flex items-center gap-1.5 text-white/95 hover:text-white transition-colors font-medium hover:underline shrink-0"
           >
             <Phone weight="fill" className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-red-400 shrink-0" />
@@ -46,7 +45,7 @@ export function TopBar() {
           {/* Email address beside phone on md+ screens */}
           <a
             href="mailto:artwork@printtodayuk.com"
-            onClick={() => trackEmailClick('artwork@printtodayuk.com - TopBar')}
+            data-loc="topbar"
             className="hidden md:inline-flex items-center gap-1.5 text-white/95 hover:text-white transition-colors font-medium hover:underline shrink-0"
           >
             <Envelope weight="fill" className="h-4 w-4 text-cyan-300 shrink-0" />

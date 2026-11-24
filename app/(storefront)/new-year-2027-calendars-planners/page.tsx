@@ -82,6 +82,7 @@ export default function NewYearCalendarsPage() {
                 href="https://wa.me/447969559746?text=Hi%20Print%20Today%20UK%2C%20I'd%20like%20a%20bulk%20quote%20for%202027%20wall%20planners%20%2F%20calendars."
                 target="_blank"
                 rel="noopener noreferrer"
+                data-loc="calendars_page"
                 className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-white text-sm font-black shadow-md hover:shadow-lg transition-all"
               >
                 <WhatsappLogo weight="fill" className="h-5 w-5" />
@@ -90,6 +91,7 @@ export default function NewYearCalendarsPage() {
 
               <a
                 href="tel:03300103521"
+                data-loc="calendars_page"
                 className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-[#012169] hover:bg-[#0A358C] text-white text-sm font-bold shadow-md hover:shadow-lg transition-all"
               >
                 <Phone weight="fill" className="h-4 w-4 text-red-400" />
@@ -164,6 +166,7 @@ export default function NewYearCalendarsPage() {
             href="https://wa.me/447969559746?text=Hi%2C%20I%20need%20a%20bespoke%20high-volume%20quote%20for%202027%20calendars."
             target="_blank"
             rel="noopener noreferrer"
+            data-loc="calendars_page"
             className="font-bold text-[#012169] hover:underline"
           >
             Request Bespoke Volume Quote &rarr;

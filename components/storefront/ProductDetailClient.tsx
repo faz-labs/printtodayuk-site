@@ -1315,6 +1315,7 @@ export function ProductDetailClient({
                       href={buildWhatsAppUrl(true)}
                       target="_blank"
                       rel="noopener noreferrer"
+                      data-loc="product_page"
                       className="w-full h-14 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-white font-black text-base sm:text-lg flex items-center justify-center gap-3 shadow-lg shadow-[#25D366]/30 hover:shadow-xl transition-all cursor-pointer transform hover:-translate-y-0.5"
                     >
                       <WhatsappLogo weight="fill" className="h-7 w-7 text-white" />
@@ -1338,6 +1339,7 @@ export function ProductDetailClient({
                       </button>
                       <a
                         href="tel:03300103521"
+                        data-loc="product_page"
                         className="flex items-center justify-center gap-2 h-11 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs transition-colors"
                       >
                         <Phone weight="bold" className="h-4 w-4 text-[#C8102E]" />
@@ -1698,6 +1700,7 @@ export function ProductDetailClient({
                         href={buildWhatsAppUrl(true)}
                         target="_blank"
                         rel="noopener noreferrer"
+                        data-loc="product_page"
                         className="inline-flex items-center gap-2 h-10 px-4 rounded-lg bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold text-xs shadow-xs transition-all cursor-pointer whitespace-nowrap animate-pulse hover:animate-none"
                       >
                         <WhatsappLogo weight="fill" className="h-4 w-4" />
@@ -1753,6 +1756,7 @@ export function ProductDetailClient({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <a
                   href="tel:03300103521"
+                  data-loc="product_page"
                   className="w-full h-13 rounded-xl bg-[#012169] hover:bg-[#0A358C] text-white font-black text-sm sm:text-base flex items-center justify-center gap-2.5 shadow-md shadow-[#012169]/20 hover:shadow-lg transition-all cursor-pointer transform hover:-translate-y-0.5"
                 >
                   <Phone weight="fill" className="h-5 w-5 sm:h-6 sm:w-6 text-cyan-300" />
@@ -1763,6 +1767,7 @@ export function ProductDetailClient({
                   href={buildWhatsAppUrl(false)}
                   target="_blank"
                   rel="noopener noreferrer"
+                  data-loc="product_page"
                   className="w-full h-13 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-white font-black text-sm sm:text-base flex items-center justify-center gap-2.5 shadow-md shadow-[#25D366]/30 hover:shadow-lg transition-all cursor-pointer transform hover:-translate-y-0.5"
                 >
                   <WhatsappLogo weight="fill" className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
@@ -1915,6 +1920,7 @@ export function ProductDetailClient({
                 href={buildWhatsAppUrl(false)}
                 target="_blank"
                 rel="noopener noreferrer"
+                data-loc="product_page"
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold transition-colors"
               >
                 <WhatsappLogo weight="fill" className="h-3.5 w-3.5" />

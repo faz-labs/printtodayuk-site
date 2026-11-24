@@ -124,6 +124,7 @@ export default function DocumentPrintingPage() {
                 href="https://wa.me/447969559746?text=Hi%20Print%20Today%20UK%2C%20I%20have%20a%20document%20PDF%20to%20print."
                 target="_blank"
                 rel="noopener noreferrer"
+                data-loc="document_printing"
                 className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-white text-sm font-black shadow-md hover:shadow-lg transition-all"
               >
                 <WhatsappLogo weight="fill" className="h-5 w-5" />
@@ -132,6 +133,7 @@ export default function DocumentPrintingPage() {
 
               <a
                 href="tel:03300103521"
+                data-loc="document_printing"
                 className="inline-flex items-center gap-2 px-5 py-3.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-300 text-slate-800 text-sm font-bold shadow-2xs transition-colors"
               >
                 <Phone weight="fill" className="h-4 w-4 text-[#012169]" />

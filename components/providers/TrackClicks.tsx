@@ -3,15 +3,31 @@
 import { useEffect } from 'react';
 import { trackCallClick, trackWhatsAppClick, trackDirectionsClick } from '@/lib/analytics';
 
+declare global {
+  interface Window {
+    __trackClicksBound?: boolean;
+  }
+}
+
 /**
- * P0-2: Conversion tracking for leads (Google Ads & GA4)
- * Attaches a delegated click handler to document.body to reliably capture:
- * - Phone clicks: any <a href="tel:...">
- * - WhatsApp clicks: any <a href="*wa.me*">
- * - Directions clicks: any <a href="*maps.google*"> or <a href="*google.com/maps*">
+ * Delegated click listener for phone, WhatsApp, and Google Maps clicks.
+ * Registered only once across the entire application (guarded against React StrictMode & multiple mounts).
+ *
+ * Each click fires:
+ * - tel: -> exactly one 'phone_click' and one 'click_call'
+ * - wa.me/ -> exactly one 'whatsapp_click' and one 'click_whatsapp'
+ * - maps -> exactly one 'directions_click'
+ *
+ * Reads link location from `data-loc` attribute on the link or closest ancestor. Never sends 'unknown'.
  */
 export function TrackClicks() {
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    // Singleton guard: ensure listener is bound exactly once
+    if (window.__trackClicksBound) return;
+    window.__trackClicksBound = true;
+
     const handleClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement | null;
       if (!target) return;
@@ -22,26 +38,26 @@ export function TrackClicks() {
       const href = anchor.getAttribute('href') || '';
       if (!href) return;
 
-      // Determine link location / context
-      const location =
+      // Extract location from data-loc (or intelligent contextual fallback) - never 'unknown'
+      const loc =
+        anchor.getAttribute('data-loc') ||
         anchor.getAttribute('data-track-location') ||
-        anchor.closest('header')?.tagName.toLowerCase() ||
-        anchor.closest('footer')?.tagName.toLowerCase() ||
-        anchor.closest('nav')?.tagName.toLowerCase() ||
-        anchor.closest('[data-section]')?.getAttribute('data-section') ||
-        (anchor.textContent?.trim().slice(0, 30)) ||
-        'page_body';
+        anchor.closest('[data-loc]')?.getAttribute('data-loc') ||
+        (anchor.closest('header') ? 'header' : '') ||
+        (anchor.closest('footer') ? 'footer' : '') ||
+        (anchor.closest('nav') ? 'navbar' : '') ||
+        'storefront';
 
       // 1. Phone link clicked
       if (href.startsWith('tel:')) {
-        const rawPhone = href.replace(/^tel:/, '').trim();
-        trackCallClick(rawPhone, location);
+        const rawPhone = href.replace(/^tel:/, '').replace(/\s+/g, '').trim();
+        trackCallClick(rawPhone, loc);
         return;
       }
 
       // 2. WhatsApp link clicked
       if (href.includes('wa.me') || href.includes('whatsapp.com')) {
-        trackWhatsAppClick(location);
+        trackWhatsAppClick(loc);
         return;
       }
 
@@ -51,15 +67,12 @@ export function TrackClicks() {
         href.includes('maps.google.com') ||
         href.includes('maps.app.goo.gl')
       ) {
-        trackDirectionsClick(location);
+        trackDirectionsClick(loc);
         return;
       }
     };
 
     document.addEventListener('click', handleClick, { capture: true });
-    return () => {
-      document.removeEventListener('click', handleClick, { capture: true });
-    };
   }, []);
 
   return null;

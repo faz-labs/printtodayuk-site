@@ -63,55 +63,57 @@ export function trackGenerateLead(formName: 'callback' | 'upload_order' | string
 }
 
 /**
- * P0-2: Dedicated helper for Phone call click events
+ * Dedicated helper for Phone call click events (delegated listener)
  */
-export function trackCallClick(phoneNumber: string = '03300103521', linkLocation: string = 'unknown') {
+export function trackCallClick(phoneNumber: string = '03300103521', linkLocation: string = 'storefront') {
+  const cleanPhone = phoneNumber.replace(/[^0-9+]/g, '') || '03300103521';
+  const loc = linkLocation || 'storefront';
   trackConversion('phone_click', {
-    phone_number: phoneNumber.replace(/[^0-9]/g, ''),
-    link_location: linkLocation,
-    event_category: 'contact',
-    event_label: phoneNumber,
+    phone_number: cleanPhone,
+    link_location: loc,
   });
-  // Also keep backward-compatible legacy event
   trackConversion('click_call', {
+    phone_number: cleanPhone,
+    link_location: loc,
     event_category: 'contact',
-    event_label: phoneNumber,
+    event_label: cleanPhone,
   });
 }
 
 /**
- * P0-2: Dedicated helper for WhatsApp click events
+ * Dedicated helper for WhatsApp click events (delegated listener)
  */
-export function trackWhatsAppClick(linkLocation: string = 'unknown') {
+export function trackWhatsAppClick(linkLocation: string = 'storefront') {
+  const loc = linkLocation || 'storefront';
   trackConversion('whatsapp_click', {
-    link_location: linkLocation,
-    event_category: 'contact',
-    event_label: linkLocation,
+    link_location: loc,
   });
-  // Also keep backward-compatible legacy event
   trackConversion('click_whatsapp', {
+    link_location: loc,
     event_category: 'contact',
-    event_label: linkLocation,
+    event_label: loc,
   });
 }
 
 /**
- * P0-2: Dedicated helper for Google Maps / Directions click events
+ * Dedicated helper for Google Maps / Directions click events (delegated listener)
  */
-export function trackDirectionsClick(linkLocation: string = 'unknown') {
+export function trackDirectionsClick(linkLocation: string = 'contact_page') {
+  const loc = linkLocation || 'contact_page';
   trackConversion('directions_click', {
-    link_location: linkLocation,
+    link_location: loc,
     event_category: 'navigation',
-    event_label: linkLocation,
+    event_label: loc,
   });
 }
 
 /**
  * Dedicated helper for Email mailto clicks
  */
-export function trackEmailClick(email: string = 'artwork@printtodayuk.com', linkLocation: string = 'unknown') {
+export function trackEmailClick(email: string = 'artwork@printtodayuk.com', linkLocation: string = 'storefront') {
+  const loc = linkLocation || 'storefront';
   trackConversion('click_email', {
-    link_location: linkLocation,
+    link_location: loc,
     event_category: 'contact',
     event_label: email,
   });

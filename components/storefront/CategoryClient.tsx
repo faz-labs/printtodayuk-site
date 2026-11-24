@@ -17,7 +17,6 @@ import {
   CircleNotch,
   Tag,
 } from '@phosphor-icons/react';
-import { trackWhatsAppClick, trackCallClick } from '@/lib/analytics';
 
 interface CategoryClientProps {
   categoryName: string;
@@ -154,10 +153,7 @@ export function CategoryClient({
             {/* Quick Action Buttons */}
             <div className="flex items-center gap-2 shrink-0">
               <button
-                onClick={() => {
-                  trackCallClick('Category Call Me');
-                  openCallMe(categoryName);
-                }}
+                onClick={() => openCallMe(categoryName)}
                 className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-[#C8102E] text-slate-800 hover:text-white text-xs font-bold transition-all cursor-pointer shadow-xs"
               >
                 <Phone className="h-4 w-4" />
@@ -167,7 +163,7 @@ export function CategoryClient({
                 href={`https://wa.me/447969559746?text=${encodeURIComponent(`Hello Print Today UK, I'm interested in an instant quote for ${categoryName}.`)}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                onClick={() => trackWhatsAppClick(`Category WhatsApp - ${categoryName}`)}
+                data-loc="category_page"
                 className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#25D366] hover:bg-[#1EBE5D] text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
               >
                 <WhatsappLogo weight="fill" className="h-4 w-4" />

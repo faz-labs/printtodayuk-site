@@ -82,6 +82,7 @@ export default function ContactUsPage() {
             href={googleMapsUrl}
             target="_blank"
             rel="noopener noreferrer"
+            data-loc="contact_page"
             className="group p-5 rounded-2xl bg-white border border-slate-200/90 shadow-xs hover:border-[#012169] hover:shadow-md transition-all flex flex-col justify-between"
           >
             <div>
@@ -105,6 +106,7 @@ export default function ContactUsPage() {
           {/* Hotline Phone */}
           <a
             href="tel:03300103521"
+            data-loc="contact_page"
             className="group p-5 rounded-2xl bg-white border border-slate-200/90 shadow-xs hover:border-[#012169] hover:shadow-md transition-all flex flex-col justify-between"
           >
             <div>
@@ -132,6 +134,7 @@ export default function ContactUsPage() {
             href="https://wa.me/447969559746?text=Hello%20Print%20Today%20UK%2C%20I%20have%20an%20urgent%20print%20enquiry."
             target="_blank"
             rel="noopener noreferrer"
+            data-loc="contact_page"
             className="group p-5 rounded-2xl bg-white border border-slate-200/90 shadow-xs hover:border-[#25D366] hover:shadow-md transition-all flex flex-col justify-between"
           >
             <div>
@@ -210,6 +213,7 @@ export default function ContactUsPage() {
                   href={googleMapsUrl}
                   target="_blank"
                   rel="noopener noreferrer"
+                  data-loc="contact_page"
                   className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#012169] text-white text-xs font-bold hover:bg-[#0A358C] transition-colors shadow-2xs"
                 >
                   <NavigationArrow weight="fill" className="h-3.5 w-3.5" />

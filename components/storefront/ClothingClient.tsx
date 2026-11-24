@@ -15,7 +15,6 @@ import {
   ShieldCheck,
 } from '@phosphor-icons/react';
 import { useCallMe } from '@/components/storefront/CallMeContext';
-import { trackWhatsAppClick, trackCallClick } from '@/lib/analytics';
 
 export function ClothingClient() {
   const { openCallMe } = useCallMe();
@@ -225,10 +224,7 @@ export function ClothingClient() {
           </div>
           <div className="flex flex-col sm:flex-row gap-3 shrink-0">
             <button
-              onClick={() => {
-                trackCallClick('Apparel Quote CTA');
-                openCallMe('Bulk Clothing Order');
-              }}
+              onClick={() => openCallMe('Bulk Clothing Order')}
               className="bg-[#C8102E] hover:bg-[#A80C24] text-white font-bold px-6 py-3.5 rounded-xl text-sm shadow-xl transition-all hover:scale-105 cursor-pointer border border-[#C8102E]"
             >
               Get Custom Apparel Quote
@@ -237,7 +233,7 @@ export function ClothingClient() {
               href="https://wa.me/447969559746?text=Hi%20Print%20Today%20UK%2C%20I'd%20like%20a%20quote%20for%20custom%20printed%20clothing."
               target="_blank"
               rel="noopener noreferrer"
-              onClick={() => trackWhatsAppClick('Apparel WhatsApp CTA')}
+              data-loc="clothing_page"
               className="bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold px-6 py-3.5 rounded-xl text-sm shadow-md transition-all text-center flex items-center justify-center gap-2 cursor-pointer"
             >
               <span>WhatsApp Us</span>

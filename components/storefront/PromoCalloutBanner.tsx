@@ -71,6 +71,7 @@ export function PromoCalloutBanner() {
 
             <a
               href="tel:03300103521"
+              data-loc="promo_banner"
               className="inline-flex items-center justify-center gap-2 bg-white text-[#012169] hover:bg-white/90 font-bold px-7 py-4 rounded-2xl shadow-lg text-sm transition-all hover:scale-105 text-center"
             >
               <span>Call Hotline: 0330 010 3521</span>

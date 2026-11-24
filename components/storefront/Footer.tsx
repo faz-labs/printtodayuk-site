@@ -516,6 +516,7 @@ export function Footer() {
                 href="https://www.google.com/maps/search/?api=1&query=75+Green+Street,+E7+8JF,+London,+United+Kingdom"
                 target="_blank"
                 rel="noopener noreferrer"
+                data-loc="footer"
                 className="inline-flex items-center gap-1.5 hover:text-[#012169] transition-colors"
               >
                 <MapPin weight="fill" className="h-4 w-4 text-[#C8102E] shrink-0" />
@@ -642,6 +643,7 @@ export function Footer() {
               <div className="mt-5 flex gap-2.5">
                 <a
                   href="tel:03300103521"
+                  data-loc="footer"
                   className="flex-1 py-2.5 rounded-xl bg-[#012169] hover:bg-[#0A358C] text-white text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5"
                 >
                   <Phone weight="fill" className="h-3.5 w-3.5" />

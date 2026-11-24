@@ -18,12 +18,7 @@ import {
   Truck,
   Storefront,
 } from '@phosphor-icons/react';
-import {
-  trackCallClick,
-  trackEmailClick,
-  trackWhatsAppClick,
-  trackGenerateLead,
-} from '@/lib/analytics';
+import { trackGenerateLead, trackEmailClick } from '@/lib/analytics';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const POPULAR_PRODUCTS = [
@@ -254,7 +249,7 @@ export function FeatureHighlights() {
           {/* Phone */}
           <a
             href="tel:03300103521"
-            onClick={() => trackCallClick('0330 010 3521', 'Feature Bar')}
+            data-loc="hero"
             className="inline-flex items-center gap-2 hover:text-[#012169] transition-colors group"
           >
             <div className="w-7 h-7 rounded-full bg-slate-900 group-hover:bg-[#012169] text-white flex items-center justify-center shrink-0 transition-colors">
@@ -268,7 +263,7 @@ export function FeatureHighlights() {
             href="https://wa.me/447969559746?text=Hello%20Print%20Today%20UK%2C%20I%20have%20an%20urgent%20same-day%20print%20order."
             target="_blank"
             rel="noopener noreferrer"
-            onClick={() => trackWhatsAppClick('Hero Feature Bar')}
+            data-loc="hero"
             className="inline-flex items-center gap-2 text-emerald-700 hover:text-emerald-800 transition-colors group"
           >
             <div className="w-7 h-7 rounded-full bg-[#25D366] text-white flex items-center justify-center shrink-0 transition-colors shadow-2xs">
@@ -280,7 +275,7 @@ export function FeatureHighlights() {
           {/* Email */}
           <a
             href="mailto:artwork@printtodayuk.com"
-            onClick={() => trackEmailClick('artwork@printtodayuk.com', 'Hero Feature Bar')}
+            data-loc="hero"
             className="inline-flex items-center gap-2 hover:text-[#012169] transition-colors group"
           >
             <div className="w-7 h-7 rounded-full bg-slate-900 group-hover:bg-[#012169] text-white flex items-center justify-center shrink-0 transition-colors">
@@ -333,7 +328,8 @@ export function FeatureHighlights() {
           {/* Button 3: Email PDF — walk in 10 mins (Sends to artwork@printtodayuk.com) */}
           <a
             href="mailto:artwork@printtodayuk.com?subject=Print%20Artwork%20Submission%20-%20Print%20Today%20UK&body=Hi%20Print%20Today%20Team%2C%0A%0AI%20am%20sending%20over%20our%20PDF%20artwork%20for%20urgent%20same-day%20printing.%0A%0AOrder%20Details%3A%0A-%20Item%20Type%3A%20%0A-%20Quantity%3A%20%0A-%20Collection%20or%20Delivery%3A%20%0A-%20Phone%20Number%3A%20%0A%0AThank%20you!"
-            onClick={() => trackEmailClick('artwork@printtodayuk.com', 'Email PDF Walk-in')}
+            data-loc="hero"
+            onClick={() => trackEmailClick('artwork@printtodayuk.com', 'hero')}
             className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-white hover:bg-slate-50 text-slate-800 border-2 border-slate-300 hover:border-slate-800 font-bold text-sm sm:text-[15px] shadow-xs transition-all text-center cursor-pointer"
           >
             <FilePdf weight="bold" className="h-4 w-4 text-[#C8102E]" />
@@ -397,6 +393,7 @@ export function FeatureHighlights() {
                   <div className="mt-8 flex flex-col gap-3 max-w-md mx-auto">
                     <a
                       href="tel:03300103521"
+                      data-loc="hero"
                       className="w-full py-3.5 rounded-xl bg-[#012169] hover:bg-[#0A358C] text-white font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2"
                     >
                       <Phone weight="fill" className="h-4 w-4 text-cyan-300" />

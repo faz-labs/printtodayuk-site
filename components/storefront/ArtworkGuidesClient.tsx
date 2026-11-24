@@ -271,6 +271,7 @@ export function ArtworkGuidesClient({ initialGuides = [] }: ArtworkGuidesClientP
                 href="https://wa.me/447969559746?text=Hi%2C%20I%20need%20help%20checking%20my%20artwork%20for%20printing."
                 target="_blank"
                 rel="noopener noreferrer"
+                data-loc="artwork_guides"
                 className="flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs sm:text-sm font-bold transition-all border border-white/20 text-center"
               >
                 <Chats weight="bold" className="h-4 w-4 text-emerald-400" />

@@ -27,7 +27,6 @@ import { ProductCard } from '@/components/storefront/ProductCard';
 import { ImageWithFallback } from '@/components/storefront/ImageWithFallback';
 import { useCallMe } from '@/components/storefront/CallMeContext';
 import { cn, formatCurrency } from '@/lib/utils';
-import { trackWhatsAppClick, trackCallClick } from '@/lib/analytics';
 
 export function AllProductsClient() {
   const router = useRouter();
@@ -203,7 +202,7 @@ export function AllProductsClient() {
                 href="https://wa.me/447969559746?text=Hi%20Print%20Today%20UK%2C%20I'd%20like%20a%20quote%20for%20custom%20printing"
                 target="_blank"
                 rel="noopener noreferrer"
-                onClick={() => trackWhatsAppClick('All Products Header')}
+                data-loc="all_products"
                 className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-white text-xs font-bold shadow-xs transition-all cursor-pointer"
               >
                 <WhatsappLogo weight="fill" className="h-4 w-4" />
@@ -211,10 +210,7 @@ export function AllProductsClient() {
               </a>
               <button
                 type="button"
-                onClick={() => {
-                  trackCallClick('All Products Header');
-                  openCallMe('All Products Catalog');
-                }}
+                onClick={() => openCallMe('All Products Catalog')}
                 className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#012169] hover:bg-[#0A358C] text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
               >
                 <PhoneCall weight="bold" className="h-4 w-4" />

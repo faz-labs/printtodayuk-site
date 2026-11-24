@@ -68,6 +68,7 @@ export default function NotFound() {
                 href="https://wa.me/447969559746?text=Hello%20Print%20Today%20UK%2C%20I%20couldn't%20find%20the%20page%20I%20was%20looking%20for.%20Can%20you%20help%20me%20with%20a%20print%20quote%3F"
                 target="_blank"
                 rel="noopener noreferrer"
+                data-loc="not_found"
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
               >
                 <WhatsappLogo weight="fill" className="h-4 w-4" />
@@ -75,6 +76,7 @@ export default function NotFound() {
               </a>
               <a
                 href="tel:03300103521"
+                data-loc="not_found"
                 className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-colors"
               >
                 <Phone weight="fill" className="h-3.5 w-3.5 text-[#012169]" />

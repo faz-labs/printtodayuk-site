@@ -138,6 +138,7 @@ export function UnderConstructionNoticeModal() {
                   href="https://wa.me/447969559746?text=Hello%20Print%20Today%20UK%2C%20I%20have%20an%20urgent%20print%20enquiry."
                   target="_blank"
                   rel="noopener noreferrer"
+                  data-loc="notice_modal"
                   className="group w-full p-4 sm:p-5 rounded-2xl bg-[#25D366] hover:bg-[#20bd5a] text-white flex items-center justify-between shadow-xl shadow-[#25D366]/30 transition-all transform hover:-translate-y-0.5"
                 >
                   <div className="flex items-center gap-3.5 sm:gap-4">
@@ -161,6 +162,7 @@ export function UnderConstructionNoticeModal() {
                 {/* 2. Phone Hotline Button */}
                 <a
                   href="tel:03300103521"
+                  data-loc="notice_modal"
                   className="group w-full p-4 sm:p-5 rounded-2xl bg-[#012169] hover:bg-[#0A358C] text-white flex items-center justify-between shadow-xl shadow-[#012169]/25 transition-all transform hover:-translate-y-0.5"
                 >
                   <div className="flex items-center gap-3.5 sm:gap-4">

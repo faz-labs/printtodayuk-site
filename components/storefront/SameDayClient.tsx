@@ -17,7 +17,6 @@ import {
   Truck,
 } from '@phosphor-icons/react';
 import { useCallMe } from '@/components/storefront/CallMeContext';
-import { trackCallClick, trackWhatsAppClick } from '@/lib/analytics';
 
 const SAME_DAY_PRODUCTS = [
   {
@@ -119,7 +118,7 @@ export function SameDayClient() {
                 href="https://wa.me/447969559746?text=Hi%20Print%20Today%20UK%2C%20I%20need%20an%20urgent%20same-day%20print%20order%20in%20London."
                 target="_blank"
                 rel="noopener noreferrer"
-                onClick={() => trackWhatsAppClick('Same Day Page Hero')}
+                data-loc="hero"
                 className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-white text-sm font-black shadow-md hover:shadow-lg transition-all cursor-pointer"
               >
                 <WhatsappLogo weight="fill" className="h-5 w-5" />
@@ -128,7 +127,7 @@ export function SameDayClient() {
 
               <a
                 href="tel:03300103521"
-                onClick={() => trackCallClick('Same Day Page Hero')}
+                data-loc="hero"
                 className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-[#012169] hover:bg-[#0A358C] text-white text-sm font-bold shadow-md hover:shadow-lg transition-all"
               >
                 <Phone weight="fill" className="h-4 w-4 text-red-400" />

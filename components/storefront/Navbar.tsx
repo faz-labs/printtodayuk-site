@@ -846,6 +846,7 @@ export function Navbar({ initialCategories = [], initialProducts = [] }: NavbarP
                 <div className="pt-4 border-t border-slate-200/80 space-y-2">
                   <a
                     href="tel:03300103521"
+                    data-loc="header"
                     className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-slate-100 font-bold text-sm text-slate-800"
                   >
                     <Phone weight="fill" className="h-4 w-4 text-red-500" />
@@ -855,6 +856,7 @@ export function Navbar({ initialCategories = [], initialProducts = [] }: NavbarP
                     href="https://wa.me/447969559746"
                     target="_blank"
                     rel="noopener noreferrer"
+                    data-loc="header"
                     className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-emerald-600 font-bold text-sm text-white shadow-sm"
                   >
                     <Chats weight="fill" className="h-4 w-4" />

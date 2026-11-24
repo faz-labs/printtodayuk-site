@@ -16,7 +16,7 @@ import {
   MapPin,
   ArrowRight,
 } from '@phosphor-icons/react';
-import { trackCallClick, trackWhatsAppClick, trackGenerateLead } from '@/lib/analytics';
+import { trackGenerateLead } from '@/lib/analytics';
 
 const POPULAR_PRODUCTS = [
   'Flyers & Leaflets',
@@ -143,7 +143,7 @@ export default function QuotePage() {
             <div className="mt-6 flex flex-wrap items-center gap-4 text-xs sm:text-sm font-bold">
               <a
                 href="tel:03300103521"
-                onClick={() => trackCallClick('0330 010 3521', 'Quote Page Header')}
+                data-loc="quote_page"
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 hover:bg-[#012169] text-white transition-colors"
               >
                 <Phone weight="fill" className="h-4 w-4 text-cyan-300" />
@@ -154,7 +154,7 @@ export default function QuotePage() {
                 href="https://wa.me/447969559746?text=Hi%20Print%20Today%20UK%2C%20I%20would%20like%20to%20request%20an%20instant%20quote."
                 target="_blank"
                 rel="noopener noreferrer"
-                onClick={() => trackWhatsAppClick('Quote Page Header')}
+                data-loc="quote_page"
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-white transition-colors shadow-xs"
               >
                 <WhatsappLogo weight="fill" className="h-4 w-4" />
@@ -192,6 +192,7 @@ export default function QuotePage() {
                   <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
                     <a
                       href="tel:03300103521"
+                      data-loc="quote_page"
                       className="w-full sm:w-auto px-6 py-3 rounded-xl bg-[#012169] hover:bg-[#0A358C] text-white font-bold text-xs sm:text-sm shadow-md transition-all flex items-center justify-center gap-2"
                     >
                       <Phone weight="fill" className="h-4 w-4 text-cyan-300" />

@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { useCallMe } from './CallMeContext';
 import { submitInquiry } from '@/lib/db';
-import { trackGenerateLead, trackWhatsAppClick, trackCallClick } from '@/lib/analytics';
+import { trackGenerateLead } from '@/lib/analytics';
 
 export function CallMeModal() {
   const { isOpen, closeCallMe, productContext, selectedOptions } = useCallMe();
@@ -148,6 +148,7 @@ export function CallMeModal() {
             <p className="text-xs text-slate-500 font-medium">Need an immediate answer?</p>
             <a
               href="tel:03300103521"
+              data-loc="callback_modal"
               className="w-full py-2.5 px-4 rounded-xl bg-[#012169] hover:bg-[#0A358C] text-white text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-xs transition-colors"
             >
               <Phone weight="fill" className="h-4 w-4 text-cyan-300" />
@@ -159,6 +160,7 @@ export function CallMeModal() {
                 href="https://wa.me/447969559746"
                 target="_blank"
                 rel="noopener noreferrer"
+                data-loc="callback_modal"
                 className="font-bold text-emerald-700 hover:underline"
               >
                 +44 7969 559746
@@ -281,7 +283,8 @@ export function CallMeModal() {
                 Request Call Back
               </Button>
               <a
-                href="tel:+447969559746"
+                href="tel:03300103521"
+                data-loc="callback_modal"
                 className="inline-flex items-center justify-center h-12 px-4 rounded-xl border border-slate-200 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
               >
                 Direct Call
@@ -294,6 +297,7 @@ export function CallMeModal() {
                 href={buildWhatsAppUrlForModal()}
                 target="_blank"
                 rel="noopener noreferrer"
+                data-loc="callback_modal"
                 className="flex items-center justify-center gap-2 w-full h-11 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold text-xs shadow-xs transition-colors"
               >
                 <WhatsappLogo weight="fill" className="h-4.5 w-4.5" />

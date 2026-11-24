@@ -119,6 +119,7 @@ export function AeoFaqSection({
                       )}`}
                       target="_blank"
                       rel="noopener noreferrer"
+                      data-loc="faq"
                       className="inline-flex items-center gap-1.5 text-[#012169] hover:text-[#C8102E] font-bold hover:underline"
                     >
                       <WhatsappLogo weight="fill" className="h-3.5 w-3.5 text-emerald-600" />
