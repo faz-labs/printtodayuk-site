@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { submitInquiry } from '@/lib/db';
 import { sendUploadOrderEmail } from '@/lib/email';
 import { downloadBufferFromS3 } from '@/lib/s3';
+import { normalizeTransferUrl } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -97,6 +98,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Please provide your WeTransfer artwork download link.' }, { status: 400 });
     }
 
+    let normalizedLink = fileUrl || weTransferUrl;
+    if (weTransferUrl) {
+      const linkCheck = normalizeTransferUrl(weTransferUrl);
+      if (!linkCheck.valid) {
+        return NextResponse.json(
+          { error: 'Please enter a valid WeTransfer link (e.g. https://we.tl/... or https://wetransfer.com/...).' },
+          { status: 400 }
+        );
+      }
+      normalizedLink = linkCheck.url;
+    }
+
     // Optional legacy: download file buffer if S3 key is present
     if (!fileBuffer && fileKey && fileSize > 0 && fileSize <= 10 * 1024 * 1024) {
       try {
@@ -117,7 +130,7 @@ export async function POST(req: NextRequest) {
         email,
         phone,
         productContext: `WeTransfer Order: ${product} (${quantity} units)`,
-        details: `WeTransfer Link: ${weTransferUrl || fileUrl}\nCustomer Email: ${email}\nCustomer Phone: ${phone}\nItem: ${product}\nQuantity: ${quantity}\nDelivery/Collection: ${deliveryOption || 'Studio Collection'}\nUrgency: ${urgency || 'Standard'}\nNotes: ${notes || 'None'}`,
+        details: `WeTransfer Link: ${normalizedLink}\nCustomer Email: ${email}\nCustomer Phone: ${phone}\nItem: ${product}\nQuantity: ${quantity}\nDelivery/Collection: ${deliveryOption || 'Studio Collection'}\nUrgency: ${urgency || 'Standard'}\nNotes: ${notes || 'None'}`,
         status: 'pending',
       });
       inquiryId = dbRes.id;
@@ -135,10 +148,10 @@ export async function POST(req: NextRequest) {
       deliveryOption: deliveryOption || 'Studio Collection (75 Green St, London E7)',
       urgency,
       notes,
-      weTransferUrl: weTransferUrl || fileUrl,
+      weTransferUrl: normalizedLink,
       fileName: fileName || 'WeTransfer Link',
       fileSize,
-      downloadUrl: weTransferUrl || fileUrl,
+      downloadUrl: normalizedLink,
       fileBuffer,
     });
 

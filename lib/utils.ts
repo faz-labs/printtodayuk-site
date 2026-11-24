@@ -51,3 +51,18 @@ export function isValidUrl(urlString?: string): boolean {
     return false;
   }
 }
+
+/** Normalizes and validates user-pasted transfer URLs (auto-prepending https:// if omitted). */
+export function normalizeTransferUrl(raw?: string): { valid: boolean; url: string } {
+  const trimmed = (raw || '').trim();
+  if (!trimmed) return { valid: false, url: '' };
+  const candidate = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  if (!isValidUrl(candidate)) return { valid: false, url: '' };
+  try {
+    const parsed = new URL(candidate);
+    if (!parsed.hostname.includes('.')) return { valid: false, url: '' };
+    return { valid: true, url: candidate };
+  } catch {
+    return { valid: false, url: '' };
+  }
+}

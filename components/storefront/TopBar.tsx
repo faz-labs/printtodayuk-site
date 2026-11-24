@@ -44,12 +44,12 @@ export function TopBar() {
 
           {/* Email address beside phone on md+ screens */}
           <a
-            href="mailto:artwork@printtodayuk.com"
+            href="mailto:info@printtodayuk.com"
             data-loc="topbar"
             className="hidden md:inline-flex items-center gap-1.5 text-white/95 hover:text-white transition-colors font-medium hover:underline shrink-0"
           >
             <Envelope weight="fill" className="h-4 w-4 text-cyan-300 shrink-0" />
-            <span className="whitespace-nowrap">artwork@printtodayuk.com</span>
+            <span className="whitespace-nowrap">info@printtodayuk.com</span>
           </a>
         </div>
       </div>

@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from '@phosphor-icons/react';
 import { cn } from '@/lib/utils';
@@ -22,6 +23,12 @@ export function Modal({
   children,
   maxWidth = 'md',
 }: ModalProps) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -54,11 +61,15 @@ export function Modal({
     full: 'max-w-[95vw]',
   };
 
-  return (
+  if (!mounted || typeof document === 'undefined') {
+    return null;
+  }
+
+  return createPortal(
     <AnimatePresence>
       {isOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto"
+          className="fixed inset-0 z-[120] flex items-start sm:items-center justify-center p-3 sm:p-6 overflow-y-auto"
           data-lenis-prevent
         >
           {/* Backdrop */}
@@ -78,7 +89,7 @@ export function Modal({
             exit={{ opacity: 0, scale: 0.95, y: 15 }}
             transition={{ type: 'spring', duration: 0.35, bounce: 0.15 }}
             className={cn(
-              'relative w-full rounded-2xl bg-white p-6 shadow-2xl border border-slate-100 z-10 my-8',
+              'relative w-full rounded-2xl bg-white p-5 sm:p-6 shadow-2xl border border-slate-100 z-10 my-auto',
               maxWidthStyles[maxWidth]
             )}
           >
@@ -97,8 +108,9 @@ export function Modal({
                 )}
               </div>
               <button
+                type="button"
                 onClick={onClose}
-                className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors cursor-pointer"
+                className="shrink-0 rounded-full p-2 bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-900 transition-colors cursor-pointer"
                 aria-label="Close modal"
               >
                 <X className="h-5 w-5" />
@@ -110,6 +122,7 @@ export function Modal({
           </motion.div>
         </div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }

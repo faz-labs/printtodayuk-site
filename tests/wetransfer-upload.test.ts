@@ -99,4 +99,43 @@ describe('WeTransfer Upload & Order Notification Flow', () => {
     // Verification of function return contract
     assert.equal(typeof result.sent, 'boolean');
   });
+
+  test('5. normalizeTransferUrl auto-prepends https:// and rejects non-URL input', async () => {
+    const { normalizeTransferUrl } = await import('@/lib/utils');
+
+    const bareLink = normalizeTransferUrl('we.tl/t-abc123');
+    assert.equal(bareLink.valid, true);
+    assert.equal(bareLink.url, 'https://we.tl/t-abc123');
+
+    const fullLink = normalizeTransferUrl('https://wetransfer.com/downloads/xyz');
+    assert.equal(fullLink.valid, true);
+    assert.equal(fullLink.url, 'https://wetransfer.com/downloads/xyz');
+
+    const garbage = normalizeTransferUrl('not a valid link');
+    assert.equal(garbage.valid, false);
+
+    const noTld = normalizeTransferUrl('justoneword');
+    assert.equal(noTld.valid, false);
+  });
+
+  test('6. Rejects malformed WeTransfer link in /api/upload-order with 400', async () => {
+    const { POST } = await import('@/app/api/upload-order/route');
+    const req = new NextRequest('http://localhost:3000/api/upload-order', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: 'John Doe',
+        phone: '07123456789',
+        email: 'john@example.com',
+        product: 'Same-Day Flyers',
+        quantity: '500',
+        weTransferUrl: 'not-a-url',
+      }),
+    });
+
+    const res = await POST(req);
+    assert.equal(res.status, 400);
+    const body = await res.json();
+    assert.match(body.error, /valid WeTransfer link/i);
+  });
 });
