@@ -1,12 +1,30 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CaretLeft, CaretRight } from '@phosphor-icons/react';
 import { HeroSlide } from '@/lib/types';
 import { getHeroSlides, getLocalHeroSlides } from '@/lib/db';
 import { DEFAULT_HERO_SLIDES } from '@/lib/data';
+
+const HERO_SLIDE_INTERVAL_MS = 1300;
+const HERO_SLIDE_TRANSITION_S = 0.55;
+
+const slideVariants = {
+  enter: (dir: 1 | -1) => ({
+    x: dir > 0 ? '100%' : '-100%',
+    opacity: 1,
+  }),
+  center: {
+    x: '0%',
+    opacity: 1,
+  },
+  exit: (dir: 1 | -1) => ({
+    x: dir > 0 ? '-100%' : '100%',
+    opacity: 1,
+  }),
+};
 
 interface HeroSectionProps {
   categoryType?: 'Printing' | 'Clothing';
@@ -68,17 +86,32 @@ export function HeroSection({ categoryType, initialSlides }: HeroSectionProps) {
     };
   }, []);
 
-  // Auto sliding interval (every 4.5 seconds)
+  // Preload slide images so the 1.3s transitions never blink waiting on network
+  useEffect(() => {
+    if (typeof window === 'undefined' || slides.length <= 1) return;
+    slides.forEach((slide) => {
+      if (slide?.imageUrl) {
+        const img = new window.Image();
+        img.src = slide.imageUrl;
+      }
+      if (slide?.mobileImageUrl) {
+        const mobileImg = new window.Image();
+        mobileImg.src = slide.mobileImageUrl;
+      }
+    });
+  }, [slides]);
+
+  // Auto sliding every 1.3 seconds (resets cleanly on manual interaction or hover)
   useEffect(() => {
     if (slides.length <= 1 || isPaused) return;
 
-    const timer = setInterval(() => {
+    const timer = setTimeout(() => {
       setDirection(1);
       setCurrentIndex((prev) => (prev + 1) % slides.length);
-    }, 4500);
+    }, HERO_SLIDE_INTERVAL_MS);
 
-    return () => clearInterval(timer);
-  }, [slides.length, isPaused]);
+    return () => clearTimeout(timer);
+  }, [slides.length, isPaused, currentIndex]);
 
   const handlePrev = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -96,7 +129,8 @@ export function HeroSection({ categoryType, initialSlides }: HeroSectionProps) {
 
   if (slides.length === 0) return null;
 
-  const currentSlide = slides[currentIndex];
+  const safeIndex = currentIndex % slides.length;
+  const currentSlide = slides[safeIndex];
   const hasLink = Boolean(currentSlide?.linkUrl && currentSlide.linkUrl.trim().length > 0);
   const slideLink = hasLink ? currentSlide.linkUrl!.trim() : '';
   const isExternal = slideLink.startsWith('http://') || slideLink.startsWith('https://');
@@ -116,7 +150,7 @@ export function HeroSection({ categoryType, initialSlides }: HeroSectionProps) {
         )}
         <img
           src={currentSlide.imageUrl}
-          alt={currentSlide.title || `Hero banner ${currentIndex + 1}`}
+          alt={currentSlide.title || `Hero banner ${safeIndex + 1}`}
           className="w-full h-full object-cover object-center block select-none pointer-events-none"
           loading="eager"
           onError={(e) => {
@@ -138,15 +172,19 @@ export function HeroSection({ categoryType, initialSlides }: HeroSectionProps) {
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >
-      {/* Sliding Image with AnimatePresence */}
+      {/* Sliding Image with smooth edge-to-edge AnimatePresence */}
       <AnimatePresence initial={false} custom={direction}>
         <motion.div
-          key={currentSlide.id || currentIndex}
+          key={currentSlide.id || safeIndex}
           custom={direction}
-          initial={{ opacity: 0, x: direction === 1 ? 80 : -80 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: direction === 1 ? -80 : 80 }}
-          transition={{ duration: 0.6, ease: [0.25, 1, 0.5, 1] }}
+          variants={slideVariants}
+          initial="enter"
+          animate="center"
+          exit="exit"
+          transition={{
+            x: { duration: HERO_SLIDE_TRANSITION_S, ease: [0.22, 1, 0.36, 1] },
+          }}
+          style={{ willChange: 'transform' }}
           className="absolute inset-0 w-full h-full"
         >
           {hasLink ? (
@@ -205,13 +243,13 @@ export function HeroSection({ categoryType, initialSlides }: HeroSectionProps) {
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                setDirection(idx > currentIndex ? 1 : -1);
+                setDirection(idx > safeIndex ? 1 : -1);
                 setCurrentIndex(idx);
               }}
               aria-label={`Go to slide ${idx + 1}`}
               type="button"
               className={`h-1 sm:h-1.5 rounded-full transition-all duration-300 cursor-pointer ${
-                idx === currentIndex
+                idx === safeIndex
                   ? 'w-4 sm:w-5 bg-white shadow-xs'
                   : 'w-1 sm:w-1.5 bg-white/50 hover:bg-white/80'
               }`}
