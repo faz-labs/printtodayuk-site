@@ -8,7 +8,7 @@ import { HeroSlide } from '@/lib/types';
 import { getHeroSlides, getLocalHeroSlides } from '@/lib/db';
 import { DEFAULT_HERO_SLIDES } from '@/lib/data';
 
-const HERO_SLIDE_INTERVAL_MS = 1300;
+const HERO_SLIDE_INTERVAL_MS = 2200;
 const HERO_SLIDE_TRANSITION_S = 0.55;
 
 const slideVariants = {
@@ -86,7 +86,7 @@ export function HeroSection({ categoryType, initialSlides }: HeroSectionProps) {
     };
   }, []);
 
-  // Preload slide images so the 1.3s transitions never blink waiting on network
+  // Preload slide images so transitions never blink waiting on network
   useEffect(() => {
     if (typeof window === 'undefined' || slides.length <= 1) return;
     slides.forEach((slide) => {
@@ -101,7 +101,7 @@ export function HeroSection({ categoryType, initialSlides }: HeroSectionProps) {
     });
   }, [slides]);
 
-  // Auto sliding every 1.3 seconds (resets cleanly on manual interaction or hover)
+  // Auto sliding every 2.2 seconds (resets cleanly on manual interaction or hover)
   useEffect(() => {
     if (slides.length <= 1 || isPaused) return;
 
