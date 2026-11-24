@@ -321,16 +321,18 @@ export interface SendUploadOrderEmailParams {
   deliveryOption: string;
   urgency?: string;
   notes?: string;
-  fileName: string;
+  weTransferUrl?: string;
+  fileName?: string;
   fileSize?: number;
-  downloadUrl: string;
+  downloadUrl?: string;
   fileBuffer?: Buffer;
   contentType?: string;
 }
 
 /**
- * P0-1: Dispatches an urgent upload order email to artwork@printtodayuk.com & sales@printtodayuk.com.
- * Includes direct attachment if file <= 10MB, plus permanent/presigned download link.
+ * Dispatches an urgent upload order email to artwork@printtodayuk.com & sales@printtodayuk.com.
+ * Prominently presents the customer's WeTransfer link, customer email address,
+ * contact phone number, and order specifications so the studio can communicate further.
  */
 export async function sendUploadOrderEmail(params: SendUploadOrderEmailParams): Promise<{
   sent: boolean;
@@ -347,8 +349,8 @@ export async function sendUploadOrderEmail(params: SendUploadOrderEmailParams): 
     };
   }
 
-  const senderUser = process.env.GMAIL_USER || process.env.SMTP_USER;
-  // Always email both artwork@ and sales@, plus any custom receiver
+  const senderUser = process.env.GMAIL_USER || process.env.SMTP_USER || 'printtodayuk@gmail.com';
+  // Send to artwork@printtodayuk.com as primary recipient, plus sales@ & custom receiver
   const targetEmails = Array.from(
     new Set(
       [
@@ -359,15 +361,16 @@ export async function sendUploadOrderEmail(params: SendUploadOrderEmailParams): 
     )
   ).join(', ');
 
+  const activeLink = (params.weTransferUrl || params.downloadUrl || '').trim();
+  const waPhone = params.phone.replace(/[^0-9]/g, '');
+
   const formatBytes = (bytes?: number) => {
     if (!bytes || isNaN(bytes)) return '';
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
-
   const formattedSize = formatBytes(params.fileSize);
-  const waPhone = params.phone.replace(/[^0-9]/g, '');
 
   const htmlContent = `
 <!DOCTYPE html>
@@ -381,17 +384,18 @@ export async function sendUploadOrderEmail(params: SendUploadOrderEmailParams): 
     .header h1 { margin: 0; font-size: 22px; font-weight: 900; letter-spacing: -0.5px; }
     .header p { margin: 6px 0 0 0; font-size: 13px; color: #93c5fd; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
     .body-content { padding: 28px 24px; }
-    .alert-badge { display: inline-block; background: #fee2e2; color: #991b1b; font-size: 11px; font-weight: 800; padding: 5px 12px; border-radius: 9999px; border: 1px solid #fecaca; margin-bottom: 20px; text-transform: uppercase; }
-    .file-card { background: #f8fafc; border: 2px dashed #012169; border-radius: 12px; padding: 18px; margin: 20px 0; text-align: center; }
-    .file-name { font-size: 16px; font-weight: 800; color: #012169; word-break: break-all; }
-    .file-size { font-size: 12px; color: #64748b; margin-top: 4px; }
-    .btn-download { display: inline-block; background: #C8102E; color: #ffffff !important; text-decoration: none; padding: 12px 24px; border-radius: 10px; font-size: 14px; font-weight: 800; margin-top: 12px; box-shadow: 0 4px 6px -1px rgba(200, 16, 46, 0.3); }
-    .table-details { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 14px; }
+    .alert-badge { display: inline-block; background: #ecfdf5; color: #047857; font-size: 11px; font-weight: 800; padding: 5px 12px; border-radius: 9999px; border: 1px solid #a7f3d0; margin-bottom: 20px; text-transform: uppercase; }
+    .transfer-card { background: #f0fdf4; border: 2px solid #22c55e; border-radius: 14px; padding: 22px; margin: 20px 0; text-align: center; box-shadow: 0 4px 6px -1px rgba(34, 197, 94, 0.1); }
+    .transfer-title { font-size: 16px; font-weight: 800; color: #15803d; }
+    .btn-transfer { display: inline-block; background: #16a34a; color: #ffffff !important; text-decoration: none; padding: 14px 28px; border-radius: 10px; font-size: 15px; font-weight: 800; margin-top: 12px; box-shadow: 0 4px 6px -1px rgba(22, 163, 74, 0.3); }
+    .raw-link { margin-top: 14px; font-size: 12px; color: #334155; word-break: break-all; background: #ffffff; padding: 10px 14px; border-radius: 8px; border: 1px solid #dcfce7; }
+    .table-details { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 14px; }
     .table-details th { text-align: left; padding: 10px 12px; background: #f8fafc; color: #475569; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #e2e8f0; width: 38%; }
     .table-details td { padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600; color: #0f172a; }
     .message-box { background: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #012169; padding: 14px; border-radius: 8px; font-size: 13px; line-height: 1.6; color: #334155; white-space: pre-wrap; margin-top: 8px; }
-    .cta-bar { margin-top: 24px; padding-top: 20px; border-top: 1px solid #e2e8f0; display: flex; gap: 12px; }
-    .btn-call { display: inline-block; background: #012169; color: #ffffff !important; text-decoration: none; padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: 700; }
+    .cta-bar { margin-top: 24px; padding-top: 20px; border-top: 1px solid #e2e8f0; display: flex; gap: 10px; flex-wrap: wrap; }
+    .btn-reply { display: inline-block; background: #012169; color: #ffffff !important; text-decoration: none; padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: 700; }
+    .btn-call { display: inline-block; background: #C8102E; color: #ffffff !important; text-decoration: none; padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: 700; }
     .btn-wa { display: inline-block; background: #25D366; color: #ffffff !important; text-decoration: none; padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: 700; }
     .footer { background: #f8fafc; padding: 16px; text-align: center; font-size: 11px; color: #64748b; border-top: 1px solid #e2e8f0; }
   </style>
@@ -400,29 +404,37 @@ export async function sendUploadOrderEmail(params: SendUploadOrderEmailParams): 
   <div class="container">
     <div class="header">
       <h1>PRINT TODAY UK</h1>
-      <p>🚨 URGENT ARTWORK &amp; PRINT ORDER SUBMISSION</p>
+      <p>📁 WETRANSFER ARTWORK &amp; PRINT ORDER SUBMISSION</p>
     </div>
 
     <div class="body-content">
-      <div class="alert-badge">⚡ Action Required: Customer Waiting for Callback</div>
+      <div class="alert-badge">⚡ Action Required: WeTransfer Artwork Link Submitted</div>
 
-      <!-- File Card with Direct Download -->
-      <div class="file-card">
-        <div style="font-size: 28px; margin-bottom: 4px;">📄</div>
-        <div class="file-name">${params.fileName}</div>
-        ${formattedSize ? `<div class="file-size">${formattedSize}</div>` : ''}
-        <div style="margin-top: 6px;">
-          <a href="${params.downloadUrl}" class="btn-download" target="_blank" rel="noopener noreferrer">
-            ⬇️ DOWNLOAD ARTWORK FILE
+      <!-- WeTransfer Download Card -->
+      <div class="transfer-card">
+        <div style="font-size: 32px; margin-bottom: 4px;">🚀</div>
+        <div class="transfer-title">Customer WeTransfer Artwork Link</div>
+        ${
+          activeLink
+            ? `
+        <div style="margin-top: 10px;">
+          <a href="${activeLink}" class="btn-transfer" target="_blank" rel="noopener noreferrer">
+            DOWNLOAD FROM WETRANSFER &rarr;
           </a>
         </div>
-        <p style="font-size: 11px; color: #64748b; margin: 10px 0 0 0;">
-          Link valid in high-speed storage. File ready for RIP / prepress check.
-        </p>
+        <div class="raw-link">
+          <strong>Direct Link:</strong> <a href="${activeLink}" style="color: #047857; font-weight: 700;">${activeLink}</a>
+        </div>`
+            : '<p style="color: #64748b; font-size: 13px;">No external link provided.</p>'
+        }
       </div>
 
       <!-- Customer & Order Specs -->
       <table class="table-details">
+        <tr>
+          <th>Customer Email</th>
+          <td><a href="mailto:${params.email}" style="color: #012169; font-weight: 800; font-size: 15px; text-decoration: underline;">${params.email}</a></td>
+        </tr>
         <tr>
           <th>Customer Name</th>
           <td>${params.name}</td>
@@ -430,10 +442,6 @@ export async function sendUploadOrderEmail(params: SendUploadOrderEmailParams): 
         <tr>
           <th>Phone Number</th>
           <td><a href="tel:${params.phone}" style="color: #012169; text-decoration: none; font-weight: 800;">${params.phone}</a></td>
-        </tr>
-        <tr>
-          <th>Email Address</th>
-          <td><a href="mailto:${params.email}" style="color: #012169; text-decoration: none;">${params.email}</a></td>
         </tr>
         <tr>
           <th>Requested Item</th>
@@ -459,8 +467,9 @@ export async function sendUploadOrderEmail(params: SendUploadOrderEmailParams): 
       }
 
       <div class="cta-bar">
+        <a href="mailto:${params.email}?subject=Re:%20WeTransfer%20Artwork%20Submission%20-%20${encodeURIComponent(params.product)}%20-%20Print%20Today%20UK" class="btn-reply">✉️ Reply to Client (${params.email})</a>
         <a href="tel:${params.phone}" class="btn-call">📞 Call ${params.name}</a>
-        <a href="https://wa.me/${waPhone}" class="btn-wa">💬 Message on WhatsApp</a>
+        <a href="https://wa.me/${waPhone}" class="btn-wa">💬 WhatsApp</a>
       </div>
     </div>
 
@@ -472,11 +481,11 @@ export async function sendUploadOrderEmail(params: SendUploadOrderEmailParams): 
 </html>
   `;
 
-  // Attach file directly if provided and under 10MB
+  // Attach file directly if provided and under 10MB (for legacy uploads)
   const attachments: any[] = [];
   if (params.fileBuffer && params.fileBuffer.length <= 10 * 1024 * 1024) {
     attachments.push({
-      filename: params.fileName,
+      filename: params.fileName || 'artwork.pdf',
       content: params.fileBuffer,
       contentType: params.contentType || 'application/octet-stream',
     });
@@ -487,8 +496,8 @@ export async function sendUploadOrderEmail(params: SendUploadOrderEmailParams): 
       from: `"Print Today Artwork" <${senderUser}>`,
       to: targetEmails,
       replyTo: params.email,
-      subject: `[Print Order] ${params.product} (${params.quantity} qty) - ${params.name} (${params.phone})`,
-      text: `NEW URGENT PRINT ORDER & ARTWORK UPLOAD\n\nCustomer: ${params.name}\nPhone: ${params.phone}\nEmail: ${params.email}\nProduct: ${params.product}\nQuantity: ${params.quantity}\nOption: ${params.deliveryOption}\n${params.urgency ? `Urgency: ${params.urgency}\n` : ''}${params.notes ? `Notes: ${params.notes}\n` : ''}\nArtwork File: ${params.fileName} (${formattedSize})\nDownload Link: ${params.downloadUrl}\n\nPrint Today UK - 75 Green Street, London E7 8JF`,
+      subject: `[WeTransfer Artwork] ${params.product} (${params.quantity} qty) - ${params.name} (${params.email})`,
+      text: `NEW WETRANSFER ARTWORK ORDER\n\nWeTransfer Link: ${activeLink}\nCustomer Email: ${params.email}\nCustomer Name: ${params.name}\nCustomer Phone: ${params.phone}\nProduct: ${params.product}\nQuantity: ${params.quantity}\nFulfilment: ${params.deliveryOption}\n${params.urgency ? `Urgency: ${params.urgency}\n` : ''}${params.notes ? `Notes: ${params.notes}\n` : ''}\nReply directly to this email to communicate with the client.\n\nPrint Today UK - 75 Green Street, London E7 8JF`,
       html: htmlContent,
       attachments: attachments.length > 0 ? attachments : undefined,
     });

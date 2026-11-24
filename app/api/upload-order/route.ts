@@ -6,9 +6,10 @@ import { downloadBufferFromS3 } from '@/lib/s3';
 export const dynamic = 'force-dynamic';
 
 /**
- * P0-1: POST /api/upload-order
- * Receives order details and uploaded artwork file URL.
- * Records inquiry in database and emails artwork@ & sales@.
+ * POST /api/upload-order
+ * Receives customer order details and WeTransfer artwork link.
+ * Records inquiry in Firestore for CMS dashboard and dispatches notification email
+ * to artwork@printtodayuk.com from printtodayuk@gmail.com with customer email for communication.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -22,6 +23,7 @@ export async function POST(req: NextRequest) {
     let deliveryOption = '';
     let urgency = '';
     let notes = '';
+    let weTransferUrl = '';
     let fileName = '';
     let fileSize = 0;
     let fileKey = '';
@@ -38,10 +40,11 @@ export async function POST(req: NextRequest) {
       deliveryOption = body.deliveryOption?.trim() || '';
       urgency = body.urgency?.trim() || '';
       notes = body.notes?.trim() || '';
-      fileName = body.fileName?.trim() || '';
+      weTransferUrl = body.weTransferUrl?.trim() || body.downloadUrl?.trim() || body.fileUrl?.trim() || '';
+      fileName = body.fileName?.trim() || (weTransferUrl ? 'WeTransfer Artwork Link' : '');
       fileSize = Number(body.fileSize) || 0;
       fileKey = body.fileKey?.trim() || '';
-      fileUrl = body.fileUrl?.trim() || body.downloadUrl?.trim() || '';
+      fileUrl = weTransferUrl || body.fileUrl?.trim() || body.downloadUrl?.trim() || '';
     } else if (contentType.includes('multipart/form-data')) {
       // Fallback multipart handler
       const formData = await req.formData();
@@ -53,7 +56,8 @@ export async function POST(req: NextRequest) {
       deliveryOption = String(formData.get('deliveryOption') || '').trim();
       urgency = String(formData.get('urgency') || '').trim();
       notes = String(formData.get('notes') || '').trim();
-      fileUrl = String(formData.get('fileUrl') || '').trim();
+      weTransferUrl = String(formData.get('weTransferUrl') || formData.get('fileUrl') || formData.get('downloadUrl') || '').trim();
+      fileUrl = weTransferUrl || String(formData.get('fileUrl') || '').trim();
       fileKey = String(formData.get('fileKey') || '').trim();
 
       const rawFile = formData.get('file');
@@ -63,7 +67,7 @@ export async function POST(req: NextRequest) {
         const arrayBuf = await rawFile.arrayBuffer();
         fileBuffer = Buffer.from(arrayBuf);
       } else {
-        fileName = String(formData.get('fileName') || '').trim();
+        fileName = String(formData.get('fileName') || (weTransferUrl ? 'WeTransfer Artwork Link' : '')).trim();
         fileSize = Number(formData.get('fileSize')) || 0;
       }
     } else {
@@ -81,7 +85,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Please provide a contact phone number.' }, { status: 400 });
     }
     if (!email || !email.includes('@')) {
-      return NextResponse.json({ error: 'Please provide a valid email address.' }, { status: 400 });
+      return NextResponse.json({ error: 'Please provide a valid email address so our team can communicate with you.' }, { status: 400 });
     }
     if (!product) {
       return NextResponse.json({ error: 'Please specify the product you want printed.' }, { status: 400 });
@@ -89,11 +93,11 @@ export async function POST(req: NextRequest) {
     if (!quantity) {
       return NextResponse.json({ error: 'Please provide the quantity needed.' }, { status: 400 });
     }
-    if (!fileName) {
-      return NextResponse.json({ error: 'Please select an artwork file to upload.' }, { status: 400 });
+    if (!weTransferUrl && !fileName && !fileUrl) {
+      return NextResponse.json({ error: 'Please provide your WeTransfer artwork download link.' }, { status: 400 });
     }
 
-    // Attempt to download file buffer if under 10MB to attach directly to email
+    // Optional legacy: download file buffer if S3 key is present
     if (!fileBuffer && fileKey && fileSize > 0 && fileSize <= 10 * 1024 * 1024) {
       try {
         const downloaded = await downloadBufferFromS3(fileKey);
@@ -105,15 +109,15 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 1. Record inquiry in database for CMS Inbox
+    // 1. Record inquiry in Firestore for CMS Leads & Quotes Inbox
     let inquiryId: string | undefined;
     try {
       const dbRes = await submitInquiry({
         name,
         email,
         phone,
-        productContext: `Quick Upload Order: ${product} (${quantity} units)`,
-        details: `Item: ${product}\nQuantity: ${quantity}\nDelivery/Collection: ${deliveryOption || 'Collection'}\nUrgency: ${urgency || 'Standard'}\nFile: ${fileName} (${fileUrl || fileKey})\nNotes: ${notes || 'None'}`,
+        productContext: `WeTransfer Order: ${product} (${quantity} units)`,
+        details: `WeTransfer Link: ${weTransferUrl || fileUrl}\nCustomer Email: ${email}\nCustomer Phone: ${phone}\nItem: ${product}\nQuantity: ${quantity}\nDelivery/Collection: ${deliveryOption || 'Studio Collection'}\nUrgency: ${urgency || 'Standard'}\nNotes: ${notes || 'None'}`,
         status: 'pending',
       });
       inquiryId = dbRes.id;
@@ -121,7 +125,7 @@ export async function POST(req: NextRequest) {
       console.warn('Failed to record upload inquiry in Firestore:', dbErr);
     }
 
-    // 2. Dispatch email to artwork@ & sales@
+    // 2. Dispatch email to artwork@printtodayuk.com (from printtodayuk@gmail.com)
     const emailRes = await sendUploadOrderEmail({
       name,
       phone,
@@ -131,9 +135,10 @@ export async function POST(req: NextRequest) {
       deliveryOption: deliveryOption || 'Studio Collection (75 Green St, London E7)',
       urgency,
       notes,
-      fileName,
+      weTransferUrl: weTransferUrl || fileUrl,
+      fileName: fileName || 'WeTransfer Link',
       fileSize,
-      downloadUrl: fileUrl,
+      downloadUrl: weTransferUrl || fileUrl,
       fileBuffer,
     });
 
@@ -141,7 +146,7 @@ export async function POST(req: NextRequest) {
       success: true,
       inquiryId,
       emailSent: emailRes.sent,
-      message: 'Received. We will call you to confirm your order during opening hours.',
+      message: 'Received. We will review your WeTransfer files and email you to confirm your order.',
     });
   } catch (error: any) {
     console.error('Upload Order API error:', error);

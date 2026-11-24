@@ -17,6 +17,8 @@ import {
   Paperclip,
   Truck,
   Storefront,
+  ArrowSquareOut,
+  LinkSimple,
 } from '@phosphor-icons/react';
 import { trackGenerateLead, trackEmailClick } from '@/lib/analytics';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -37,8 +39,8 @@ const POPULAR_PRODUCTS = [
 export function FeatureHighlights() {
   const [showUploadModal, setShowUploadModal] = useState(false);
 
-  // Form State
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  // WeTransfer Order Modal Form State
+  const [weTransferUrl, setWeTransferUrl] = useState('');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
@@ -54,44 +56,29 @@ export function FeatureHighlights() {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
   const handleOpenModal = () => {
+    // 1. Open WeTransfer in a new tab so user can immediately drop files there
+    try {
+      window.open('https://wetransfer.com', '_blank', 'noopener,noreferrer');
+    } catch {
+      // In case browser popup blocker catches it, modal has a prominent manual button
+    }
+    // 2. Open modal on storefront so user can paste their WeTransfer link and email
     setShowUploadModal(true);
     setErrorMessage('');
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 50 * 1024 * 1024) {
-        setErrorMessage('File size exceeds the 50 MB limit. Please select a smaller file or send via WhatsApp.');
-        return;
-      }
-      setSelectedFile(file);
-      setErrorMessage('');
-    }
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    const file = e.dataTransfer.files?.[0];
-    if (file) {
-      if (file.size > 50 * 1024 * 1024) {
-        setErrorMessage('File size exceeds the 50 MB limit. Please select a smaller file or send via WhatsApp.');
-        return;
-      }
-      setSelectedFile(file);
-      setErrorMessage('');
-    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
 
-    if (!selectedFile) {
-      setErrorMessage('Please choose your artwork file to upload.');
+    if (!weTransferUrl.trim()) {
+      setErrorMessage('Please paste your WeTransfer download link.');
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email.trim() || !emailRegex.test(email.trim())) {
+      setErrorMessage('Please enter a valid email address so our team can communicate with you.');
       return;
     }
     if (!name.trim()) {
@@ -100,11 +87,6 @@ export function FeatureHighlights() {
     }
     if (!phone.trim()) {
       setErrorMessage('Please enter your contact phone number.');
-      return;
-    }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!email.trim() || !emailRegex.test(email.trim())) {
-      setErrorMessage('Please enter a valid email address.');
       return;
     }
     if (!product.trim()) {
@@ -117,62 +99,23 @@ export function FeatureHighlights() {
     }
 
     setIsSubmitting(true);
-    setUploadProgress('Preparing secure cloud upload...');
+    setUploadProgress('Sending your order to artwork@printtodayuk.com...');
 
     try {
-      // Step 1: Request presigned S3 PUT URL to bypass Vercel 4.5MB request limit
-      const presignRes = await fetch('/api/upload/presign', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fileName: selectedFile.name,
-          fileType: selectedFile.type,
-          fileSize: selectedFile.size,
-        }),
-      });
-
-      if (!presignRes.ok) {
-        const errorData = await presignRes.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Failed to initialize secure file upload.');
-      }
-
-      const presignData = await presignRes.json();
-      const { uploadUrl, key, downloadUrl } = presignData;
-
-      // Step 2: Direct browser PUT to AWS S3 (private storage)
-      setUploadProgress(`Uploading ${(selectedFile.size / (1024 * 1024)).toFixed(1)} MB direct to cloud storage...`);
-
-      const s3UploadRes = await fetch(uploadUrl, {
-        method: 'PUT',
-        body: selectedFile,
-        headers: {
-          'Content-Type': selectedFile.type || 'application/octet-stream',
-        },
-      });
-
-      if (!s3UploadRes.ok) {
-        throw new Error(`Direct cloud storage upload failed (HTTP ${s3UploadRes.status}).`);
-      }
-
-      // Step 3: POST order details and file reference to /api/upload-order
-      setUploadProgress('Notifying studio and recording your order...');
-
+      // POST order details and WeTransfer link to /api/upload-order (No AWS upload)
       const orderRes = await fetch('/api/upload-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          weTransferUrl: weTransferUrl.trim(),
+          email: email.trim(),
           name: name.trim(),
           phone: phone.trim(),
-          email: email.trim(),
           product: product.trim(),
           quantity: quantity.trim(),
           deliveryOption: deliveryOption === 'collection' ? 'Collect from E7 Studio (Free)' : 'London Courier Delivery',
           urgency: urgency === 'same_day' ? 'Same-Day Urgent' : urgency === 'next_day' ? 'Next Working Day' : 'Standard Turnaround',
           notes: notes.trim(),
-          fileName: selectedFile.name,
-          fileSize: selectedFile.size,
-          fileKey: key,
-          downloadUrl: downloadUrl,
         }),
       });
 
@@ -181,16 +124,16 @@ export function FeatureHighlights() {
         throw new Error(orderErr.error || 'Failed to submit order details to the studio.');
       }
 
-      // Step 4: Success confirmation & conversion tracking
+      // Success confirmation & lead tracking
       setIsSubmitted(true);
-      trackGenerateLead('upload_order', {
+      trackGenerateLead('wetransfer_upload_order', {
         product: product.trim(),
         quantity: quantity.trim(),
         deliveryOption,
       });
     } catch (err: any) {
-      console.error('Upload order error:', err);
-      setErrorMessage(err.message || 'An unexpected error occurred during upload. Please use WhatsApp fallback below.');
+      console.error('WeTransfer order submission error:', err);
+      setErrorMessage(err.message || 'An unexpected error occurred. Please use WhatsApp fallback below.');
     } finally {
       setIsSubmitting(false);
       setUploadProgress('');
@@ -200,7 +143,7 @@ export function FeatureHighlights() {
   const handleResetModal = () => {
     setShowUploadModal(false);
     setTimeout(() => {
-      setSelectedFile(null);
+      setWeTransferUrl('');
       setName('');
       setPhone('');
       setEmail('');
@@ -217,13 +160,14 @@ export function FeatureHighlights() {
   };
 
   const buildWhatsAppFallbackUrl = () => {
-    const text = `Hi Print Today UK, I attempted to submit an order on your website but encountered an issue.\n\n` +
+    const text = `Hi Print Today UK, I have artwork ready for printing.\n\n` +
       `👤 Name: ${name || 'Customer'}\n` +
+      `📧 Email: ${email || 'Not provided'}\n` +
       `📞 Phone: ${phone || 'Not provided'}\n` +
       `📄 Product: ${product || 'Print order'}\n` +
       `🔢 Quantity: ${quantity || 'Not specified'}\n` +
-      `📁 File: ${selectedFile?.name || 'Artwork file'}\n\n` +
-      `Can I send my file directly via WhatsApp?`;
+      `📁 WeTransfer Link: ${weTransferUrl || 'Attached'}\n\n` +
+      `Can I share my files and order details directly here?`;
     return `https://wa.me/447969559746?text=${encodeURIComponent(text)}`;
   };
 
@@ -365,15 +309,23 @@ export function FeatureHighlights() {
                   </div>
 
                   <h3 className="text-2xl font-black text-slate-900 tracking-tight">
-                    Order &amp; File Received!
+                    WeTransfer Link &amp; Order Received!
                   </h3>
                   <p className="mt-3 text-base text-slate-700 font-semibold max-w-md mx-auto leading-relaxed">
-                    Received. We will call you to confirm your order during opening hours.
+                    Thank you! We have received your artwork link and dispatched your details to <strong className="text-slate-900">artwork@printtodayuk.com</strong>.
                   </p>
 
-                  <div className="mt-6 p-4 rounded-2xl bg-slate-50 border border-slate-200 text-left text-xs space-y-2 max-w-md mx-auto">
+                  <div className="mt-6 p-4 rounded-2xl bg-slate-50 border border-slate-200 text-left text-xs space-y-2.5 max-w-md mx-auto">
                     <div className="flex justify-between items-center text-slate-600">
-                      <span>Customer:</span>
+                      <span>Customer Email:</span>
+                      <strong className="text-[#012169] font-bold underline truncate max-w-[220px]">{email}</strong>
+                    </div>
+                    <div className="flex justify-between items-center text-slate-600">
+                      <span>WeTransfer Link:</span>
+                      <span className="text-emerald-700 font-bold truncate max-w-[220px]">{weTransferUrl}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-slate-600">
+                      <span>Customer Name:</span>
                       <strong className="text-slate-900 font-bold">{name}</strong>
                     </div>
                     <div className="flex justify-between items-center text-slate-600">
@@ -384,13 +336,13 @@ export function FeatureHighlights() {
                       <span>Product:</span>
                       <strong className="text-slate-900 font-bold">{product} ({quantity} units)</strong>
                     </div>
-                    <div className="flex justify-between items-center text-slate-600">
-                      <span>Artwork File:</span>
-                      <span className="text-emerald-700 font-bold truncate max-w-[200px]">{selectedFile?.name}</span>
-                    </div>
                   </div>
 
-                  <div className="mt-8 flex flex-col gap-3 max-w-md mx-auto">
+                  <p className="mt-4 text-xs text-slate-500 max-w-md mx-auto">
+                    Our London prepress studio will review your files and communicate with you directly at <strong className="text-slate-800">{email}</strong> to confirm your print run.
+                  </p>
+
+                  <div className="mt-6 flex flex-col gap-3 max-w-md mx-auto">
                     <a
                       href="tel:03300103521"
                       data-loc="hero"
@@ -413,82 +365,83 @@ export function FeatureHighlights() {
                 <form onSubmit={handleSubmit} className="space-y-5">
                   <div>
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 text-[#012169] text-xs font-bold border border-blue-100 mb-2">
-                      <UploadSimple weight="bold" className="h-3.5 w-3.5" />
-                      <span>Direct Artwork Submission</span>
+                      <LinkSimple weight="bold" className="h-3.5 w-3.5 text-[#012169]" />
+                      <span>WeTransfer Artwork Submission</span>
                     </span>
                     <h3 className="text-2xl font-black text-slate-900 tracking-tight">
-                      Upload Artwork &amp; Order
+                      Share Artwork via WeTransfer &amp; Order
                     </h3>
                     <p className="text-xs sm:text-sm text-slate-600 mt-1">
-                      Upload your ready-to-print file (PDF, JPG, PNG, AI up to 50MB). We review your file and confirm immediately.
+                      Upload your ready-to-print files (PDF, AI, PSD up to 2GB free on WeTransfer), paste the link below with your email, and our studio will confirm your order.
                     </p>
                   </div>
 
-                  {/* File Upload Zone */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">
-                      Artwork File <span className="text-[#C8102E]">*</span>
-                    </label>
-                    <div
-                      onDragOver={(e) => e.preventDefault()}
-                      onDrop={handleDrop}
-                      onClick={() => fileInputRef.current?.click()}
-                      className={`border-2 border-dashed rounded-2xl p-5 text-center cursor-pointer transition-all ${
-                        selectedFile
-                          ? 'border-emerald-500 bg-emerald-50/40'
-                          : 'border-slate-300 hover:border-[#012169] bg-slate-50/70 hover:bg-slate-50'
-                      }`}
-                    >
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept=".pdf,.jpg,.jpeg,.png,.ai,.eps,.tiff,.svg"
-                        onChange={handleFileChange}
-                        className="hidden"
-                      />
-                      {selectedFile ? (
-                        <div className="flex items-center justify-between gap-3 text-left">
-                          <div className="flex items-center gap-3 overflow-hidden">
-                            <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
-                              <Paperclip weight="bold" className="h-5 w-5" />
-                            </div>
-                            <div className="overflow-hidden">
-                              <p className="text-xs sm:text-sm font-bold text-slate-900 truncate">
-                                {selectedFile.name}
-                              </p>
-                              <p className="text-[11px] text-slate-500">
-                                {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB &bull; Ready to send
-                              </p>
-                            </div>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedFile(null);
-                            }}
-                            className="text-xs text-rose-600 font-bold hover:underline shrink-0 p-1"
-                          >
-                            Change
-                          </button>
+                  {/* Step 1: Open WeTransfer Banner */}
+                  <div className="p-4 rounded-2xl bg-gradient-to-r from-slate-50 to-blue-50/60 border border-blue-200/80">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-5 h-5 rounded-full bg-[#012169] text-white text-[11px] font-black flex items-center justify-center">1</span>
+                          <span className="text-xs sm:text-sm font-black text-slate-900">Upload Files on WeTransfer</span>
                         </div>
-                      ) : (
-                        <div className="space-y-1.5 py-2">
-                          <div className="w-10 h-10 rounded-full bg-white border border-slate-200 text-slate-600 mx-auto flex items-center justify-center shadow-2xs">
-                            <UploadSimple weight="bold" className="h-5 w-5" />
-                          </div>
-                          <p className="text-xs sm:text-sm font-bold text-slate-800">
-                            Click to select file or drag &amp; drop here
-                          </p>
-                          <p className="text-[11px] text-slate-500">
-                            Supports PDF, JPG, PNG, AI, EPS up to 50 MB
-                          </p>
-                        </div>
-                      )}
+                        <p className="text-[11px] text-slate-500 mt-1">
+                          Free up to 2GB &bull; No account required &bull; Click &apos;Get a link&apos;
+                        </p>
+                      </div>
+                      <a
+                        href="https://wetransfer.com"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#012169] hover:bg-[#0A358C] text-white font-bold text-xs shadow-xs transition-all shrink-0 cursor-pointer"
+                      >
+                        <span>Open WeTransfer</span>
+                        <ArrowSquareOut weight="bold" className="h-3.5 w-3.5 text-cyan-300" />
+                      </a>
                     </div>
                   </div>
 
-                  {/* Customer Details Grid */}
+                  {/* Step 2: WeTransfer Link Input */}
+                  <div>
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className="w-5 h-5 rounded-full bg-[#012169] text-white text-[11px] font-black flex items-center justify-center">2</span>
+                      <label className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                        Paste Your WeTransfer Link <span className="text-[#C8102E]">*</span>
+                      </label>
+                    </div>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                        <LinkSimple weight="bold" className="h-4 w-4 text-emerald-600" />
+                      </div>
+                      <input
+                        type="url"
+                        required
+                        value={weTransferUrl}
+                        onChange={(e) => setWeTransferUrl(e.target.value)}
+                        placeholder="e.g. https://we.tl/t-xxxxxxxx or https://wetransfer.com/downloads/..."
+                        className="w-full h-11 pl-10 pr-3.5 rounded-xl border border-slate-300 focus:border-[#012169] focus:ring-2 focus:ring-[#012169]/10 text-xs sm:text-sm text-slate-900 font-semibold outline-hidden transition-all bg-white"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Customer Email Address */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Your Email Address <span className="text-[#C8102E]">*</span>
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="e.g. david@company.com"
+                      className="w-full h-11 px-3.5 rounded-xl border border-slate-300 focus:border-[#012169] focus:ring-2 focus:ring-[#012169]/10 text-xs sm:text-sm text-slate-900 font-medium outline-hidden transition-all bg-white"
+                    />
+                    <p className="text-[11px] text-slate-500 mt-1">
+                      Our studio team will email proof confirmation and communicate with you directly at this address.
+                    </p>
+                  </div>
+
+                  {/* Customer Name & Phone Grid */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                     <div>
                       <label className="block text-xs font-bold text-slate-700 mb-1">
@@ -516,20 +469,6 @@ export function FeatureHighlights() {
                         className="w-full h-11 px-3.5 rounded-xl border border-slate-300 focus:border-[#012169] focus:ring-2 focus:ring-[#012169]/10 text-xs sm:text-sm text-slate-900 font-medium outline-hidden transition-all bg-white"
                       />
                     </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
-                      Email Address <span className="text-[#C8102E]">*</span>
-                    </label>
-                    <input
-                      type="email"
-                      required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="e.g. david@company.com"
-                      className="w-full h-11 px-3.5 rounded-xl border border-slate-300 focus:border-[#012169] focus:ring-2 focus:ring-[#012169]/10 text-xs sm:text-sm text-slate-900 font-medium outline-hidden transition-all bg-white"
-                    />
                   </div>
 
                   {/* Product & Quantity Grid */}
@@ -694,8 +633,8 @@ export function FeatureHighlights() {
                         </>
                       ) : (
                         <>
-                          <UploadSimple weight="bold" className="h-5 w-5" />
-                          <span>Send File &amp; Order</span>
+                          <LinkSimple weight="bold" className="h-5 w-5" />
+                          <span>Submit WeTransfer Link &amp; Order</span>
                         </>
                       )}
                     </button>
