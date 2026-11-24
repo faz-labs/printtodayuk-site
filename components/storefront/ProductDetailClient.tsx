@@ -1749,26 +1749,36 @@ export function ProductDetailClient({
                 </div>
               </div>
 
-              {/* Prioritized Primary Action: WhatsApp Instant Order / Quote */}
-              <a
-                href={buildWhatsAppUrl(false)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full h-13 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-white font-black text-sm sm:text-base flex items-center justify-center gap-2.5 shadow-md shadow-[#25D366]/30 hover:shadow-lg transition-all cursor-pointer transform hover:-translate-y-0.5"
-              >
-                <WhatsappLogo weight="fill" className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
-                <span>Order / Instant Quote on WhatsApp</span>
-              </a>
+              {/* Primary Contact Action Grid: Direct Hotline & WhatsApp */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <a
+                  href="tel:03300103521"
+                  className="w-full h-13 rounded-xl bg-[#012169] hover:bg-[#0A358C] text-white font-black text-sm sm:text-base flex items-center justify-center gap-2.5 shadow-md shadow-[#012169]/20 hover:shadow-lg transition-all cursor-pointer transform hover:-translate-y-0.5"
+                >
+                  <Phone weight="fill" className="h-5 w-5 sm:h-6 sm:w-6 text-cyan-300" />
+                  <span>Call 0330 010 3521</span>
+                </a>
+
+                <a
+                  href={buildWhatsAppUrl(false)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full h-13 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-white font-black text-sm sm:text-base flex items-center justify-center gap-2.5 shadow-md shadow-[#25D366]/30 hover:shadow-lg transition-all cursor-pointer transform hover:-translate-y-0.5"
+                >
+                  <WhatsappLogo weight="fill" className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+                  <span>Order on WhatsApp</span>
+                </a>
+              </div>
 
               {/* Secondary Action Grid */}
-              <div className="grid grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <button
                   type="button"
                   onClick={handleConfirmOrder}
-                  className="flex items-center justify-center gap-2 h-11 rounded-lg bg-[#012169] hover:bg-[#0A358C] text-white font-bold text-xs shadow-xs transition-colors cursor-pointer"
+                  className="w-full flex items-center justify-center gap-2 h-11 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer"
                 >
-                  <Phone weight="fill" className="h-3.5 w-3.5" />
-                  <span>Request Call Back</span>
+                  <Phone weight="fill" className="h-3.5 w-3.5 text-cyan-400" />
+                  <span>Request a Quote for this Product</span>
                 </button>
 
                 <button
@@ -1783,7 +1793,7 @@ export function ProductDetailClient({
                       cleanedActiveOptions
                     );
                   }}
-                  className="flex items-center justify-center gap-2 h-11 rounded-lg bg-white hover:bg-slate-50 text-slate-800 font-bold text-xs border border-slate-300 transition-colors cursor-pointer shadow-2xs"
+                  className="w-full flex items-center justify-center gap-2 h-11 rounded-xl bg-white hover:bg-slate-50 text-slate-800 font-bold text-xs border border-slate-300 transition-colors cursor-pointer shadow-2xs"
                 >
                   <Sparkle weight="fill" className="h-3.5 w-3.5 text-[#012169]" />
                   <span>Free Artwork Proof</span>

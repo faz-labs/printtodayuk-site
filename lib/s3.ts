@@ -1,4 +1,5 @@
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 /**
  * Flexible environment variable resolver that safely checks process.env
@@ -162,3 +163,101 @@ export async function uploadBufferToS3(params: {
     bucket: config.bucketName,
   };
 }
+
+/**
+ * Creates a presigned PUT upload URL so the browser can upload files directly to S3 up to 50MB.
+ * Keeps bucket private and bypasses Vercel 4.5MB request body limit.
+ */
+export async function createPresignedUploadUrl(params: {
+  fileName: string;
+  contentType: string;
+  folder?: string;
+}): Promise<{
+  uploadUrl: string;
+  key: string;
+  downloadUrl: string;
+  bucket: string;
+}> {
+  const config = getS3Config();
+  const s3 = getS3Client();
+
+  const timestamp = Date.now();
+  const randomSuffix = Math.random().toString(36).substring(2, 8);
+
+  const extMatch = params.fileName.match(/\.([a-zA-Z0-9]+)$/);
+  const ext = extMatch ? extMatch[1].toLowerCase() : 'pdf';
+
+  const baseName = params.fileName
+    .replace(/\.[^/.]+$/, '')
+    .replace(/[^a-zA-Z0-9_-]/g, '_')
+    .substring(0, 60);
+
+  const folder = params.folder || 'UploadOrders';
+  const key = `${folder}/${timestamp}-${randomSuffix}-${baseName}.${ext}`;
+
+  // Presigned PUT URL for browser direct upload (valid for 15 minutes)
+  const putCommand = new PutObjectCommand({
+    Bucket: config.bucketName,
+    Key: key,
+    ContentType: params.contentType,
+  });
+
+  const uploadUrl = await getSignedUrl(s3, putCommand, { expiresIn: 900 });
+
+  // Presigned GET URL for downloading (valid for 30 days = 2,592,000 seconds)
+  const getCommand = new GetObjectCommand({
+    Bucket: config.bucketName,
+    Key: key,
+  });
+
+  // Note: AWS SigV4 supports expiresIn up to 7 days (604800s). For maximum compatibility,
+  // we generate a 7-day signed link, and provide a permanent internal redirect endpoint
+  // if accessed later, or CloudFront if configured.
+  const downloadUrl = await getSignedUrl(s3, getCommand, { expiresIn: 604800 });
+
+  return {
+    uploadUrl,
+    key,
+    downloadUrl,
+    bucket: config.bucketName,
+  };
+}
+
+/**
+ * Creates a fresh presigned GET download URL for an existing S3 key.
+ */
+export async function createPresignedDownloadUrl(key: string, expiresIn: number = 604800): Promise<string> {
+  const config = getS3Config();
+  const s3 = getS3Client();
+
+  const command = new GetObjectCommand({
+    Bucket: config.bucketName,
+    Key: key,
+  });
+
+  return getSignedUrl(s3, command, { expiresIn });
+}
+
+/**
+ * Downloads a file buffer from S3 for attaching to emails (if file <= 10MB).
+ */
+export async function downloadBufferFromS3(key: string): Promise<Buffer | null> {
+  const config = getS3Config();
+  const s3 = getS3Client();
+
+  try {
+    const command = new GetObjectCommand({
+      Bucket: config.bucketName,
+      Key: key,
+    });
+    const response = await s3.send(command);
+    if (!response.Body) return null;
+
+    const byteArray = await response.Body.transformToByteArray();
+    return Buffer.from(byteArray);
+  } catch (err) {
+    console.warn(`Failed to download buffer from S3 for key ${key}:`, err);
+    return null;
+  }
+}
+

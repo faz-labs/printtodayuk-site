@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { useCallMe } from './CallMeContext';
 import { submitInquiry } from '@/lib/db';
-import { trackFormSubmission, trackWhatsAppClick, trackCallClick } from '@/lib/analytics';
+import { trackGenerateLead, trackWhatsAppClick, trackCallClick } from '@/lib/analytics';
 
 export function CallMeModal() {
   const { isOpen, closeCallMe, productContext, selectedOptions } = useCallMe();
@@ -81,7 +81,7 @@ export function CallMeModal() {
       }
 
       setIsSubmitted(true);
-      trackFormSubmission('Call Me Callback Form', { product: productContext || 'General' });
+      trackGenerateLead('callback', { product: productContext || 'General' });
     } catch (err) {
       // In case fetch threw network error, attempt direct submitInquiry
       try {
@@ -95,7 +95,7 @@ export function CallMeModal() {
           status: 'pending',
         });
         setIsSubmitted(true);
-        trackFormSubmission('Call Me Callback Form', { product: productContext || 'General' });
+        trackGenerateLead('callback', { product: productContext || 'General' });
       } catch (directErr) {
         console.error('Call Me submission error:', directErr);
         setErrorMessage('Failed to submit. You can call or WhatsApp us on +44 7969 559746.');
@@ -145,13 +145,25 @@ export function CallMeModal() {
           </p>
 
           <div className="mt-6 flex flex-col items-center gap-2 w-full pt-4 border-t border-slate-100">
-            <p className="text-xs text-slate-400">Need an answer right now?</p>
+            <p className="text-xs text-slate-500 font-medium">Need an immediate answer?</p>
             <a
-              href="tel:+447969559746"
-              className="inline-flex items-center gap-2 text-sm font-bold text-[#012169] hover:underline"
+              href="tel:03300103521"
+              className="w-full py-2.5 px-4 rounded-xl bg-[#012169] hover:bg-[#0A358C] text-white text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-xs transition-colors"
             >
-              <Phone weight="fill" className="h-4 w-4 text-[#C8102E]" /> Call us directly: +44 7969 559746
+              <Phone weight="fill" className="h-4 w-4 text-cyan-300" />
+              <span>Call hotline: 0330 010 3521</span>
             </a>
+            <p className="text-[11px] text-slate-400">
+              or WhatsApp / mobile:{' '}
+              <a
+                href="https://wa.me/447969559746"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-bold text-emerald-700 hover:underline"
+              >
+                +44 7969 559746
+              </a>
+            </p>
           </div>
         </motion.div>
       ) : (

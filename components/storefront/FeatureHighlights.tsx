@@ -12,26 +12,224 @@ import {
   X,
   Clock,
   WhatsappLogo,
+  SpinnerGap,
+  WarningCircle,
+  Paperclip,
+  Truck,
+  Storefront,
 } from '@phosphor-icons/react';
-import { trackCallClick, trackEmailClick, trackWhatsAppClick, trackConversion } from '@/lib/analytics';
+import {
+  trackCallClick,
+  trackEmailClick,
+  trackWhatsAppClick,
+  trackGenerateLead,
+} from '@/lib/analytics';
 import { motion, AnimatePresence } from 'framer-motion';
 
+const POPULAR_PRODUCTS = [
+  'Flyers & Leaflets',
+  'Business Cards',
+  'Roller Banners',
+  'Large Format Posters',
+  'Signs & Foam Boards',
+  'Document Printing',
+  'Booklets & Brochures',
+  'Custom T-Shirts / Workwear',
+  'Stickers & Labels',
+  'Other / Bespoke Item',
+];
+
 export function FeatureHighlights() {
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   const [showUploadModal, setShowUploadModal] = useState(false);
 
-  const handleUploadClick = () => {
-    trackConversion('generate_lead', { event_category: 'upload', event_label: 'Upload PDF button clicked' });
-    fileInputRef.current?.click();
+  // Form State
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
+  const [product, setProduct] = useState('');
+  const [quantity, setQuantity] = useState('');
+  const [deliveryOption, setDeliveryOption] = useState<'collection' | 'delivery'>('collection');
+  const [urgency, setUrgency] = useState<'same_day' | 'next_day' | 'standard'>('same_day');
+  const [notes, setNotes] = useState('');
+
+  // Status & Progress State
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<string>('');
+  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleOpenModal = () => {
+    setShowUploadModal(true);
+    setErrorMessage('');
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setSelectedFileName(file.name);
-      setShowUploadModal(true);
+      if (file.size > 50 * 1024 * 1024) {
+        setErrorMessage('File size exceeds the 50 MB limit. Please select a smaller file or send via WhatsApp.');
+        return;
+      }
+      setSelectedFile(file);
+      setErrorMessage('');
     }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      if (file.size > 50 * 1024 * 1024) {
+        setErrorMessage('File size exceeds the 50 MB limit. Please select a smaller file or send via WhatsApp.');
+        return;
+      }
+      setSelectedFile(file);
+      setErrorMessage('');
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage('');
+
+    if (!selectedFile) {
+      setErrorMessage('Please choose your artwork file to upload.');
+      return;
+    }
+    if (!name.trim()) {
+      setErrorMessage('Please enter your full name.');
+      return;
+    }
+    if (!phone.trim()) {
+      setErrorMessage('Please enter your contact phone number.');
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email.trim() || !emailRegex.test(email.trim())) {
+      setErrorMessage('Please enter a valid email address.');
+      return;
+    }
+    if (!product.trim()) {
+      setErrorMessage('Please select or specify the product you need.');
+      return;
+    }
+    if (!quantity.trim()) {
+      setErrorMessage('Please enter the required quantity.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setUploadProgress('Preparing secure cloud upload...');
+
+    try {
+      // Step 1: Request presigned S3 PUT URL to bypass Vercel 4.5MB request limit
+      const presignRes = await fetch('/api/upload/presign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fileName: selectedFile.name,
+          fileType: selectedFile.type,
+          fileSize: selectedFile.size,
+        }),
+      });
+
+      if (!presignRes.ok) {
+        const errorData = await presignRes.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to initialize secure file upload.');
+      }
+
+      const presignData = await presignRes.json();
+      const { uploadUrl, key, downloadUrl } = presignData;
+
+      // Step 2: Direct browser PUT to AWS S3 (private storage)
+      setUploadProgress(`Uploading ${(selectedFile.size / (1024 * 1024)).toFixed(1)} MB direct to cloud storage...`);
+
+      const s3UploadRes = await fetch(uploadUrl, {
+        method: 'PUT',
+        body: selectedFile,
+        headers: {
+          'Content-Type': selectedFile.type || 'application/octet-stream',
+        },
+      });
+
+      if (!s3UploadRes.ok) {
+        throw new Error(`Direct cloud storage upload failed (HTTP ${s3UploadRes.status}).`);
+      }
+
+      // Step 3: POST order details and file reference to /api/upload-order
+      setUploadProgress('Notifying studio and recording your order...');
+
+      const orderRes = await fetch('/api/upload-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: name.trim(),
+          phone: phone.trim(),
+          email: email.trim(),
+          product: product.trim(),
+          quantity: quantity.trim(),
+          deliveryOption: deliveryOption === 'collection' ? 'Collect from E7 Studio (Free)' : 'London Courier Delivery',
+          urgency: urgency === 'same_day' ? 'Same-Day Urgent' : urgency === 'next_day' ? 'Next Working Day' : 'Standard Turnaround',
+          notes: notes.trim(),
+          fileName: selectedFile.name,
+          fileSize: selectedFile.size,
+          fileKey: key,
+          downloadUrl: downloadUrl,
+        }),
+      });
+
+      if (!orderRes.ok) {
+        const orderErr = await orderRes.json().catch(() => ({}));
+        throw new Error(orderErr.error || 'Failed to submit order details to the studio.');
+      }
+
+      // Step 4: Success confirmation & conversion tracking
+      setIsSubmitted(true);
+      trackGenerateLead('upload_order', {
+        product: product.trim(),
+        quantity: quantity.trim(),
+        deliveryOption,
+      });
+    } catch (err: any) {
+      console.error('Upload order error:', err);
+      setErrorMessage(err.message || 'An unexpected error occurred during upload. Please use WhatsApp fallback below.');
+    } finally {
+      setIsSubmitting(false);
+      setUploadProgress('');
+    }
+  };
+
+  const handleResetModal = () => {
+    setShowUploadModal(false);
+    setTimeout(() => {
+      setSelectedFile(null);
+      setName('');
+      setPhone('');
+      setEmail('');
+      setProduct('');
+      setQuantity('');
+      setDeliveryOption('collection');
+      setUrgency('same_day');
+      setNotes('');
+      setIsSubmitting(false);
+      setIsSubmitted(false);
+      setErrorMessage('');
+      setUploadProgress('');
+    }, 300);
+  };
+
+  const buildWhatsAppFallbackUrl = () => {
+    const text = `Hi Print Today UK, I attempted to submit an order on your website but encountered an issue.\n\n` +
+      `👤 Name: ${name || 'Customer'}\n` +
+      `📞 Phone: ${phone || 'Not provided'}\n` +
+      `📄 Product: ${product || 'Print order'}\n` +
+      `🔢 Quantity: ${quantity || 'Not specified'}\n` +
+      `📁 File: ${selectedFile?.name || 'Artwork file'}\n\n` +
+      `Can I send my file directly via WhatsApp?`;
+    return `https://wa.me/447969559746?text=${encodeURIComponent(text)}`;
   };
 
   return (
@@ -56,7 +254,7 @@ export function FeatureHighlights() {
           {/* Phone */}
           <a
             href="tel:03300103521"
-            onClick={() => trackCallClick('0330 010 3521')}
+            onClick={() => trackCallClick('0330 010 3521', 'Feature Bar')}
             className="inline-flex items-center gap-2 hover:text-[#012169] transition-colors group"
           >
             <div className="w-7 h-7 rounded-full bg-slate-900 group-hover:bg-[#012169] text-white flex items-center justify-center shrink-0 transition-colors">
@@ -82,7 +280,7 @@ export function FeatureHighlights() {
           {/* Email */}
           <a
             href="mailto:artwork@printtodayuk.com"
-            onClick={() => trackEmailClick('artwork@printtodayuk.com')}
+            onClick={() => trackEmailClick('artwork@printtodayuk.com', 'Hero Feature Bar')}
             className="inline-flex items-center gap-2 hover:text-[#012169] transition-colors group"
           >
             <div className="w-7 h-7 rounded-full bg-slate-900 group-hover:bg-[#012169] text-white flex items-center justify-center shrink-0 transition-colors">
@@ -122,29 +320,20 @@ export function FeatureHighlights() {
             <ArrowRight weight="bold" className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
           </Link>
 
-          {/* Button 2: Upload PDF & print now */}
+          {/* Button 2: Upload PDF & print now -> Opens full order modal */}
           <button
             type="button"
-            onClick={handleUploadClick}
+            onClick={handleOpenModal}
             className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-white hover:bg-slate-50 text-slate-900 border-2 border-slate-900 hover:border-[#012169] hover:text-[#012169] font-bold text-sm sm:text-[15px] shadow-xs transition-all text-center cursor-pointer"
           >
             <UploadSimple weight="bold" className="h-4 w-4" />
             <span>Upload PDF &amp; Print Now</span>
           </button>
 
-          {/* Hidden file input for direct PDF selection */}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".pdf,application/pdf"
-            onChange={handleFileChange}
-            className="hidden"
-          />
-
           {/* Button 3: Email PDF — walk in 10 mins (Sends to artwork@printtodayuk.com) */}
           <a
             href="mailto:artwork@printtodayuk.com?subject=Print%20Artwork%20Submission%20-%20Print%20Today%20UK&body=Hi%20Print%20Today%20Team%2C%0A%0AI%20am%20sending%20over%20our%20PDF%20artwork%20for%20urgent%20same-day%20printing.%0A%0AOrder%20Details%3A%0A-%20Item%20Type%3A%20%0A-%20Quantity%3A%20%0A-%20Collection%20or%20Delivery%3A%20%0A-%20Phone%20Number%3A%20%0A%0AThank%20you!"
-            onClick={() => trackEmailClick('Email PDF Walk-in')}
+            onClick={() => trackEmailClick('artwork@printtodayuk.com', 'Email PDF Walk-in')}
             className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-white hover:bg-slate-50 text-slate-800 border-2 border-slate-300 hover:border-slate-800 font-bold text-sm sm:text-[15px] shadow-xs transition-all text-center cursor-pointer"
           >
             <FilePdf weight="bold" className="h-4 w-4 text-[#C8102E]" />
@@ -153,63 +342,372 @@ export function FeatureHighlights() {
         </div>
       </div>
 
-      {/* Upload Confirmation Modal */}
+      {/* Full Interactive P0-1 Upload Order Modal */}
       <AnimatePresence>
         {showUploadModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs overflow-y-auto">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="relative w-full max-w-md bg-white rounded-2xl p-6 shadow-2xl border border-slate-200 text-center font-sans"
+              className="relative w-full max-w-xl bg-white rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-200 text-left font-sans my-8 max-h-[90vh] overflow-y-auto"
             >
               <button
-                onClick={() => setShowUploadModal(false)}
-                className="absolute right-3.5 top-3.5 p-1.5 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors cursor-pointer"
+                type="button"
+                onClick={handleResetModal}
+                className="absolute right-4 top-4 p-2 text-slate-400 hover:text-slate-700 rounded-full hover:bg-slate-100 transition-colors cursor-pointer"
                 aria-label="Close"
               >
                 <X weight="bold" className="h-5 w-5" />
               </button>
 
-              <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600">
-                <CheckCircle weight="fill" className="h-6 w-6" />
-              </div>
+              {/* Success View */}
+              {isSubmitted ? (
+                <div className="text-center py-6">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 shadow-sm">
+                    <CheckCircle weight="fill" className="h-9 w-9" />
+                  </div>
 
-              <h4 className="text-lg font-bold text-slate-900 tracking-tight">
-                PDF Selected for Printing
-              </h4>
-              <p className="mt-2 text-sm text-slate-600 font-medium">
-                <span className="font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded-md inline-block max-w-full truncate">
-                  {selectedFileName}
-                </span>
-              </p>
-              <p className="mt-2 text-xs text-slate-500 leading-relaxed">
-                Click below to send this artwork directly to our London prepress studio at{' '}
-                <strong className="text-slate-800">artwork@printtodayuk.com</strong>.
-              </p>
+                  <h3 className="text-2xl font-black text-slate-900 tracking-tight">
+                    Order &amp; File Received!
+                  </h3>
+                  <p className="mt-3 text-base text-slate-700 font-semibold max-w-md mx-auto leading-relaxed">
+                    Received. We will call you to confirm your order during opening hours.
+                  </p>
 
-              <div className="mt-5 flex flex-col gap-2.5">
-                <a
-                  href={`mailto:artwork@printtodayuk.com?subject=Print%20Artwork%20Submission%3A%20${encodeURIComponent(
-                    selectedFileName || 'Artwork'
-                  )}&body=Hi%20Print%20Today%20Team%2C%0A%0APlease%20find%20attached%20our%20artwork%20(${encodeURIComponent(
-                    selectedFileName || 'file'
-                  )})%20for%20urgent%20printing.%0A%0AOrder%20Details%3A%0A-%20Item%20Type%3A%20%0A-%20Quantity%3A%20%0A-%20Delivery%20or%20Collection%3A%20%0A-%20Phone%20Number%3A%20%0A%0AThank%20you!`}
-                  onClick={() => setShowUploadModal(false)}
-                  className="w-full py-3 rounded-xl bg-[#012169] hover:bg-[#0A358C] text-white text-xs sm:text-sm font-bold shadow-md transition-all flex items-center justify-center gap-2"
-                >
-                  <Envelope weight="fill" className="h-4 w-4 text-cyan-300" />
-                  <span>Send to artwork@printtodayuk.com</span>
-                </a>
+                  <div className="mt-6 p-4 rounded-2xl bg-slate-50 border border-slate-200 text-left text-xs space-y-2 max-w-md mx-auto">
+                    <div className="flex justify-between items-center text-slate-600">
+                      <span>Customer:</span>
+                      <strong className="text-slate-900 font-bold">{name}</strong>
+                    </div>
+                    <div className="flex justify-between items-center text-slate-600">
+                      <span>Contact Phone:</span>
+                      <strong className="text-slate-900 font-bold">{phone}</strong>
+                    </div>
+                    <div className="flex justify-between items-center text-slate-600">
+                      <span>Product:</span>
+                      <strong className="text-slate-900 font-bold">{product} ({quantity} units)</strong>
+                    </div>
+                    <div className="flex justify-between items-center text-slate-600">
+                      <span>Artwork File:</span>
+                      <span className="text-emerald-700 font-bold truncate max-w-[200px]">{selectedFile?.name}</span>
+                    </div>
+                  </div>
 
-                <button
-                  type="button"
-                  onClick={() => setShowUploadModal(false)}
-                  className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors cursor-pointer"
-                >
-                  Done
-                </button>
-              </div>
+                  <div className="mt-8 flex flex-col gap-3 max-w-md mx-auto">
+                    <a
+                      href="tel:03300103521"
+                      className="w-full py-3.5 rounded-xl bg-[#012169] hover:bg-[#0A358C] text-white font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2"
+                    >
+                      <Phone weight="fill" className="h-4 w-4 text-cyan-300" />
+                      <span>Need Urgent Confirmation? Call 0330 010 3521</span>
+                    </a>
+                    <button
+                      type="button"
+                      onClick={handleResetModal}
+                      className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors cursor-pointer"
+                    >
+                      Done &amp; Close
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* Form View */
+                <form onSubmit={handleSubmit} className="space-y-5">
+                  <div>
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 text-[#012169] text-xs font-bold border border-blue-100 mb-2">
+                      <UploadSimple weight="bold" className="h-3.5 w-3.5" />
+                      <span>Direct Artwork Submission</span>
+                    </span>
+                    <h3 className="text-2xl font-black text-slate-900 tracking-tight">
+                      Upload Artwork &amp; Order
+                    </h3>
+                    <p className="text-xs sm:text-sm text-slate-600 mt-1">
+                      Upload your ready-to-print file (PDF, JPG, PNG, AI up to 50MB). We review your file and confirm immediately.
+                    </p>
+                  </div>
+
+                  {/* File Upload Zone */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">
+                      Artwork File <span className="text-[#C8102E]">*</span>
+                    </label>
+                    <div
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={handleDrop}
+                      onClick={() => fileInputRef.current?.click()}
+                      className={`border-2 border-dashed rounded-2xl p-5 text-center cursor-pointer transition-all ${
+                        selectedFile
+                          ? 'border-emerald-500 bg-emerald-50/40'
+                          : 'border-slate-300 hover:border-[#012169] bg-slate-50/70 hover:bg-slate-50'
+                      }`}
+                    >
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept=".pdf,.jpg,.jpeg,.png,.ai,.eps,.tiff,.svg"
+                        onChange={handleFileChange}
+                        className="hidden"
+                      />
+                      {selectedFile ? (
+                        <div className="flex items-center justify-between gap-3 text-left">
+                          <div className="flex items-center gap-3 overflow-hidden">
+                            <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                              <Paperclip weight="bold" className="h-5 w-5" />
+                            </div>
+                            <div className="overflow-hidden">
+                              <p className="text-xs sm:text-sm font-bold text-slate-900 truncate">
+                                {selectedFile.name}
+                              </p>
+                              <p className="text-[11px] text-slate-500">
+                                {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB &bull; Ready to send
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedFile(null);
+                            }}
+                            className="text-xs text-rose-600 font-bold hover:underline shrink-0 p-1"
+                          >
+                            Change
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="space-y-1.5 py-2">
+                          <div className="w-10 h-10 rounded-full bg-white border border-slate-200 text-slate-600 mx-auto flex items-center justify-center shadow-2xs">
+                            <UploadSimple weight="bold" className="h-5 w-5" />
+                          </div>
+                          <p className="text-xs sm:text-sm font-bold text-slate-800">
+                            Click to select file or drag &amp; drop here
+                          </p>
+                          <p className="text-[11px] text-slate-500">
+                            Supports PDF, JPG, PNG, AI, EPS up to 50 MB
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Customer Details Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Full Name <span className="text-[#C8102E]">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="e.g. David Smith"
+                        className="w-full h-11 px-3.5 rounded-xl border border-slate-300 focus:border-[#012169] focus:ring-2 focus:ring-[#012169]/10 text-xs sm:text-sm text-slate-900 font-medium outline-hidden transition-all bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Phone Number <span className="text-[#C8102E]">*</span>
+                      </label>
+                      <input
+                        type="tel"
+                        required
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        placeholder="e.g. 07123 456789"
+                        className="w-full h-11 px-3.5 rounded-xl border border-slate-300 focus:border-[#012169] focus:ring-2 focus:ring-[#012169]/10 text-xs sm:text-sm text-slate-900 font-medium outline-hidden transition-all bg-white"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Email Address <span className="text-[#C8102E]">*</span>
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="e.g. david@company.com"
+                      className="w-full h-11 px-3.5 rounded-xl border border-slate-300 focus:border-[#012169] focus:ring-2 focus:ring-[#012169]/10 text-xs sm:text-sm text-slate-900 font-medium outline-hidden transition-all bg-white"
+                    />
+                  </div>
+
+                  {/* Product & Quantity Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Product Required <span className="text-[#C8102E]">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        list="popular-products"
+                        required
+                        value={product}
+                        onChange={(e) => setProduct(e.target.value)}
+                        placeholder="e.g. Same-Day Flyers, Business Cards..."
+                        className="w-full h-11 px-3.5 rounded-xl border border-slate-300 focus:border-[#012169] focus:ring-2 focus:ring-[#012169]/10 text-xs sm:text-sm text-slate-900 font-medium outline-hidden transition-all bg-white"
+                      />
+                      <datalist id="popular-products">
+                        {POPULAR_PRODUCTS.map((prod) => (
+                          <option key={prod} value={prod} />
+                        ))}
+                      </datalist>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Quantity <span className="text-[#C8102E]">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={quantity}
+                        onChange={(e) => setQuantity(e.target.value)}
+                        placeholder="e.g. 250"
+                        className="w-full h-11 px-3.5 rounded-xl border border-slate-300 focus:border-[#012169] focus:ring-2 focus:ring-[#012169]/10 text-xs sm:text-sm text-slate-900 font-medium outline-hidden transition-all bg-white"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Fulfilment & Urgency Options */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                        Fulfilment Method
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setDeliveryOption('collection')}
+                          className={`py-2 px-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all cursor-pointer ${
+                            deliveryOption === 'collection'
+                              ? 'bg-[#012169] text-white border-[#012169] shadow-xs'
+                              : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                          }`}
+                        >
+                          <Storefront weight="bold" className="h-4 w-4 shrink-0" />
+                          <span>Collect E7 (Free)</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDeliveryOption('delivery')}
+                          className={`py-2 px-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all cursor-pointer ${
+                            deliveryOption === 'delivery'
+                              ? 'bg-[#012169] text-white border-[#012169] shadow-xs'
+                              : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                          }`}
+                        >
+                          <Truck weight="bold" className="h-4 w-4 shrink-0" />
+                          <span>London Courier</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                        Urgency Required
+                      </label>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setUrgency('same_day')}
+                          className={`py-2 px-1 rounded-xl text-[11px] font-bold text-center border transition-all cursor-pointer ${
+                            urgency === 'same_day'
+                              ? 'bg-[#C8102E] text-white border-[#C8102E] shadow-xs'
+                              : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                          }`}
+                        >
+                          Same Day
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setUrgency('next_day')}
+                          className={`py-2 px-1 rounded-xl text-[11px] font-bold text-center border transition-all cursor-pointer ${
+                            urgency === 'next_day'
+                              ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                              : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                          }`}
+                        >
+                          Next Day
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setUrgency('standard')}
+                          className={`py-2 px-1 rounded-xl text-[11px] font-bold text-center border transition-all cursor-pointer ${
+                            urgency === 'standard'
+                              ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                              : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                          }`}
+                        >
+                          Standard
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Notes / Special Instructions */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Notes or Special Finishing (Optional)
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      placeholder="e.g. Matt laminate, round corners, specific delivery deadline..."
+                      className="w-full p-3 rounded-xl border border-slate-300 focus:border-[#012169] focus:ring-2 focus:ring-[#012169]/10 text-xs sm:text-sm text-slate-900 font-medium outline-hidden transition-all bg-white"
+                    />
+                  </div>
+
+                  {/* Error state & WhatsApp fallback */}
+                  {errorMessage && (
+                    <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs space-y-2">
+                      <div className="flex items-center gap-2 font-bold">
+                        <WarningCircle weight="fill" className="h-4 w-4 shrink-0 text-[#C8102E]" />
+                        <span>{errorMessage}</span>
+                      </div>
+                      <p className="text-[11px] text-rose-700">
+                        Don&apos;t worry — you can send your artwork directly to our production desk on WhatsApp:
+                      </p>
+                      <a
+                        href={buildWhatsAppFallbackUrl()}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 py-2 px-3 rounded-lg bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold text-xs shadow-xs transition-all"
+                      >
+                        <WhatsappLogo weight="fill" className="h-4 w-4" />
+                        <span>Send via WhatsApp Instead</span>
+                      </a>
+                    </div>
+                  )}
+
+                  {/* Submit Button */}
+                  <div className="pt-2">
+                    <button
+                      type="submit"
+                      disabled={isSubmitting}
+                      className="w-full h-13 rounded-xl bg-[#012169] hover:bg-[#0A358C] text-white font-black text-sm sm:text-base flex items-center justify-center gap-2.5 shadow-md shadow-[#012169]/20 hover:shadow-lg transition-all cursor-pointer disabled:opacity-75 disabled:cursor-not-allowed"
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <SpinnerGap weight="bold" className="h-5 w-5 animate-spin" />
+                          <span>{uploadProgress || 'Processing Order...'}</span>
+                        </>
+                      ) : (
+                        <>
+                          <UploadSimple weight="bold" className="h-5 w-5" />
+                          <span>Send File &amp; Order</span>
+                        </>
+                      )}
+                    </button>
+                    <p className="text-[11px] text-slate-400 text-center mt-2">
+                      Zero payment required now &bull; We inspect your artwork and confirm production first.
+                    </p>
+                  </div>
+                </form>
+              )}
             </motion.div>
           </div>
         )}

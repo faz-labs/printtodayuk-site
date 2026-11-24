@@ -583,15 +583,17 @@ export function Navbar({ initialCategories = [], initialProducts = [] }: NavbarP
                 <span>Sign In</span>
               </button>
 
-              {/* Basket (0) (Hardcoded for now per user instruction) */}
-              <button
-                type="button"
-                onClick={() => setNoticeModal('Online Shopping Basket & Checkout will be active soon! To place an order now, call 0330 010 3521 or WhatsApp us.')}
-                className="flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-800 hover:text-[#012169] transition-colors cursor-pointer"
-              >
-                <ShoppingBag weight="bold" className="h-5 w-5 text-slate-700" />
-                <span>Basket (0)</span>
-              </button>
+              {/* Basket button hidden behind feature flag until online checkout launches */}
+              {process.env.NEXT_PUBLIC_ENABLE_BASKET === 'true' && (
+                <button
+                  type="button"
+                  onClick={() => setNoticeModal('Online Shopping Basket & Checkout will be active soon! To place an order now, call 0330 010 3521 or WhatsApp us.')}
+                  className="flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-800 hover:text-[#012169] transition-colors cursor-pointer"
+                >
+                  <ShoppingBag weight="bold" className="h-5 w-5 text-slate-700" />
+                  <span>Basket (0)</span>
+                </button>
+              )}
 
               {/* Mobile Menu Toggle Button */}
               <button

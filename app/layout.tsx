@@ -4,6 +4,7 @@ import Script from 'next/script';
 import './globals.css';
 import { SmoothScrollProvider } from '@/components/providers/SmoothScrollProvider';
 import { ScrollToTop } from '@/components/providers/ScrollToTop';
+import { TrackClicks } from '@/components/providers/TrackClicks';
 import {
   getGlobalOrganizationSchema,
   getGlobalWebSiteSchema,
@@ -115,6 +116,7 @@ export default function RootLayout({
           }}
         />
         <ScrollToTop />
+        <TrackClicks />
         <SmoothScrollProvider>
           {children}
         </SmoothScrollProvider>

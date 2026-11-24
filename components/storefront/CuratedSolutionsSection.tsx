@@ -68,7 +68,7 @@ export function CuratedSolutionsSection() {
         'Warm Fleece Heavy Hoodies',
         'Durable Outdoor Decals',
       ],
-      filterHref: '/category/Clothing?subcat=Workwear%20%26%20High-Vis',
+      filterHref: '/clothing',
     },
   ];
 

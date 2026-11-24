@@ -4,12 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  FacebookLogo,
-  XLogo,
-  LinkedinLogo,
-  YoutubeLogo,
   InstagramLogo,
-  TiktokLogo,
   Printer,
   X,
   Phone,
@@ -538,72 +533,18 @@ export function Footer() {
             </div>
           </div>
 
-          {/* Social Media Circular Buttons on Right (Exact 6 matching Solopress) */}
+          {/* Social Media Links on Right: Verified Active Profile */}
           <div className="flex items-center gap-2.5 sm:gap-3 flex-wrap justify-center">
-            {/* Facebook */}
-            <a
-              href="https://facebook.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Facebook"
-              className="w-9 h-9 rounded-full bg-[#1877F2] hover:bg-[#1464CA] text-white flex items-center justify-center shadow-xs transition-transform hover:scale-105"
-            >
-              <FacebookLogo weight="fill" className="h-5 w-5" />
-            </a>
-
-            {/* X / Twitter */}
-            <a
-              href="https://twitter.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="X (Twitter)"
-              className="w-9 h-9 rounded-full bg-[#000000] hover:bg-slate-800 text-white flex items-center justify-center shadow-xs transition-transform hover:scale-105"
-            >
-              <XLogo weight="bold" className="h-4 w-4" />
-            </a>
-
-            {/* LinkedIn */}
-            <a
-              href="https://linkedin.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="LinkedIn"
-              className="w-9 h-9 rounded-full bg-[#0A66C2] hover:bg-[#084D93] text-white flex items-center justify-center shadow-xs transition-transform hover:scale-105"
-            >
-              <LinkedinLogo weight="fill" className="h-4.5 w-4.5" />
-            </a>
-
-            {/* YouTube */}
-            <a
-              href="https://youtube.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="YouTube"
-              className="w-9 h-9 rounded-full bg-[#FF0000] hover:bg-[#CC0000] text-white flex items-center justify-center shadow-xs transition-transform hover:scale-105"
-            >
-              <YoutubeLogo weight="fill" className="h-4.5 w-4.5" />
-            </a>
-
             {/* Instagram */}
             <a
-              href="https://instagram.com"
+              href="https://www.instagram.com/printtodayuk"
               target="_blank"
               rel="noopener noreferrer"
-              aria-label="Instagram"
-              className="w-9 h-9 rounded-full bg-gradient-to-tr from-[#f09433] via-[#dc2743] to-[#bc1888] text-white flex items-center justify-center shadow-xs transition-transform hover:scale-105"
+              aria-label="Follow Print Today UK on Instagram"
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gradient-to-tr from-[#f09433] via-[#dc2743] to-[#bc1888] text-white text-xs font-bold shadow-xs transition-transform hover:scale-105"
             >
               <InstagramLogo weight="bold" className="h-4.5 w-4.5" />
-            </a>
-
-            {/* TikTok */}
-            <a
-              href="https://tiktok.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="TikTok"
-              className="w-9 h-9 rounded-full bg-[#000000] hover:bg-slate-800 text-white flex items-center justify-center shadow-xs transition-transform hover:scale-105"
-            >
-              <TiktokLogo weight="fill" className="h-4.5 w-4.5" />
+              <span>@printtodayuk</span>
             </a>
           </div>
         </div>
@@ -611,30 +552,18 @@ export function Footer() {
         {/* 4. Legal Links (Left) + Digital Platform (Right) */}
         <div className="pt-4 pb-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 border-t border-slate-100">
           <div className="flex items-center gap-4 sm:gap-6 flex-wrap justify-center sm:justify-start">
-            <button
-              type="button"
-              onClick={() =>
-                handleInfo(
-                  'Terms & Conditions',
-                  'Standard UK commercial printing terms and conditions apply. Full details available upon request or via email.'
-                )
-              }
-              className="hover:text-[#012169] transition-colors cursor-pointer"
+            <Link
+              href="/terms"
+              className="hover:text-[#012169] transition-colors"
             >
               Terms &amp; Conditions
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                handleInfo(
-                  'Privacy Policy',
-                  'Your privacy is protected under UK GDPR regulations. We never share customer data or artwork files with third parties.'
-                )
-              }
-              className="hover:text-[#012169] transition-colors cursor-pointer"
+            </Link>
+            <Link
+              href="/privacy-policy"
+              className="hover:text-[#012169] transition-colors"
             >
               Privacy Policy
-            </button>
+            </Link>
             <button
               type="button"
               onClick={() =>

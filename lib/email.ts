@@ -311,3 +311,191 @@ export async function sendInquiryEmail(params: SendInquiryEmailParams): Promise<
     return { sent: false, error: error.message || 'Failed to dispatch email' };
   }
 }
+
+export interface SendUploadOrderEmailParams {
+  name: string;
+  phone: string;
+  email: string;
+  product: string;
+  quantity: string | number;
+  deliveryOption: string;
+  urgency?: string;
+  notes?: string;
+  fileName: string;
+  fileSize?: number;
+  downloadUrl: string;
+  fileBuffer?: Buffer;
+  contentType?: string;
+}
+
+/**
+ * P0-1: Dispatches an urgent upload order email to artwork@printtodayuk.com & sales@printtodayuk.com.
+ * Includes direct attachment if file <= 10MB, plus permanent/presigned download link.
+ */
+export async function sendUploadOrderEmail(params: SendUploadOrderEmailParams): Promise<{
+  sent: boolean;
+  messageId?: string;
+  error?: string;
+}> {
+  const transporter = getTransporter();
+
+  if (!transporter) {
+    console.warn('Nodemailer: SMTP credentials not set. Skipping upload order email dispatch.');
+    return {
+      sent: false,
+      error: 'SMTP credentials not configured in .env.local',
+    };
+  }
+
+  const senderUser = process.env.GMAIL_USER || process.env.SMTP_USER;
+  // Always email both artwork@ and sales@, plus any custom receiver
+  const targetEmails = Array.from(
+    new Set(
+      [
+        'artwork@printtodayuk.com',
+        'sales@printtodayuk.com',
+        process.env.CONTACT_RECEIVER_EMAIL,
+      ].filter(Boolean)
+    )
+  ).join(', ');
+
+  const formatBytes = (bytes?: number) => {
+    if (!bytes || isNaN(bytes)) return '';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const formattedSize = formatBytes(params.fileSize);
+  const waPhone = params.phone.replace(/[^0-9]/g, '');
+
+  const htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f1f5f9; margin: 0; padding: 20px; color: #0f172a; }
+    .container { max-width: 640px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1px solid #cbd5e1; overflow: hidden; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08); }
+    .header { background: #012169; color: #ffffff; padding: 26px 24px; text-align: center; border-bottom: 4px solid #C8102E; }
+    .header h1 { margin: 0; font-size: 22px; font-weight: 900; letter-spacing: -0.5px; }
+    .header p { margin: 6px 0 0 0; font-size: 13px; color: #93c5fd; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+    .body-content { padding: 28px 24px; }
+    .alert-badge { display: inline-block; background: #fee2e2; color: #991b1b; font-size: 11px; font-weight: 800; padding: 5px 12px; border-radius: 9999px; border: 1px solid #fecaca; margin-bottom: 20px; text-transform: uppercase; }
+    .file-card { background: #f8fafc; border: 2px dashed #012169; border-radius: 12px; padding: 18px; margin: 20px 0; text-align: center; }
+    .file-name { font-size: 16px; font-weight: 800; color: #012169; word-break: break-all; }
+    .file-size { font-size: 12px; color: #64748b; margin-top: 4px; }
+    .btn-download { display: inline-block; background: #C8102E; color: #ffffff !important; text-decoration: none; padding: 12px 24px; border-radius: 10px; font-size: 14px; font-weight: 800; margin-top: 12px; box-shadow: 0 4px 6px -1px rgba(200, 16, 46, 0.3); }
+    .table-details { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 14px; }
+    .table-details th { text-align: left; padding: 10px 12px; background: #f8fafc; color: #475569; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #e2e8f0; width: 38%; }
+    .table-details td { padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-weight: 600; color: #0f172a; }
+    .message-box { background: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #012169; padding: 14px; border-radius: 8px; font-size: 13px; line-height: 1.6; color: #334155; white-space: pre-wrap; margin-top: 8px; }
+    .cta-bar { margin-top: 24px; padding-top: 20px; border-top: 1px solid #e2e8f0; display: flex; gap: 12px; }
+    .btn-call { display: inline-block; background: #012169; color: #ffffff !important; text-decoration: none; padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: 700; }
+    .btn-wa { display: inline-block; background: #25D366; color: #ffffff !important; text-decoration: none; padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: 700; }
+    .footer { background: #f8fafc; padding: 16px; text-align: center; font-size: 11px; color: #64748b; border-top: 1px solid #e2e8f0; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>PRINT TODAY UK</h1>
+      <p>🚨 URGENT ARTWORK &amp; PRINT ORDER SUBMISSION</p>
+    </div>
+
+    <div class="body-content">
+      <div class="alert-badge">⚡ Action Required: Customer Waiting for Callback</div>
+
+      <!-- File Card with Direct Download -->
+      <div class="file-card">
+        <div style="font-size: 28px; margin-bottom: 4px;">📄</div>
+        <div class="file-name">${params.fileName}</div>
+        ${formattedSize ? `<div class="file-size">${formattedSize}</div>` : ''}
+        <div style="margin-top: 6px;">
+          <a href="${params.downloadUrl}" class="btn-download" target="_blank" rel="noopener noreferrer">
+            ⬇️ DOWNLOAD ARTWORK FILE
+          </a>
+        </div>
+        <p style="font-size: 11px; color: #64748b; margin: 10px 0 0 0;">
+          Link valid in high-speed storage. File ready for RIP / prepress check.
+        </p>
+      </div>
+
+      <!-- Customer & Order Specs -->
+      <table class="table-details">
+        <tr>
+          <th>Customer Name</th>
+          <td>${params.name}</td>
+        </tr>
+        <tr>
+          <th>Phone Number</th>
+          <td><a href="tel:${params.phone}" style="color: #012169; text-decoration: none; font-weight: 800;">${params.phone}</a></td>
+        </tr>
+        <tr>
+          <th>Email Address</th>
+          <td><a href="mailto:${params.email}" style="color: #012169; text-decoration: none;">${params.email}</a></td>
+        </tr>
+        <tr>
+          <th>Requested Item</th>
+          <td><strong style="color: #012169;">${params.product}</strong></td>
+        </tr>
+        <tr>
+          <th>Quantity</th>
+          <td>${params.quantity} units</td>
+        </tr>
+        <tr>
+          <th>Delivery / Collection</th>
+          <td>${params.deliveryOption}</td>
+        </tr>
+        ${params.urgency ? `<tr><th>Urgency</th><td><span style="color: #C8102E; font-weight: 800;">${params.urgency}</span></td></tr>` : ''}
+      </table>
+
+      ${
+        params.notes
+          ? `
+      <div style="margin-top: 18px; font-size: 11px; font-weight: 800; text-transform: uppercase; color: #64748b;">Special Customer Instructions:</div>
+      <div class="message-box">${params.notes}</div>`
+          : ''
+      }
+
+      <div class="cta-bar">
+        <a href="tel:${params.phone}" class="btn-call">📞 Call ${params.name}</a>
+        <a href="https://wa.me/${waPhone}" class="btn-wa">💬 Message on WhatsApp</a>
+      </div>
+    </div>
+
+    <div class="footer">
+      Print Today UK · 75 Green Street, London, E7 8JF · Studio: 0330 010 3521 · WhatsApp: +44 7969 559746
+    </div>
+  </div>
+</body>
+</html>
+  `;
+
+  // Attach file directly if provided and under 10MB
+  const attachments: any[] = [];
+  if (params.fileBuffer && params.fileBuffer.length <= 10 * 1024 * 1024) {
+    attachments.push({
+      filename: params.fileName,
+      content: params.fileBuffer,
+      contentType: params.contentType || 'application/octet-stream',
+    });
+  }
+
+  try {
+    const info = await transporter.sendMail({
+      from: `"Print Today Artwork" <${senderUser}>`,
+      to: targetEmails,
+      replyTo: params.email,
+      subject: `[Print Order] ${params.product} (${params.quantity} qty) - ${params.name} (${params.phone})`,
+      text: `NEW URGENT PRINT ORDER & ARTWORK UPLOAD\n\nCustomer: ${params.name}\nPhone: ${params.phone}\nEmail: ${params.email}\nProduct: ${params.product}\nQuantity: ${params.quantity}\nOption: ${params.deliveryOption}\n${params.urgency ? `Urgency: ${params.urgency}\n` : ''}${params.notes ? `Notes: ${params.notes}\n` : ''}\nArtwork File: ${params.fileName} (${formattedSize})\nDownload Link: ${params.downloadUrl}\n\nPrint Today UK - 75 Green Street, London E7 8JF`,
+      html: htmlContent,
+      attachments: attachments.length > 0 ? attachments : undefined,
+    });
+
+    return { sent: true, messageId: info.messageId };
+  } catch (error: any) {
+    console.error('Nodemailer sendUploadOrderEmail failed:', error);
+    return { sent: false, error: error.message || 'Failed to dispatch email' };
+  }
+}
