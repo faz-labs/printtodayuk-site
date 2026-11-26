@@ -31,6 +31,7 @@ import {
   WhatsappLogo,
   UploadSimple,
   CurrencyGbp,
+  ListPlus,
 } from '@phosphor-icons/react';
 import Link from 'next/link';
 
@@ -436,6 +437,7 @@ export function ProductManager({
         features: sourceProduct.features ? [...sourceProduct.features] : undefined,
         isActive: sourceProduct.isActive !== false,
         hidePriceTable: Boolean(sourceProduct.hidePriceTable),
+        showInMoreProducts: Boolean(sourceProduct.showInMoreProducts),
       };
 
       const created = await onCreateProduct(newProductInput);
@@ -483,6 +485,25 @@ export function ProductManager({
     } catch (err: any) {
       console.error('Failed to toggle product status:', err);
       showNotification('error', `Failed to update status: ${err.message || 'Unknown error'}`);
+    }
+  };
+
+  const handleToggleShowInMoreProducts = async (product: Product) => {
+    const targetId = product.id || product.slug;
+    if (!targetId) return;
+    const newShow = !Boolean(product.showInMoreProducts);
+
+    try {
+      await onUpdateProduct(targetId, { showInMoreProducts: newShow });
+      showNotification(
+        'success',
+        newShow
+          ? `"${product.title}" added alphabetically to storefront More Products dropdown.`
+          : `"${product.title}" removed from storefront More Products dropdown.`
+      );
+    } catch (err: any) {
+      console.error('Failed to toggle More Products visibility:', err);
+      showNotification('error', `Failed to update More Products setting: ${err.message || 'Unknown error'}`);
     }
   };
 
@@ -726,6 +747,7 @@ export function ProductManager({
                   <th className="py-3.5 px-4">Category</th>
                   <th className="py-3.5 px-4">Price</th>
                   <th className="py-3.5 px-4 text-center">Storefront</th>
+                  <th className="py-3.5 px-4 text-center">More Menu</th>
                   <th className="py-3.5 px-4">Same-Day</th>
                   <th className="py-3.5 px-4 text-right">Actions</th>
                 </tr>
@@ -827,6 +849,27 @@ export function ProductManager({
                             }`}
                           />
                           <span>{product.isActive !== false ? 'Live' : 'Hidden'}</span>
+                        </button>
+                      </td>
+
+                      {/* Show in More Products Alphabetical Dropdown Toggle */}
+                      <td className="py-3.5 px-4 text-center">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleShowInMoreProducts(product)}
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold transition-all cursor-pointer border ${
+                            product.showInMoreProducts
+                              ? 'bg-blue-50 text-[#012169] border-blue-200 hover:bg-blue-100 shadow-2xs'
+                              : 'bg-slate-50 text-slate-400 border-slate-200 hover:bg-slate-100 hover:text-slate-700'
+                          }`}
+                          title={
+                            product.showInMoreProducts
+                              ? 'Shown alphabetically in More Products dropdown. Click to remove.'
+                              : 'Hidden from More Products dropdown. Click to show alphabetically.'
+                          }
+                        >
+                          <ListPlus weight="bold" className="h-3.5 w-3.5 shrink-0" />
+                          <span>{product.showInMoreProducts ? 'A–Z On' : 'Off'}</span>
                         </button>
                       </td>
 

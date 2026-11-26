@@ -28,6 +28,7 @@ import {
   Copy,
   Globe,
   WhatsappLogo,
+  ListPlus,
 } from '@phosphor-icons/react';
 
 interface ProductFormProps {
@@ -147,6 +148,7 @@ export function ProductForm({
   const [isSameDayAvailable, setIsSameDayAvailable] = useState(true);
   const [isActive, setIsActive] = useState(true);
   const [hidePriceTable, setHidePriceTable] = useState(false);
+  const [showInMoreProducts, setShowInMoreProducts] = useState(false);
   const [maxSameDayQuantity, setMaxSameDayQuantity] = useState<string>('');
   const [maxNextDayQuantity, setMaxNextDayQuantity] = useState<string>('');
   const [features, setFeatures] = useState<string[]>([]);
@@ -269,6 +271,7 @@ export function ProductForm({
       setIsSameDayAvailable(initialProduct.isSameDayAvailable);
       setIsActive(initialProduct.isActive !== false);
       setHidePriceTable(Boolean(initialProduct.hidePriceTable));
+      setShowInMoreProducts(Boolean(initialProduct.showInMoreProducts));
       setMaxSameDayQuantity(
         initialProduct.maxSameDayQuantity !== undefined && initialProduct.maxSameDayQuantity !== null
           ? initialProduct.maxSameDayQuantity.toString()
@@ -347,6 +350,7 @@ export function ProductForm({
       setIsSameDayAvailable(true);
       setIsActive(true);
       setHidePriceTable(false);
+      setShowInMoreProducts(false);
       setMaxSameDayQuantity('');
       setMaxNextDayQuantity('');
       setSameDayIncreasePercent('35.4');
@@ -1072,6 +1076,7 @@ export function ProductForm({
         customFields: validCustomFields.length > 0 ? validCustomFields : [],
         isActive,
         hidePriceTable: Boolean(hidePriceTable),
+        showInMoreProducts: Boolean(showInMoreProducts),
       };
 
       if (discountedPrice.trim() !== '') {
@@ -1909,8 +1914,8 @@ export function ProductForm({
             </div>
           )}
 
-            {/* Storefront Active, Same Day & WhatsApp Quote Toggles */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {/* Storefront Active, Same Day, WhatsApp Quote & More Products Toggles */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               {/* Storefront Active / Published Toggle */}
               <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -1986,6 +1991,40 @@ export function ProductForm({
                   checked={hidePriceTable}
                   onChange={(e) => setHidePriceTable(e.target.checked)}
                   className="h-5 w-5 rounded-md text-[#25D366] focus:ring-[#25D366] cursor-pointer"
+                />
+              </div>
+
+              {/* Show in More Products A-Z Dropdown Toggle */}
+              <div
+                className={`p-3 rounded-2xl border transition-all flex items-center justify-between ${
+                  showInMoreProducts
+                    ? 'bg-blue-50/80 border-blue-300 ring-1 ring-blue-300/50'
+                    : 'bg-slate-50 border-slate-200'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <ListPlus
+                    weight="bold"
+                    className={`h-4 w-4 ${showInMoreProducts ? 'text-[#012169]' : 'text-slate-400'}`}
+                  />
+                  <div>
+                    <div
+                      className={`text-xs font-bold ${
+                        showInMoreProducts ? 'text-[#012169] font-black' : 'text-slate-900'
+                      }`}
+                    >
+                      More Products Menu
+                    </div>
+                    <div className="text-[10px] text-slate-500">
+                      {showInMoreProducts ? 'Shown A–Z in dropdown' : 'Show alphabetically'}
+                    </div>
+                  </div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={showInMoreProducts}
+                  onChange={(e) => setShowInMoreProducts(e.target.checked)}
+                  className="h-5 w-5 rounded-md text-[#012169] focus:ring-[#012169] cursor-pointer"
                 />
               </div>
             </div>

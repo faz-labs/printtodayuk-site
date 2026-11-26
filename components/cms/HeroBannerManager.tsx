@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { HeroSlide } from '@/lib/types';
 import { getHeroSlides, saveHeroSlides } from '@/lib/db';
+import { moveArrayItem } from '@/lib/utils';
 import {
   Images,
   Plus,
@@ -13,6 +14,11 @@ import {
   UploadSimple,
   DeviceMobile,
   Monitor,
+  DotsSixVertical,
+  CaretUp,
+  CaretDown,
+  CaretDoubleUp,
+  CaretDoubleDown,
 } from '@phosphor-icons/react';
 import { convertAndOptimizeImage } from '@/lib/image-optimizer';
 
@@ -21,6 +27,9 @@ export function HeroBannerManager() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [uploadingTarget, setUploadingTarget] = useState<{ index: number; target: 'desktop' | 'mobile' } | null>(null);
 
   useEffect(() => {
@@ -48,6 +57,17 @@ export function HeroBannerManager() {
     };
     // Add new slide to the TOP as requested
     setSlides((prev) => [newSlide, ...prev.map((s, idx) => ({ ...s, order: idx + 2 }))]);
+    setHasUnsavedChanges(true);
+  };
+
+  const handleMoveSlide = (fromIndex: number, toIndex: number) => {
+    setSlides((prev) =>
+      moveArrayItem(prev, fromIndex, toIndex).map((s, idx) => ({
+        ...s,
+        order: idx + 1,
+      }))
+    );
+    setHasUnsavedChanges(true);
   };
 
   const handleUpdateSlide = (index: number, updates: Partial<HeroSlide>) => {
@@ -56,10 +76,16 @@ export function HeroBannerManager() {
       copy[index] = { ...copy[index], ...updates };
       return copy;
     });
+    setHasUnsavedChanges(true);
   };
 
   const handleDeleteSlide = (index: number) => {
-    setSlides((prev) => prev.filter((_, i) => i !== index));
+    setSlides((prev) =>
+      prev
+        .filter((_, i) => i !== index)
+        .map((s, idx) => ({ ...s, order: idx + 1 }))
+    );
+    setHasUnsavedChanges(true);
   };
 
   // Direct file upload to S3 for a slide with automatic WebP conversion
@@ -104,6 +130,7 @@ export function HeroBannerManager() {
       const reordered = slides.map((s, idx) => ({ ...s, order: idx + 1 }));
       await saveHeroSlides(reordered);
       setSlides(reordered);
+      setHasUnsavedChanges(false);
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err) {
@@ -133,7 +160,7 @@ export function HeroBannerManager() {
               <h2>Hero Sliding Banners (Desktop & Mobile Optimized)</h2>
             </div>
             <p className="text-xs text-slate-500 mt-1 max-w-2xl leading-relaxed">
-              Manage the auto-sliding banners displayed on the storefront home page. You can now provide separate images for Desktop and Mobile to avoid cutoff and unreadable text.
+              Manage the auto-sliding banners displayed on the storefront home page. Drag any banner card (or use Top/Up/Down/Bottom controls) to sort display order, then click Save Banners.
             </p>
           </div>
 
@@ -151,7 +178,11 @@ export function HeroBannerManager() {
               onClick={handleSave}
               disabled={isSaving}
               type="button"
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#012169] hover:bg-[#082b7d] text-white text-xs font-bold rounded-xl shadow-md transition-all cursor-pointer disabled:opacity-50"
+              className={`inline-flex items-center gap-2 px-5 py-2.5 text-white text-xs font-bold rounded-xl shadow-md transition-all cursor-pointer disabled:opacity-50 ${
+                hasUnsavedChanges
+                  ? 'bg-[#C8102E] hover:bg-[#a60d26] ring-2 ring-rose-300'
+                  : 'bg-[#012169] hover:bg-[#082b7d]'
+              }`}
             >
               {isSaving ? (
                 <span>Saving...</span>
@@ -163,7 +194,7 @@ export function HeroBannerManager() {
               ) : (
                 <>
                   <FloppyDisk weight="bold" className="h-4 w-4" />
-                  <span>Save Banners</span>
+                  <span>{hasUnsavedChanges ? 'Save Order & Changes' : 'Save Banners'}</span>
                 </>
               )}
             </button>
@@ -198,12 +229,114 @@ export function HeroBannerManager() {
         {slides.map((slide, index) => {
           const isUploadingDesktop = uploadingTarget?.index === index && uploadingTarget?.target === 'desktop';
           const isUploadingMobile = uploadingTarget?.index === index && uploadingTarget?.target === 'mobile';
+          const isDraggingThis = draggedIndex === index;
+          const isDragTarget = dragOverIndex === index && draggedIndex !== null && draggedIndex !== index;
 
           return (
             <div
               key={slide.id || index}
-              className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs hover:border-[#012169]/40 transition-all flex flex-col gap-5"
+              draggable
+              onDragStart={(e) => {
+                const target = e.target as HTMLElement;
+                if (['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(target.tagName)) {
+                  e.preventDefault();
+                  return;
+                }
+                setDraggedIndex(index);
+                e.dataTransfer.effectAllowed = 'move';
+              }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                if (draggedIndex !== null && draggedIndex !== index && dragOverIndex !== index) {
+                  setDragOverIndex(index);
+                }
+              }}
+              onDragLeave={() => {
+                if (dragOverIndex === index) setDragOverIndex(null);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                if (draggedIndex !== null && draggedIndex !== index) {
+                  handleMoveSlide(draggedIndex, index);
+                }
+                setDraggedIndex(null);
+                setDragOverIndex(null);
+              }}
+              onDragEnd={() => {
+                setDraggedIndex(null);
+                setDragOverIndex(null);
+              }}
+              className={`bg-white rounded-2xl p-5 border shadow-xs transition-all flex flex-col gap-4 ${
+                isDraggingThis
+                  ? 'opacity-50 border-[#012169] ring-2 ring-[#012169]/30 scale-[0.99]'
+                  : isDragTarget
+                  ? 'border-[#012169] ring-2 ring-blue-500/40 bg-blue-50/20'
+                  : 'border-slate-200/80 hover:border-[#012169]/40'
+              }`}
             >
+              {/* Slide Drag Handle & Top/Up/Down/Bottom Toolbar */}
+              <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-2.5">
+                  <div
+                    className="p-1.5 rounded-lg bg-slate-100 text-slate-500 hover:text-[#012169] hover:bg-blue-50 cursor-grab active:cursor-grabbing transition-colors"
+                    title="Drag banner card to reorder"
+                  >
+                    <DotsSixVertical weight="bold" className="h-4 w-4" />
+                  </div>
+                  <span className="px-2.5 py-1 rounded-lg bg-[#012169] text-white text-xs font-black">
+                    Slide #{index + 1}
+                  </span>
+                  {slide.title && (
+                    <span className="text-xs font-bold text-slate-700 truncate max-w-[200px] sm:max-w-xs">
+                      {slide.title}
+                    </span>
+                  )}
+                </div>
+
+                {slides.length > 1 && (
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => handleMoveSlide(index, 0)}
+                      disabled={index === 0}
+                      title="Move to Top (Slide #1)"
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-slate-200 bg-slate-50 hover:bg-blue-50 hover:border-blue-300 text-slate-700 hover:text-[#012169] text-[11px] font-bold transition-colors cursor-pointer disabled:opacity-35 disabled:cursor-not-allowed"
+                    >
+                      <CaretDoubleUp weight="bold" className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Top</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleMoveSlide(index, index - 1)}
+                      disabled={index === 0}
+                      title="Move Up"
+                      className="p-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-blue-50 hover:border-blue-300 text-slate-700 hover:text-[#012169] transition-colors cursor-pointer disabled:opacity-35 disabled:cursor-not-allowed"
+                    >
+                      <CaretUp weight="bold" className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleMoveSlide(index, index + 1)}
+                      disabled={index === slides.length - 1}
+                      title="Move Down"
+                      className="p-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-blue-50 hover:border-blue-300 text-slate-700 hover:text-[#012169] transition-colors cursor-pointer disabled:opacity-35 disabled:cursor-not-allowed"
+                    >
+                      <CaretDown weight="bold" className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleMoveSlide(index, slides.length - 1)}
+                      disabled={index === slides.length - 1}
+                      title="Move to Bottom (Last Slide)"
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-slate-200 bg-slate-50 hover:bg-blue-50 hover:border-blue-300 text-slate-700 hover:text-[#012169] text-[11px] font-bold transition-colors cursor-pointer disabled:opacity-35 disabled:cursor-not-allowed"
+                    >
+                      <CaretDoubleDown weight="bold" className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Bottom</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+
               {/* Top row: Previews (Desktop + Mobile) and Badges */}
               <div className="flex flex-col lg:flex-row gap-4 items-stretch">
                 {/* Desktop Preview */}

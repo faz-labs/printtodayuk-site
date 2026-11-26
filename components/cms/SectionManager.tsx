@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
-import { DynamicSection, DynamicSectionInput, CategoryConfig, Product } from '@/lib/types';
+import React, { useState, useRef, useMemo } from 'react';
+import { DynamicSection, DynamicSectionInput, DynamicSectionType, CategoryConfig, Product } from '@/lib/types';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
+import { moveArrayItem } from '@/lib/utils';
 import { convertAndOptimizeImage } from '@/lib/image-optimizer';
 import {
   Layout,
@@ -27,6 +28,14 @@ import {
   MagnifyingGlass,
   X,
   Check,
+  DotsSixVertical,
+  CaretUp,
+  CaretDown,
+  CaretDoubleUp,
+  CaretDoubleDown,
+  ImageSquare,
+  DeviceMobile,
+  Monitor,
 } from '@phosphor-icons/react';
 
 interface SectionManagerProps {
@@ -66,7 +75,7 @@ export function SectionManager({
   // Form states
   const [formTitle, setFormTitle] = useState('');
   const [formSubtitle, setFormSubtitle] = useState('');
-  const [formType, setFormType] = useState<'horizontal_scroll' | 'grid_8_tiles' | 'split_banner'>('horizontal_scroll');
+  const [formType, setFormType] = useState<DynamicSectionType>('horizontal_scroll');
   const [formSourceType, setFormSourceType] = useState<'category' | 'products'>('category');
   const [formCategoryName, setFormCategoryName] = useState(categories[0]?.name || '');
   const [formCategoryNames, setFormCategoryNames] = useState<string[]>([]);
@@ -79,20 +88,30 @@ export function SectionManager({
   const [productSearch, setProductSearch] = useState('');
   const [productCategoryFilter, setProductCategoryFilter] = useState('All');
 
-  // Split banner form states
+  // Split banner & single image form states
   const [formBackgroundColor, setFormBackgroundColor] = useState('#012169');
   const [formImageUrl, setFormImageUrl] = useState('');
+  const [formMobileImageUrl, setFormMobileImageUrl] = useState('');
+  const [formImageWidth, setFormImageWidth] = useState<'contained' | 'full_width'>('contained');
+  const [formShowSectionHeader, setFormShowSectionHeader] = useState(false);
   const [formLayoutDirection, setFormLayoutDirection] = useState<'image_left' | 'image_right'>('image_left');
   const [formButtonText, setFormButtonText] = useState('Explore Range');
   const [formButtonUrl, setFormButtonUrl] = useState('/category/Printing');
   const [formBadgeText, setFormBadgeText] = useState('London In-House Production');
 
-  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  // Reordering states
+  const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+  const [isReordering, setIsReordering] = useState(false);
+  const [optimisticOrderIds, setOptimisticOrderIds] = useState<string[] | null>(null);
+
+  const [uploadingTarget, setUploadingTarget] = useState<'desktop' | 'mobile' | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [modalError, setModalError] = useState('');
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const mobileFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const showSuccess = (msg: string) => {
     setSuccessNotice(msg);
@@ -114,6 +133,9 @@ export function SectionManager({
     setProductCategoryFilter('All');
     setFormBackgroundColor('#012169');
     setFormImageUrl('');
+    setFormMobileImageUrl('');
+    setFormImageWidth('contained');
+    setFormShowSectionHeader(false);
     setFormLayoutDirection('image_left');
     setFormButtonText('Explore Range');
     setFormButtonUrl('/category/Printing');
@@ -149,9 +171,12 @@ export function SectionManager({
     setProductCategoryFilter('All');
     setFormBackgroundColor(sec.backgroundColor || '#012169');
     setFormImageUrl(sec.imageUrl || '');
+    setFormMobileImageUrl(sec.mobileImageUrl || '');
+    setFormImageWidth(sec.imageWidth || 'contained');
+    setFormShowSectionHeader(Boolean(sec.showSectionHeader));
     setFormLayoutDirection(sec.layoutDirection || 'image_left');
     setFormButtonText(sec.buttonText || 'Explore Range');
-    setFormButtonUrl(sec.buttonUrl || '/category/Printing');
+    setFormButtonUrl(sec.buttonUrl || '');
     setFormBadgeText(sec.badgeText || '');
     setModalError('');
     setIsEditModalOpen(true);
@@ -185,16 +210,18 @@ export function SectionManager({
     setFormProductIds([]);
   };
 
-  // Upload S3 helper with automatic WebP conversion
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Shared S3 image upload helper with automatic WebP conversion
+  const handleImageUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    target: 'desktop' | 'mobile' = 'desktop'
+  ) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setIsUploadingImage(true);
+    setUploadingTarget(target);
     setModalError('');
 
     try {
-      // Automatically optimize to .webp with preserved transparency
       const optimizedFile = await convertAndOptimizeImage(file);
       const formData = new FormData();
       formData.append('files', optimizedFile);
@@ -210,58 +237,77 @@ export function SectionManager({
       }
 
       if (data.urls && Array.isArray(data.urls) && data.urls.length > 0) {
-        setFormImageUrl(data.urls[0]);
+        if (target === 'mobile') {
+          setFormMobileImageUrl(data.urls[0]);
+        } else {
+          setFormImageUrl(data.urls[0]);
+        }
       }
     } catch (err: any) {
       setModalError(err.message || 'Image upload failed.');
     } finally {
-      setIsUploadingImage(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
+      setUploadingTarget(null);
+      if (target === 'mobile' && mobileFileInputRef.current) {
+        mobileFileInputRef.current.value = '';
+      } else if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
+  };
+
+  const buildSectionPayload = () => {
+    const isMediaBanner = formType === 'split_banner' || formType === 'single_image';
+    return {
+      title: formTitle.trim(),
+      subtitle: formSubtitle.trim() || undefined,
+      type: formType,
+      sourceType: !isMediaBanner ? formSourceType : undefined,
+      categoryName: !isMediaBanner && formSourceType === 'category' ? (formCategoryNames[0] || formCategoryName) : undefined,
+      categoryNames: !isMediaBanner && formSourceType === 'category' ? formCategoryNames : undefined,
+      productIds: !isMediaBanner && formSourceType === 'products' ? formProductIds : undefined,
+      backgroundColor: formType === 'split_banner' ? formBackgroundColor : undefined,
+      imageUrl: isMediaBanner ? (formImageUrl.trim() || undefined) : undefined,
+      mobileImageUrl: formType === 'single_image' ? (formMobileImageUrl.trim() || undefined) : undefined,
+      imageWidth: formType === 'single_image' ? formImageWidth : undefined,
+      showSectionHeader: formType === 'single_image' ? formShowSectionHeader : undefined,
+      layoutDirection: formType === 'split_banner' ? formLayoutDirection : undefined,
+      buttonText: formType === 'split_banner' ? (formButtonText.trim() || undefined) : undefined,
+      buttonUrl: isMediaBanner ? (formButtonUrl.trim() || undefined) : undefined,
+      badgeText: formType === 'split_banner' ? (formBadgeText.trim() || undefined) : undefined,
+      order: Number(formOrder) || 1,
+      isActive: formIsActive,
+    };
+  };
+
+  const validateSectionForm = (): string | null => {
+    if (!formTitle.trim()) return 'Section title is required.';
+    if (formType === 'single_image' && !formImageUrl.trim()) {
+      return 'Please upload or provide an image URL for the Single Image section.';
+    }
+    if (formType !== 'split_banner' && formType !== 'single_image') {
+      if (formSourceType === 'category' && formCategoryNames.length === 0) {
+        return 'Please select at least one category for this section.';
+      }
+      if (formSourceType === 'products' && formProductIds.length === 0) {
+        return 'Please select at least one product for this section.';
+      }
+    }
+    return null;
   };
 
   const handleSubmitAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formTitle.trim()) {
-      setModalError('Section title is required.');
+    const validationErr = validateSectionForm();
+    if (validationErr) {
+      setModalError(validationErr);
       return;
-    }
-
-    if (formType !== 'split_banner') {
-      if (formSourceType === 'category' && formCategoryNames.length === 0) {
-        setModalError('Please select at least one category for this section.');
-        return;
-      }
-      if (formSourceType === 'products' && formProductIds.length === 0) {
-        setModalError('Please select at least one product for this section.');
-        return;
-      }
     }
 
     setIsSubmitting(true);
     setModalError('');
     try {
-      await onCreateSection({
-        title: formTitle.trim(),
-        subtitle: formSubtitle.trim() || undefined,
-        type: formType,
-        sourceType: formType !== 'split_banner' ? formSourceType : undefined,
-        categoryName: formType !== 'split_banner' && formSourceType === 'category' ? (formCategoryNames[0] || formCategoryName) : undefined,
-        categoryNames: formType !== 'split_banner' && formSourceType === 'category' ? formCategoryNames : undefined,
-        productIds: formType !== 'split_banner' && formSourceType === 'products' ? formProductIds : undefined,
-        backgroundColor: formType === 'split_banner' ? formBackgroundColor : undefined,
-        imageUrl: formType === 'split_banner' ? (formImageUrl.trim() || undefined) : undefined,
-        layoutDirection: formType === 'split_banner' ? formLayoutDirection : undefined,
-        buttonText: formType === 'split_banner' ? (formButtonText.trim() || undefined) : undefined,
-        buttonUrl: formType === 'split_banner' ? (formButtonUrl.trim() || undefined) : undefined,
-        badgeText: formType === 'split_banner' ? (formBadgeText.trim() || undefined) : undefined,
-        order: Number(formOrder) || 1,
-        isActive: formIsActive,
-      });
-
-      // Invalidate server cache so storefront updates instantly
+      await onCreateSection(buildSectionPayload());
       fetch('/api/landing-data', { method: 'POST' }).catch(() => {});
-
       showSuccess(`Created landing section "${formTitle.trim()}".`);
       setIsAddModalOpen(false);
     } catch (err: any) {
@@ -274,46 +320,17 @@ export function SectionManager({
   const handleSubmitEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingSection || !editingSection.id) return;
-    if (!formTitle.trim()) {
-      setModalError('Section title is required.');
+    const validationErr = validateSectionForm();
+    if (validationErr) {
+      setModalError(validationErr);
       return;
-    }
-
-    if (formType !== 'split_banner') {
-      if (formSourceType === 'category' && formCategoryNames.length === 0) {
-        setModalError('Please select at least one category for this section.');
-        return;
-      }
-      if (formSourceType === 'products' && formProductIds.length === 0) {
-        setModalError('Please select at least one product for this section.');
-        return;
-      }
     }
 
     setIsSubmitting(true);
     setModalError('');
     try {
-      await onUpdateSection(editingSection.id, {
-        title: formTitle.trim(),
-        subtitle: formSubtitle.trim() || undefined,
-        type: formType,
-        sourceType: formType !== 'split_banner' ? formSourceType : undefined,
-        categoryName: formType !== 'split_banner' && formSourceType === 'category' ? (formCategoryNames[0] || formCategoryName) : undefined,
-        categoryNames: formType !== 'split_banner' && formSourceType === 'category' ? formCategoryNames : undefined,
-        productIds: formType !== 'split_banner' && formSourceType === 'products' ? formProductIds : undefined,
-        backgroundColor: formType === 'split_banner' ? formBackgroundColor : undefined,
-        imageUrl: formType === 'split_banner' ? (formImageUrl.trim() || undefined) : undefined,
-        layoutDirection: formType === 'split_banner' ? formLayoutDirection : undefined,
-        buttonText: formType === 'split_banner' ? (formButtonText.trim() || undefined) : undefined,
-        buttonUrl: formType === 'split_banner' ? (formButtonUrl.trim() || undefined) : undefined,
-        badgeText: formType === 'split_banner' ? (formBadgeText.trim() || undefined) : undefined,
-        order: Number(formOrder) || 1,
-        isActive: formIsActive,
-      });
-
-      // Invalidate server cache so storefront updates instantly
+      await onUpdateSection(editingSection.id, buildSectionPayload());
       fetch('/api/landing-data', { method: 'POST' }).catch(() => {});
-
       showSuccess(`Updated section "${formTitle.trim()}".`);
       setIsEditModalOpen(false);
       setEditingSection(null);
@@ -348,7 +365,41 @@ export function SectionManager({
     }
   };
 
-  const sortedSections = [...sections].sort((a, b) => (a.order || 0) - (b.order || 0));
+  const sortedSections = useMemo(() => {
+    const base = [...sections].sort((a, b) => (a.order || 0) - (b.order || 0));
+    if (!optimisticOrderIds) return base;
+    const orderMap = new Map(optimisticOrderIds.map((id, idx) => [id, idx]));
+    return [...base].sort((a, b) => {
+      const idxA = a.id && orderMap.has(a.id) ? orderMap.get(a.id)! : 9999;
+      const idxB = b.id && orderMap.has(b.id) ? orderMap.get(b.id)! : 9999;
+      return idxA - idxB;
+    });
+  }, [sections, optimisticOrderIds]);
+
+  const handleReorderSections = async (fromIndex: number, toIndex: number) => {
+    if (isReordering || fromIndex === toIndex) return;
+    const reordered = moveArrayItem(sortedSections, fromIndex, toIndex);
+    const ids = reordered.map((s) => s.id || '').filter(Boolean);
+    setOptimisticOrderIds(ids);
+    setIsReordering(true);
+
+    try {
+      for (let idx = 0; idx < reordered.length; idx++) {
+        const sec = reordered[idx];
+        const nextOrder = idx + 1;
+        if (sec.id && sec.order !== nextOrder) {
+          await onUpdateSection(sec.id, { order: nextOrder });
+        }
+      }
+      fetch('/api/landing-data', { method: 'POST' }).catch(() => {});
+      showSuccess(`Moved "${reordered[toIndex]?.title}" to position #${toIndex + 1}.`);
+    } catch (err: any) {
+      alert(err.message || 'Failed to save section order.');
+    } finally {
+      setOptimisticOrderIds(null);
+      setIsReordering(false);
+    }
+  };
 
   return (
     <div className="space-y-6 font-sans">
@@ -370,7 +421,7 @@ export function SectionManager({
             </span>
           </h2>
           <p className="text-xs text-slate-500 mt-1">
-            Create custom showcase rows on your landing page: auto-scrolling carousels, 8-tile grids, or split feature banners with transparent images.
+            Drag rows (or click Top/Up/Down/Bottom arrows) to reorder homepage sections. Supports auto-scrolling rows, 8-tile grids, split banners, or single images.
           </p>
         </div>
 
@@ -387,7 +438,7 @@ export function SectionManager({
             <Layout weight="fill" className="h-10 w-10 text-slate-300 mx-auto mb-3" />
             <h4 className="text-sm font-bold text-slate-900">No landing sections created yet</h4>
             <p className="mt-1 text-xs text-slate-500 max-w-sm mx-auto">
-              Add your first dynamic section above. You can showcase a category with auto-scroll, an 8-tile product grid, or a split feature banner.
+              Add your first dynamic section above. You can showcase a category with auto-scroll, an 8-tile product grid, a split feature banner, or a single promotional image.
             </p>
             <div className="mt-4 flex justify-center">
               <Button variant="uk-blue" size="sm" onClick={handleOpenAdd}>
@@ -401,7 +452,7 @@ export function SectionManager({
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50/80 text-[11px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">
-                  <th className="py-3.5 px-4 text-center">Position</th>
+                  <th className="py-3.5 px-4 text-left w-44">Order / Drag</th>
                   <th className="py-3.5 px-4">Section Title</th>
                   <th className="py-3.5 px-4">Layout Type</th>
                   <th className="py-3.5 px-4">Details / Content</th>
@@ -410,14 +461,105 @@ export function SectionManager({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-xs">
-                {sortedSections.map((sec) => {
+                {sortedSections.map((sec, index) => {
+                  const isDraggingThis = draggedIdx === index;
+                  const isDragTarget = dragOverIdx === index && draggedIdx !== null && draggedIdx !== index;
+
                   return (
-                    <tr key={sec.id || sec.title} className="hover:bg-slate-50/70 transition-colors">
-                      {/* Order Position */}
-                      <td className="py-3.5 px-4 text-center">
-                        <span className="h-7 w-7 rounded-lg bg-slate-100 text-slate-800 font-black text-xs inline-flex items-center justify-center">
-                          #{sec.order}
-                        </span>
+                    <tr
+                      key={sec.id || sec.title}
+                      draggable={!isReordering}
+                      onDragStart={(e) => {
+                        const target = e.target as HTMLElement;
+                        if (['INPUT', 'BUTTON', 'A', 'SELECT'].includes(target.tagName)) {
+                          e.preventDefault();
+                          return;
+                        }
+                        setDraggedIdx(index);
+                        e.dataTransfer.effectAllowed = 'move';
+                      }}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        if (draggedIdx !== null && draggedIdx !== index && dragOverIdx !== index) {
+                          setDragOverIdx(index);
+                        }
+                      }}
+                      onDragLeave={() => {
+                        if (dragOverIdx === index) setDragOverIdx(null);
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        if (draggedIdx !== null && draggedIdx !== index) {
+                          handleReorderSections(draggedIdx, index);
+                        }
+                        setDraggedIdx(null);
+                        setDragOverIdx(null);
+                      }}
+                      onDragEnd={() => {
+                        setDraggedIdx(null);
+                        setDragOverIdx(null);
+                      }}
+                      className={`transition-colors ${
+                        isDraggingThis
+                          ? 'opacity-45 bg-blue-50/60'
+                          : isDragTarget
+                          ? 'bg-blue-50/70 ring-2 ring-inset ring-[#012169]'
+                          : 'hover:bg-slate-50/70'
+                      }`}
+                    >
+                      {/* Drag Handle, Order Position & Top/Up/Down/Bottom Quick Controls */}
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center gap-1.5">
+                          <div
+                            className="p-1 rounded-md text-slate-400 hover:text-[#012169] hover:bg-slate-100 cursor-grab active:cursor-grabbing shrink-0"
+                            title="Drag row to reorder"
+                          >
+                            <DotsSixVertical weight="bold" className="h-4 w-4" />
+                          </div>
+                          <span className="h-7 min-w-[28px] px-1.5 rounded-lg bg-slate-100 text-slate-800 font-black text-xs inline-flex items-center justify-center shrink-0">
+                            #{index + 1}
+                          </span>
+                          {sortedSections.length > 1 && (
+                            <div className="flex items-center gap-0.5 ml-1">
+                              <button
+                                type="button"
+                                onClick={() => handleReorderSections(index, 0)}
+                                disabled={index === 0 || isReordering}
+                                title="Move to Top"
+                                className="p-1 rounded bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-[#012169] transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                              >
+                                <CaretDoubleUp weight="bold" className="h-3 w-3" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleReorderSections(index, index - 1)}
+                                disabled={index === 0 || isReordering}
+                                title="Move Up"
+                                className="p-1 rounded bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-[#012169] transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                              >
+                                <CaretUp weight="bold" className="h-3 w-3" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleReorderSections(index, index + 1)}
+                                disabled={index === sortedSections.length - 1 || isReordering}
+                                title="Move Down"
+                                className="p-1 rounded bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-[#012169] transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                              >
+                                <CaretDown weight="bold" className="h-3 w-3" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleReorderSections(index, sortedSections.length - 1)}
+                                disabled={index === sortedSections.length - 1 || isReordering}
+                                title="Move to Bottom"
+                                className="p-1 rounded bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-[#012169] transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                              >
+                                <CaretDoubleDown weight="bold" className="h-3 w-3" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </td>
 
                       {/* Section Title & Subtitle */}
@@ -451,23 +593,35 @@ export function SectionManager({
                             <span>Split Banner ({sec.layoutDirection === 'image_right' ? 'Right' : 'Left'})</span>
                           </div>
                         )}
+                        {sec.type === 'single_image' && (
+                          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold border border-amber-200 bg-amber-50 text-amber-800">
+                            <ImageSquare weight="bold" className="h-3.5 w-3.5 text-amber-700" />
+                            <span>Single Image ({sec.imageWidth === 'full_width' ? 'Full' : 'Framed'})</span>
+                          </div>
+                        )}
                       </td>
 
                       {/* Source Content / Details */}
                       <td className="py-3.5 px-4">
-                        {sec.type === 'split_banner' ? (
+                        {sec.type === 'split_banner' || sec.type === 'single_image' ? (
                           <div className="flex items-center gap-2">
                             {sec.imageUrl && (
-                              <div className="h-8 w-8 rounded-lg bg-slate-100 border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center p-0.5">
+                              <div className="h-8 w-12 rounded-lg bg-slate-100 border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center p-0.5">
                                 <img
                                   src={sec.imageUrl}
                                   alt={sec.title}
-                                  className="h-full w-full object-contain"
+                                  className="h-full w-full object-cover rounded-sm"
                                 />
                               </div>
                             )}
                             <span className="text-slate-600 font-medium truncate max-w-[200px]">
-                              {sec.buttonText ? `CTA: "${sec.buttonText}"` : 'Feature Banner'}
+                              {sec.type === 'single_image'
+                                ? sec.buttonUrl
+                                  ? `Link: ${sec.buttonUrl}`
+                                  : 'Standalone Image'
+                                : sec.buttonText
+                                ? `CTA: "${sec.buttonText}"`
+                                : 'Feature Banner'}
                             </span>
                           </div>
                         ) : sec.sourceType === 'category' ? (
@@ -548,11 +702,18 @@ export function SectionManager({
         )}
       </div>
 
-      {/* Hidden File Input for Image Upload with WebP conversion */}
+      {/* Hidden File Inputs for Desktop & Mobile Image Uploads with WebP conversion */}
       <input
         type="file"
         ref={fileInputRef}
-        onChange={handleImageUpload}
+        onChange={(e) => handleImageUpload(e, 'desktop')}
+        accept="image/*"
+        className="hidden"
+      />
+      <input
+        type="file"
+        ref={mobileFileInputRef}
+        onChange={(e) => handleImageUpload(e, 'mobile')}
         accept="image/*"
         className="hidden"
       />
@@ -610,12 +771,12 @@ export function SectionManager({
             </div>
           </div>
 
-          {/* 3 Layout Type Options */}
+          {/* 4 Layout Type Options */}
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-2">
               Section Layout Type <span className="text-rose-500">*</span>
             </label>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
               {/* Option 1: Auto Scroll Row */}
               <label
                 className={`flex flex-col p-3 rounded-xl border cursor-pointer transition-all ${
@@ -633,11 +794,11 @@ export function SectionManager({
                     onChange={() => setFormType('horizontal_scroll')}
                     className="text-blue-600"
                   />
-                  <ArrowsHorizontal className="h-4 w-4 text-blue-600" />
+                  <ArrowsHorizontal className="h-4 w-4 text-blue-600 shrink-0" />
                   <span className="text-xs font-bold text-slate-900">Auto-Scroll Row</span>
                 </div>
                 <p className="text-[11px] text-slate-500 leading-tight">
-                  Single row with smooth auto-scroll & pause-on-hover.
+                  Single row with smooth auto-scroll &amp; pause-on-hover.
                 </p>
               </label>
 
@@ -658,7 +819,7 @@ export function SectionManager({
                     onChange={() => setFormType('grid_8_tiles')}
                     className="text-blue-600"
                   />
-                  <SquaresFour className="h-4 w-4 text-purple-600" />
+                  <SquaresFour className="h-4 w-4 text-purple-600 shrink-0" />
                   <span className="text-xs font-bold text-slate-900">8-Tile Grid</span>
                 </div>
                 <p className="text-[11px] text-slate-500 leading-tight">
@@ -683,11 +844,36 @@ export function SectionManager({
                     onChange={() => setFormType('split_banner')}
                     className="text-emerald-600"
                   />
-                  <Palette className="h-4 w-4 text-emerald-600" />
+                  <Palette className="h-4 w-4 text-emerald-600 shrink-0" />
                   <span className="text-xs font-bold text-slate-900">Split Banner</span>
                 </div>
                 <p className="text-[11px] text-slate-500 leading-tight">
-                  Custom background color + transparent picture on left/right + text.
+                  Colored banner + cutout image on left/right + CTA.
+                </p>
+              </label>
+
+              {/* Option 4: Single Image Banner */}
+              <label
+                className={`flex flex-col p-3 rounded-xl border cursor-pointer transition-all ${
+                  formType === 'single_image'
+                    ? 'border-amber-600 bg-amber-50/50 ring-2 ring-amber-600/10'
+                    : 'border-slate-200 bg-white hover:bg-slate-50'
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <input
+                    type="radio"
+                    name="sectionType"
+                    value="single_image"
+                    checked={formType === 'single_image'}
+                    onChange={() => setFormType('single_image')}
+                    className="text-amber-600"
+                  />
+                  <ImageSquare className="h-4 w-4 text-amber-600 shrink-0" />
+                  <span className="text-xs font-bold text-slate-900">Single Image</span>
+                </div>
+                <p className="text-[11px] text-slate-500 leading-tight">
+                  Standalone clickable promo or feature image.
                 </p>
               </label>
             </div>
@@ -795,11 +981,11 @@ export function SectionManager({
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    disabled={isUploadingImage}
+                    disabled={uploadingTarget === 'desktop'}
                     className="h-10 px-3.5 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition-colors flex items-center gap-1.5 shrink-0 cursor-pointer disabled:opacity-50"
                   >
                     <UploadSimple weight="bold" className="h-4 w-4" />
-                    <span>{isUploadingImage ? 'Converting to WebP...' : 'Upload Picture'}</span>
+                    <span>{uploadingTarget === 'desktop' ? 'Converting to WebP...' : 'Upload Picture'}</span>
                   </button>
                 </div>
                 <span className="text-[10px] text-slate-500 mt-1 block">
@@ -869,9 +1055,155 @@ export function SectionManager({
           )}
 
           {/* ======================================================== */}
+          {/* CONDITIONAL: SINGLE IMAGE CONFIGURATION                  */}
+          {/* ======================================================== */}
+          {formType === 'single_image' && (
+            <div className="space-y-4 p-4 rounded-2xl bg-amber-50/40 border border-amber-200/80">
+              <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                <ImageSquare weight="bold" className="h-4 w-4 text-amber-700" />
+                <span>Single Image Settings</span>
+              </h4>
+
+              {/* Desktop / Primary Image Upload */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                  <Monitor weight="bold" className="h-3.5 w-3.5 text-[#012169]" />
+                  <span>Primary / Desktop Image <span className="text-rose-500">*</span></span>
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    value={formImageUrl}
+                    onChange={(e) => setFormImageUrl(e.target.value)}
+                    placeholder="https://... image URL or upload below"
+                    className="flex-1 h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs text-slate-900 focus:outline-hidden focus:border-[#012169]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploadingTarget === 'desktop'}
+                    className="h-10 px-3.5 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition-colors flex items-center gap-1.5 shrink-0 cursor-pointer disabled:opacity-50"
+                  >
+                    <UploadSimple weight="bold" className="h-4 w-4" />
+                    <span>{uploadingTarget === 'desktop' ? 'Uploading...' : 'Upload Image'}</span>
+                  </button>
+                </div>
+                {formImageUrl && (
+                  <div className="mt-2.5 p-2.5 rounded-xl bg-white border border-slate-200 flex items-center gap-3">
+                    <div className="h-14 w-24 rounded-lg bg-slate-100 border border-slate-200 overflow-hidden shrink-0">
+                      <img
+                        src={formImageUrl}
+                        alt="Single image preview"
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-xs font-bold text-slate-800 block">Primary image ready</span>
+                      <span className="text-[10px] text-slate-500 block truncate">{formImageUrl}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Optional Mobile Image Upload */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                  <DeviceMobile weight="bold" className="h-3.5 w-3.5 text-purple-600" />
+                  <span>Mobile Image (Optional — falls back to desktop image)</span>
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    value={formMobileImageUrl}
+                    onChange={(e) => setFormMobileImageUrl(e.target.value)}
+                    placeholder="Optional mobile version URL"
+                    className="flex-1 h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs text-slate-900 focus:outline-hidden focus:border-[#012169]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => mobileFileInputRef.current?.click()}
+                    disabled={uploadingTarget === 'mobile'}
+                    className="h-10 px-3.5 rounded-xl bg-purple-700 text-white text-xs font-bold hover:bg-purple-800 transition-colors flex items-center gap-1.5 shrink-0 cursor-pointer disabled:opacity-50"
+                  >
+                    <UploadSimple weight="bold" className="h-4 w-4" />
+                    <span>{uploadingTarget === 'mobile' ? 'Uploading...' : 'Upload Mobile'}</span>
+                  </button>
+                  {formMobileImageUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setFormMobileImageUrl('')}
+                      className="h-10 px-2.5 rounded-xl border border-slate-200 bg-white text-slate-400 hover:text-rose-600 text-xs font-bold cursor-pointer"
+                      title="Clear mobile image"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Display Width & Click Target Link */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Width Style
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setFormImageWidth('contained')}
+                      className={`h-10 px-2.5 rounded-xl border text-xs font-bold cursor-pointer transition-all ${
+                        formImageWidth === 'contained'
+                          ? 'border-[#012169] bg-white text-[#012169] ring-2 ring-[#012169]/10'
+                          : 'border-slate-200 bg-white/70 text-slate-600 hover:bg-white'
+                      }`}
+                    >
+                      Framed (Rounded)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFormImageWidth('full_width')}
+                      className={`h-10 px-2.5 rounded-xl border text-xs font-bold cursor-pointer transition-all ${
+                        formImageWidth === 'full_width'
+                          ? 'border-[#012169] bg-white text-[#012169] ring-2 ring-[#012169]/10'
+                          : 'border-slate-200 bg-white/70 text-slate-600 hover:bg-white'
+                      }`}
+                    >
+                      Full Width
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Click Link URL (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={formButtonUrl}
+                    onChange={(e) => setFormButtonUrl(e.target.value)}
+                    placeholder="e.g. /category/Flyers or https://..."
+                    className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs text-slate-900 focus:outline-hidden focus:border-[#012169]"
+                  />
+                </div>
+              </div>
+
+              {/* Optional Header Toggle */}
+              <label className="flex items-center gap-2 text-xs font-bold text-slate-800 cursor-pointer pt-1">
+                <input
+                  type="checkbox"
+                  checked={formShowSectionHeader}
+                  onChange={(e) => setFormShowSectionHeader(e.target.checked)}
+                  className="h-4 w-4 rounded-md border-slate-300 text-[#012169]"
+                />
+                <span>Display Section Title &amp; Subtitle Header above image</span>
+              </label>
+            </div>
+          )}
+
+          {/* ======================================================== */}
           {/* CONDITIONAL: PRODUCTS SOURCE (FOR AUTO-SCROLL & 8-TILES) */}
           {/* ======================================================== */}
-          {formType !== 'split_banner' && (
+          {formType !== 'split_banner' && formType !== 'single_image' && (
             <div className="space-y-3 pt-2 border-t border-slate-100">
               <label className="block text-xs font-bold text-slate-700">
                 Products Source <span className="text-rose-500">*</span>

@@ -33,7 +33,7 @@ import {
   BookOpen,
   Ruler,
 } from '@phosphor-icons/react';
-import { cn, formatCurrency } from '@/lib/utils';
+import { cn, formatCurrency, buildMoreProductsDirectory } from '@/lib/utils';
 import { useCallMe } from './CallMeContext';
 import { useSmoothScroll } from '@/components/providers/SmoothScrollProvider';
 import { CategoryConfig, Product } from '@/lib/types';
@@ -152,6 +152,13 @@ export function Navbar({ initialCategories = [], initialProducts = [] }: NavbarP
             setCategories(updated);
           }
         } catch {}
+      } else if (e.key === 'print_today_products') {
+        try {
+          const updatedProds = JSON.parse(e.newValue || '[]');
+          if (Array.isArray(updatedProds)) {
+            setProducts(updatedProds);
+          }
+        } catch {}
       }
     };
 
@@ -163,12 +170,21 @@ export function Navbar({ initialCategories = [], initialProducts = [] }: NavbarP
       }
     };
 
+    const handleProductsLocalUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent<Product[]>;
+      if (Array.isArray(customEvent.detail)) {
+        setProducts(customEvent.detail);
+      }
+    };
+
     window.addEventListener('storage', handleStorage);
     window.addEventListener('print_today_categories_updated', handleLocalUpdate);
+    window.addEventListener('print_today_products_updated', handleProductsLocalUpdate);
 
     return () => {
       window.removeEventListener('storage', handleStorage);
       window.removeEventListener('print_today_categories_updated', handleLocalUpdate);
+      window.removeEventListener('print_today_products_updated', handleProductsLocalUpdate);
     };
   }, []);
 
@@ -764,19 +780,19 @@ export function Navbar({ initialCategories = [], initialProducts = [] }: NavbarP
                         </Link>
                       </div>
                       <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                        {[...categories]
-                          .sort((a, b) => a.name.localeCompare(b.name))
-                          .map((cat) => (
+                        {buildMoreProductsDirectory(categories, products)
+                          .groups.flatMap((g) => g.items)
+                          .map((entry) => (
                             <Link
-                              key={cat.name}
-                              href={`/category/${encodeURIComponent(cat.name)}`}
+                              key={entry.key}
+                              href={entry.href}
                               onClick={() => {
                                 setMobileAtoZOpen(false);
                                 setMobileMenuOpen(false);
                               }}
                               className="text-xs font-bold text-[#012169] block py-1 border-b border-slate-200/80 hover:underline truncate"
                             >
-                              {cat.name}
+                              {entry.label}
                             </Link>
                           ))}
                       </div>

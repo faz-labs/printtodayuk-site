@@ -187,6 +187,16 @@ export function DynamicLandingSections({
   return (
     <div className="space-y-16 py-8 font-sans">
       {sections.map((section) => {
+        // TYPE 4: Single Image Section (Standalone clickable promotional/artwork banner)
+        if (section.type === 'single_image') {
+          return (
+            <SingleImageSection
+              key={section.id || section.title}
+              section={section}
+            />
+          );
+        }
+
         // TYPE 3: Split Feature Banner (End-to-end full display width, transparent picture, custom background)
         if (section.type === 'split_banner') {
           return (
@@ -319,6 +329,87 @@ export function DynamicLandingSections({
         );
       })}
     </div>
+  );
+}
+
+// ----------------- COMPONENT: SINGLE IMAGE SECTION -----------------
+function SingleImageSection({ section }: { section: DynamicSection }) {
+  if (!section.imageUrl) return null;
+
+  const isFullWidth = section.imageWidth === 'full_width';
+  const targetUrl = section.buttonUrl?.trim() || '';
+  const isExternal = /^https?:\/\//i.test(targetUrl);
+  const hasMobileImg = Boolean(section.mobileImageUrl && section.mobileImageUrl.trim().length > 0);
+
+  const imageMarkup = (
+    <picture className="w-full block">
+      {hasMobileImg && (
+        <source media="(max-width: 640px)" srcSet={section.mobileImageUrl} />
+      )}
+      <img
+        src={section.imageUrl}
+        alt={section.title || 'Promotional showcase'}
+        className={`w-full h-auto object-cover block ${
+          targetUrl ? 'transition-transform duration-500 group-hover:scale-[1.01]' : ''
+        }`}
+        loading="lazy"
+      />
+    </picture>
+  );
+
+  const wrappedMedia = targetUrl ? (
+    isExternal ? (
+      <a
+        href={targetUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="block group overflow-hidden"
+      >
+        {imageMarkup}
+      </a>
+    ) : (
+      <Link href={targetUrl} className="block group overflow-hidden">
+        {imageMarkup}
+      </Link>
+    )
+  ) : (
+    imageMarkup
+  );
+
+  if (isFullWidth) {
+    return (
+      <section className="w-full">
+        {section.showSectionHeader && (
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-6">
+            <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+              {section.title}
+            </h2>
+            {section.subtitle && (
+              <p className="text-sm text-slate-600 mt-1 font-medium">{section.subtitle}</p>
+            )}
+          </div>
+        )}
+        <div className="w-full overflow-hidden">{wrappedMedia}</div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      {section.showSectionHeader && (
+        <div className="mb-6 border-b border-slate-100 pb-4">
+          <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+            {section.title}
+          </h2>
+          {section.subtitle && (
+            <p className="text-sm text-slate-600 mt-1 font-medium">{section.subtitle}</p>
+          )}
+        </div>
+      )}
+      <div className="rounded-2xl overflow-hidden shadow-md border border-slate-200/70 bg-white">
+        {wrappedMedia}
+      </div>
+    </section>
   );
 }
 

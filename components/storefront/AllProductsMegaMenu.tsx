@@ -11,15 +11,8 @@ import {
   SquaresFour,
 } from '@phosphor-icons/react';
 import { CategoryConfig, Product } from '@/lib/types';
-import { getLocalCategories } from '@/lib/db';
-
-interface DynamicCategoryGroup {
-  letter: string;
-  categories: {
-    category: CategoryConfig;
-    productCount: number;
-  }[];
-}
+import { getLocalCategories, getLocalProducts } from '@/lib/db';
+import { buildMoreProductsDirectory, MoreProductsLetterGroup } from '@/lib/utils';
 
 interface AllProductsMegaMenuProps {
   categories?: CategoryConfig[];
@@ -39,15 +32,19 @@ export function AllProductsMegaMenu({
   const [filterQuery, setFilterQuery] = useState('');
 
   const [localCats, setLocalCats] = useState<CategoryConfig[]>([]);
+  const [localProducts, setLocalProducts] = useState<Product[]>([]);
 
   useEffect(() => {
     if (!categories || categories.length === 0) {
       setLocalCats(getLocalCategories());
     }
-  }, [categories]);
+    if (!products || products.length === 0) {
+      setLocalProducts(getLocalProducts());
+    }
+  }, [categories, products]);
 
-  // 1. Strictly CMS Categories (ignoring legacy container names)
-  const cleanCategories = useMemo(() => {
+  // 1. Active CMS Categories & Products
+  const activeCategories = useMemo(() => {
     const list = categories && categories.length > 0 ? categories : localCats;
     return list.filter(
       (c) =>
@@ -58,61 +55,29 @@ export function AllProductsMegaMenu({
     );
   }, [categories, localCats]);
 
-  // 2. Filter by search query if user searches
-  const filteredCategories = useMemo(() => {
-    if (!filterQuery.trim()) return cleanCategories;
-    const q = filterQuery.toLowerCase().trim();
-    return cleanCategories.filter((c) => c.name.toLowerCase().includes(q));
-  }, [cleanCategories, filterQuery]);
+  const activeProducts = useMemo(() => {
+    return products && products.length > 0 ? products : localProducts;
+  }, [products, localProducts]);
 
-  // 3. Build alphabetical letter groups from CMS Category names ONLY
-  const letterGroups = useMemo<DynamicCategoryGroup[]>(() => {
-    const map = new Map<string, DynamicCategoryGroup['categories']>();
+  // 2. Build alphabetical A–Z letter groups mixing Categories + opted-in Products (`showInMoreProducts`)
+  const { groups: letterGroups, categoryCount, productCount } = useMemo(() => {
+    return buildMoreProductsDirectory(activeCategories, activeProducts, filterQuery);
+  }, [activeCategories, activeProducts, filterQuery]);
 
-    // Sort categories alphabetically A to Z
-    const sorted = [...filteredCategories].sort((a, b) => a.name.localeCompare(b.name));
-
-    for (const cat of sorted) {
-      const letter = cat.name.trim().charAt(0).toUpperCase();
-      if (!letter) continue;
-
-      const count = products.filter(
-        (p) =>
-          p &&
-          p.category &&
-          p.category.toLowerCase().trim() === cat.name.toLowerCase().trim()
-      ).length;
-
-      if (!map.has(letter)) {
-        map.set(letter, []);
-      }
-      map.get(letter)!.push({
-        category: cat,
-        productCount: count,
-      });
-    }
-
-    const letters = Array.from(map.keys()).sort();
-    return letters.map((letter) => ({
-      letter,
-      categories: map.get(letter)!,
-    }));
-  }, [filteredCategories, products]);
-
-  // 4. Distribute letter groups into up to 4 columns
+  // 3. Distribute letter groups into up to 4 columns
   const columns = useMemo(() => {
     const numCols = Math.min(4, Math.max(1, letterGroups.length));
-    const cols: DynamicCategoryGroup[][] = Array.from({ length: numCols }, () => []);
+    const cols: MoreProductsLetterGroup[][] = Array.from({ length: numCols }, () => []);
     letterGroups.forEach((group, index) => {
       cols[index % numCols].push(group);
     });
     return cols;
   }, [letterGroups]);
 
-  // 5. Featured Best Sellers from CMS categories marked with isBestSeller
+  // 4. Featured Best Sellers from CMS categories marked with isBestSeller
   const enlistedBestSellers = useMemo(() => {
-    return cleanCategories.filter((c) => Boolean(c.isBestSeller));
-  }, [cleanCategories]);
+    return activeCategories.filter((c) => Boolean(c.isBestSeller));
+  }, [activeCategories]);
 
   return (
     <motion.div
@@ -143,26 +108,26 @@ export function AllProductsMegaMenu({
             <div className="flex items-center gap-2">
               <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
               <h3 className="text-base font-bold text-[#012169] font-sans tracking-tight">
-                A to Z Categories
+                A to Z Products &amp; Categories
               </h3>
               <span className="text-xs text-slate-400 font-medium font-sans">
-                ({cleanCategories.length} Categories)
+                ({categoryCount} Categories{productCount > 0 ? ` • ${productCount} Featured Products` : ''})
               </span>
             </div>
             <p className="text-[11px] text-slate-500 font-sans mt-0.5">
-              Live product categories managed via London Studio CMS
+              Live categories &amp; featured products managed via London Studio CMS
             </p>
           </div>
 
           <div className="flex items-center gap-3">
             {/* Quick Filter */}
-            {cleanCategories.length > 3 && (
+            {(categoryCount + productCount) > 3 && (
               <div className="relative">
                 <input
                   type="text"
                   value={filterQuery}
                   onChange={(e) => setFilterQuery(e.target.value)}
-                  placeholder="Filter categories..."
+                  placeholder="Filter A–Z list..."
                   className="w-44 sm:w-56 h-8.5 pl-8 pr-3 text-xs rounded-full bg-slate-50 border border-slate-200 focus:bg-white focus:border-[#012169] focus:outline-hidden font-sans text-slate-800 placeholder:text-slate-400"
                 />
                 <MagnifyingGlass
@@ -234,7 +199,7 @@ export function AllProductsMegaMenu({
             </div>
           </div>
 
-          {/* 2. Main Alphabetical A-Z Columns (Strictly CMS Categories) */}
+          {/* 2. Main Alphabetical A-Z Columns (CMS Categories + Opted-In Products) */}
           <div className="flex-1">
             {letterGroups.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -247,28 +212,32 @@ export function AllProductsMegaMenu({
                           <span className="font-mono">{group.letter}</span>
                           <div className="h-0.5 w-5 bg-[#012169]/30 rounded-full" />
                           <span className="text-[11px] font-medium text-slate-400 ml-auto font-sans">
-                            {group.categories.length}
+                            {group.items.length}
                           </span>
                         </div>
 
-                        {/* Category links under this letter */}
+                        {/* Category & Product links under this letter sorted alphabetically */}
                         <div className="space-y-1.5 pl-0.5">
-                          {group.categories.map(({ category, productCount }) => (
-                            <div key={category.name}>
+                          {group.items.map((entry) => (
+                            <div key={entry.key}>
                               <Link
-                                href={`/category/${encodeURIComponent(category.name)}`}
+                                href={entry.href}
                                 onClick={onClose}
                                 className="flex items-center justify-between font-sans text-[14px] font-medium text-slate-800 hover:text-[#012169] group transition-colors py-1 hover:translate-x-0.5"
                               >
                                 <span className="group-hover:underline truncate font-semibold">
-                                  {category.name}
+                                  {entry.label}
                                 </span>
                                 <div className="flex items-center gap-1.5 shrink-0 ml-1.5">
-                                  {productCount > 0 && (
+                                  {entry.kind === 'category' && entry.productCount && entry.productCount > 0 ? (
                                     <span className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.2 rounded-full">
-                                      {productCount}
+                                      {entry.productCount}
                                     </span>
-                                  )}
+                                  ) : entry.kind === 'product' ? (
+                                    <span className="text-[9px] font-bold uppercase tracking-wide text-[#012169] bg-blue-50 border border-blue-200/70 px-1.5 py-0.2 rounded-full">
+                                      Item
+                                    </span>
+                                  ) : null}
                                   <span className="text-[11px] text-slate-300 group-hover:text-[#012169] transition-transform group-hover:translate-x-0.5">
                                     →
                                   </span>
@@ -285,9 +254,9 @@ export function AllProductsMegaMenu({
             ) : (
               <div className="py-12 text-center text-slate-400">
                 <SquaresFour className="h-8 w-8 mx-auto text-slate-300 mb-2" />
-                <p className="text-sm font-sans font-medium text-slate-600">No categories found in CMS</p>
+                <p className="text-sm font-sans font-medium text-slate-600">No categories or products match your search</p>
                 <p className="text-xs text-slate-400 font-sans mt-1">
-                  Add categories in CMS to display them alphabetically here.
+                  Add categories or toggle products in CMS to display them alphabetically here.
                 </p>
               </div>
             )}

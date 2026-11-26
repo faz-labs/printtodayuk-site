@@ -52,6 +52,7 @@ export interface Product {
   customFields?: CustomField[];
   isActive?: boolean; // Controls whether product is published / visible on storefront
   hidePriceTable?: boolean; // When true, hides price table on storefront and displays 'Get Instant Quote via WhatsApp'
+  showInMoreProducts?: boolean; // When true, lists this product alphabetically in the More Products mega menu
   createdAt: number;
   updatedAt: number;
 }
@@ -112,20 +113,23 @@ export interface HeroSlide {
   order?: number;
 }
 
-export type DynamicSectionType = 'horizontal_scroll' | 'grid_8_tiles' | 'split_banner';
+export type DynamicSectionType = 'horizontal_scroll' | 'grid_8_tiles' | 'split_banner' | 'single_image';
 
 export interface DynamicSection {
   id?: string;
   title: string;
   subtitle?: string;
-  type: DynamicSectionType; // 'horizontal_scroll' | 'grid_8_tiles' | 'split_banner'
+  type: DynamicSectionType; // 'horizontal_scroll' | 'grid_8_tiles' | 'split_banner' | 'single_image'
   sourceType?: 'category' | 'products';
   categoryName?: string;
   categoryNames?: string[];
   productIds?: string[];
-  // Split Banner properties
+  // Split Banner & Single Image properties
   backgroundColor?: string;
-  imageUrl?: string; // Transparent picture URL
+  imageUrl?: string; // Transparent picture URL or Single Image URL
+  mobileImageUrl?: string; // Optional mobile image for Single Image section
+  imageWidth?: 'contained' | 'full_width'; // Layout width for Single Image section
+  showSectionHeader?: boolean; // Whether to show section title/subtitle above Single Image
   layoutDirection?: 'image_left' | 'image_right'; // Left picture or right picture
   buttonText?: string;
   buttonUrl?: string;
